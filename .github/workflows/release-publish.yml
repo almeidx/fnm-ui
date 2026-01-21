@@ -78,26 +78,26 @@ jobs:
           mkdir -p "dist/arm64/Versi.app/Contents/Resources"
           cp target/aarch64-apple-darwin/release/versi "dist/arm64/Versi.app/Contents/MacOS/"
           sed "s/VERSION_PLACEHOLDER/$VERSION/g" assets/Info.plist > "dist/arm64/Versi.app/Contents/Info.plist"
-          cd dist/arm64 && zip -r ../versi-macos-arm64.zip "Versi.app" && cd -
+          cd dist/arm64 && zip -r "../versi-${VERSION}-macos-arm64.zip" "Versi.app" && cd -
 
           # Create x64 .app bundle
           mkdir -p "dist/x64/Versi.app/Contents/MacOS"
           mkdir -p "dist/x64/Versi.app/Contents/Resources"
           cp target/x86_64-apple-darwin/release/versi "dist/x64/Versi.app/Contents/MacOS/"
           sed "s/VERSION_PLACEHOLDER/$VERSION/g" assets/Info.plist > "dist/x64/Versi.app/Contents/Info.plist"
-          cd dist/x64 && zip -r ../versi-macos-x64.zip "Versi.app" && cd -
+          cd dist/x64 && zip -r "../versi-${VERSION}-macos-x64.zip" "Versi.app" && cd -
 
       - name: Upload ARM64 artifact
         uses: actions/upload-artifact@v6
         with:
           name: versi-macos-arm64
-          path: dist/versi-macos-arm64.zip
+          path: dist/versi-${{ needs.tag.outputs.version }}-macos-arm64.zip
 
       - name: Upload x64 artifact
         uses: actions/upload-artifact@v6
         with:
           name: versi-macos-x64
-          path: dist/versi-macos-x64.zip
+          path: dist/versi-${{ needs.tag.outputs.version }}-macos-x64.zip
 
   build-linux-x64:
     name: Build Linux (x64)
@@ -126,16 +126,17 @@ jobs:
 
       - name: Prepare artifact
         run: |
+          VERSION="${{ needs.tag.outputs.version }}"
           mkdir -p dist/pkg
           cp target/x86_64-unknown-linux-gnu/release/versi dist/pkg/
           cp assets/versi.desktop dist/pkg/
-          cd dist/pkg && zip ../versi-linux-x64.zip versi versi.desktop && cd -
+          cd dist/pkg && zip "../versi-${VERSION}-linux-x64.zip" versi versi.desktop && cd -
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: versi-linux-x64
-          path: dist/versi-linux-x64.zip
+          path: dist/versi-${{ needs.tag.outputs.version }}-linux-x64.zip
 
   build-linux-arm64:
     name: Build Linux (ARM64)
@@ -164,16 +165,17 @@ jobs:
 
       - name: Prepare artifact
         run: |
+          VERSION="${{ needs.tag.outputs.version }}"
           mkdir -p dist/pkg
           cp target/aarch64-unknown-linux-gnu/release/versi dist/pkg/
           cp assets/versi.desktop dist/pkg/
-          cd dist/pkg && zip ../versi-linux-arm64.zip versi versi.desktop && cd -
+          cd dist/pkg && zip "../versi-${VERSION}-linux-arm64.zip" versi versi.desktop && cd -
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: versi-linux-arm64
-          path: dist/versi-linux-arm64.zip
+          path: dist/versi-${{ needs.tag.outputs.version }}-linux-arm64.zip
 
   build-windows:
     name: Build Windows (x64)
@@ -199,16 +201,17 @@ jobs:
 
       - name: Create MSI installer
         run: |
+          $VERSION = "${{ needs.tag.outputs.version }}"
           dotnet tool install --global wix --version 4.0.5
           wix extension add WixToolset.UI.wixext/4.0.5
           mkdir dist
-          wix build wix/main.wxs -ext WixToolset.UI.wixext -o dist/versi-windows-x64.msi
+          wix build wix/main.wxs -ext WixToolset.UI.wixext -o "dist/versi-${VERSION}-windows-x64.msi"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: versi-windows-x64
-          path: dist/versi-windows-x64.msi
+          path: dist/versi-${{ needs.tag.outputs.version }}-windows-x64.msi
 
   release:
     name: Create Release
