@@ -149,35 +149,33 @@ jobs:
           sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
           echo "Updated Cargo.toml to version $NEW_VERSION"
 
-      - name: Create release branch and PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create release branch and push
         run: |
-          VERSION="${{ steps.bump.outputs.version }}"
           TAG="${{ steps.bump.outputs.tag }}"
           BRANCH="${{ steps.bump.outputs.branch }}"
 
-          # Create and push branch
           git checkout -b "$BRANCH"
           git add Cargo.toml CHANGELOG.md
           git commit -m "chore: prepare release $TAG"
           git push origin "$BRANCH"
 
-          # Create PR
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.bump.outputs.version }}
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: |
           gh pr create \
             --title "Release $TAG" \
             --body "## Release $TAG
 
-This PR prepares the release of version $VERSION.
+          This PR prepares the release of version $VERSION.
 
-### Changes
-- Updated version in Cargo.toml to $VERSION
-- Updated CHANGELOG.md with changes since last release
+          ### Changes
+          - Updated version in Cargo.toml to $VERSION
+          - Updated CHANGELOG.md with changes since last release
 
-### After Merge
-When this PR is merged, the release workflow will automatically:
-1. Create git tag \`$TAG\`
-2. Build release artifacts for all platforms
-3. Create GitHub Release with artifacts attached" \
+          ### After Merge
+          When this PR is merged, the release workflow will automatically create the git tag, build release artifacts, and create the GitHub Release." \
             --label "release" \
             --base main
