@@ -417,4 +417,48 @@ pub mod styles {
             a: color.a,
         }
     }
+
+    pub fn app_update_button(theme: &Theme, status: button::Status) -> button::Style {
+        let palette = theme.palette();
+        let update_color = palette.success;
+
+        let base = button::Style {
+            background: Some(Background::Color(Color {
+                a: 0.15,
+                ..update_color
+            })),
+            text_color: update_color,
+            border: Border {
+                radius: 6.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            shadow: Shadow::default(),
+        };
+
+        match status {
+            button::Status::Active => base,
+            button::Status::Hovered => button::Style {
+                background: Some(Background::Color(Color {
+                    a: 0.25,
+                    ..update_color
+                })),
+                ..base
+            },
+            button::Status::Pressed => button::Style {
+                background: Some(Background::Color(Color {
+                    a: 0.35,
+                    ..update_color
+                })),
+                ..base
+            },
+            button::Status::Disabled => button::Style {
+                text_color: Color {
+                    a: 0.4,
+                    ..update_color
+                },
+                ..base
+            },
+        }
+    }
 }

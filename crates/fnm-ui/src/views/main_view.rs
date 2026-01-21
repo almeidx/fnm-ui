@@ -45,7 +45,7 @@ fn header_view(state: &MainState) -> Element<'_, Message> {
     ]
     .spacing(2);
 
-    let button_row = row![
+    let mut button_row = row![
         button(text("Install").size(13))
             .on_press(Message::OpenInstallModal)
             .style(styles::primary_button)
@@ -61,6 +61,18 @@ fn header_view(state: &MainState) -> Element<'_, Message> {
     ]
     .spacing(8)
     .align_y(Alignment::Center);
+
+    if let Some(update) = &state.app_update {
+        button_row = button_row.push(
+            button(
+                container(text(format!("v{} available", update.latest_version)).size(11))
+                    .padding([2, 8]),
+            )
+            .on_press(Message::OpenAppUpdate)
+            .style(styles::app_update_button)
+            .padding(0),
+        );
+    }
 
     row![title_section, horizontal_space(), button_row,]
         .align_y(Alignment::Center)

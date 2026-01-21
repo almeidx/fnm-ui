@@ -1,4 +1,6 @@
-use fnm_core::{InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion};
+use fnm_core::{
+    AppUpdate, InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion,
+};
 use fnm_platform::EnvironmentId;
 use fnm_shell::{ShellType, VerificationResult};
 
@@ -84,6 +86,11 @@ pub enum Message {
 
     Tick,
     WindowEvent(iced::window::Event),
+
+    CheckForAppUpdate,
+    AppUpdateChecked(Option<AppUpdate>),
+    OpenAppUpdate,
+    DismissAppUpdate,
 }
 
 #[derive(Debug, Clone)]

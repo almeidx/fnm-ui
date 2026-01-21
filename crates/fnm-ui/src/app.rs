@@ -4,7 +4,9 @@ use std::time::Instant;
 use iced::widget::{column, container, text};
 use iced::{Element, Subscription, Task, Theme};
 
-use fnm_core::{detect_fnm, fetch_release_schedule, FnmClient, InstallPhase, VersionGroup};
+use fnm_core::{
+    check_for_update, detect_fnm, fetch_release_schedule, FnmClient, InstallPhase, VersionGroup,
+};
 use fnm_platform::EnvironmentId;
 use fnm_shell::detect_shells;
 
@@ -191,6 +193,31 @@ impl FnmUi {
                 }
                 Task::none()
             }
+            Message::CheckForAppUpdate => self.handle_check_for_app_update(),
+            Message::AppUpdateChecked(update) => {
+                self.handle_app_update_checked(update);
+                Task::none()
+            }
+            Message::OpenAppUpdate => {
+                if let AppState::Main(state) = &self.state {
+                    if let Some(update) = &state.app_update {
+                        let url = update.release_url.clone();
+                        return Task::perform(
+                            async move {
+                                let _ = open::that(&url);
+                            },
+                            |_| Message::NoOp,
+                        );
+                    }
+                }
+                Task::none()
+            }
+            Message::DismissAppUpdate => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.app_update = None;
+                }
+                Task::none()
+            }
             _ => Task::none(),
         }
     }
@@ -256,8 +283,9 @@ impl FnmUi {
         );
 
         let fetch_remote = self.handle_fetch_remote_versions();
+        let check_update = self.handle_check_for_app_update();
 
-        Task::batch([load_installed, fetch_remote])
+        Task::batch([load_installed, fetch_remote, check_update])
     }
 
     fn handle_environment_loaded(
@@ -954,6 +982,20 @@ impl FnmUi {
                     }
                 }
             }
+        }
+    }
+
+    fn handle_check_for_app_update(&mut self) -> Task<Message> {
+        let current_version = env!("CARGO_PKG_VERSION").to_string();
+        Task::perform(
+            async move { check_for_update(&current_version).await },
+            Message::AppUpdateChecked,
+        )
+    }
+
+    fn handle_app_update_checked(&mut self, update: Option<fnm_core::AppUpdate>) {
+        if let AppState::Main(state) = &mut self.state {
+            state.app_update = update;
         }
     }
 }

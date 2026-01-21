@@ -1,6 +1,6 @@
 use fnm_core::{
-    FnmClient, InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion,
-    VersionGroup,
+    AppUpdate, FnmClient, InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule,
+    RemoteVersion, VersionGroup,
 };
 use fnm_platform::EnvironmentId;
 use fnm_shell::{ShellInfo, ShellType};
@@ -66,6 +66,7 @@ pub struct MainState {
     pub modal: Option<Modal>,
     pub search_query: String,
     pub fnm_path: PathBuf,
+    pub app_update: Option<AppUpdate>,
 }
 
 impl MainState {
@@ -79,6 +80,7 @@ impl MainState {
             modal: None,
             search_query: String::new(),
             fnm_path,
+            app_update: None,
         }
     }
 
