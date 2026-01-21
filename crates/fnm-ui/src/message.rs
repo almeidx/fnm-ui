@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use fnm_core::{
     AppUpdate, InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion,
 };
@@ -98,6 +100,8 @@ pub enum Message {
 #[allow(dead_code)]
 pub struct InitResult {
     pub fnm_found: bool,
+    pub fnm_path: Option<PathBuf>,
+    pub fnm_dir: Option<PathBuf>,
     pub fnm_version: Option<String>,
     pub environments: Vec<EnvironmentId>,
 }

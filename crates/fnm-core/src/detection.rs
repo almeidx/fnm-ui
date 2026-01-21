@@ -8,9 +8,12 @@ pub struct FnmDetection {
     pub path: Option<PathBuf>,
     pub version: Option<String>,
     pub in_path: bool,
+    pub fnm_dir: Option<PathBuf>,
 }
 
 pub async fn detect_fnm() -> FnmDetection {
+    let fnm_dir = detect_fnm_dir();
+
     if let Ok(path) = which("fnm") {
         let version = get_fnm_version(&path).await;
         return FnmDetection {
@@ -18,6 +21,7 @@ pub async fn detect_fnm() -> FnmDetection {
             path: Some(path),
             version,
             in_path: true,
+            fnm_dir,
         };
     }
 
@@ -31,6 +35,7 @@ pub async fn detect_fnm() -> FnmDetection {
                 path: Some(path),
                 version,
                 in_path: false,
+                fnm_dir,
             };
         }
     }
@@ -40,7 +45,51 @@ pub async fn detect_fnm() -> FnmDetection {
         path: None,
         version: None,
         in_path: false,
+        fnm_dir,
     }
+}
+
+pub fn detect_fnm_dir() -> Option<PathBuf> {
+    if let Ok(dir) = std::env::var("FNM_DIR") {
+        let path = PathBuf::from(dir);
+        if path.exists() {
+            return Some(path);
+        }
+    }
+
+    let candidates = get_fnm_dir_candidates();
+    for candidate in candidates {
+        if candidate.exists() && candidate.join("node-versions").exists() {
+            return Some(candidate);
+        }
+    }
+
+    for candidate in get_fnm_dir_candidates() {
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    None
+}
+
+fn get_fnm_dir_candidates() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
+        paths.push(PathBuf::from(xdg_data).join("fnm"));
+    }
+
+    if let Some(home) = dirs::home_dir() {
+        paths.push(home.join(".local").join("share").join("fnm"));
+        paths.push(home.join(".fnm"));
+    }
+
+    if let Some(data_dir) = dirs::data_local_dir() {
+        paths.push(data_dir.join("fnm"));
+    }
+
+    paths
 }
 
 fn get_common_fnm_paths() -> Vec<PathBuf> {

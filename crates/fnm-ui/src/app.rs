@@ -260,10 +260,16 @@ impl FnmUi {
             return Task::none();
         }
 
-        let fnm_path = PathBuf::from("fnm");
-        self.state = AppState::Main(MainState::new(fnm_path.clone()));
+        let fnm_path = result.fnm_path.unwrap_or_else(|| PathBuf::from("fnm"));
+        let fnm_dir = result.fnm_dir;
+        self.state = AppState::Main(MainState::new(fnm_path.clone(), fnm_dir.clone()));
 
         let client = FnmClient::new(fnm_path.clone());
+        let client = if let Some(dir) = fnm_dir {
+            client.with_fnm_dir(dir)
+        } else {
+            client
+        };
         let load_installed = Task::perform(
             async move {
                 let versions = client.list_installed().await.unwrap_or_default();
@@ -314,8 +320,7 @@ impl FnmUi {
             env.error = None;
 
             let env_id = env.id.clone();
-            let fnm_path = state.fnm_path.clone();
-            let client = FnmClient::new(fnm_path);
+            let client = state.create_client();
 
             return Task::perform(
                 async move {
@@ -355,8 +360,7 @@ impl FnmUi {
             }
             state.available_versions.loading = true;
 
-            let fnm_path = state.fnm_path.clone();
-            let client = FnmClient::new(fnm_path);
+            let client = state.create_client();
 
             return Task::perform(
                 async move { client.list_remote().await.map_err(|e| e.to_string()) },
@@ -488,8 +492,7 @@ impl FnmUi {
                 progress: Default::default(),
             });
 
-            let fnm_path = state.fnm_path.clone();
-            let client = FnmClient::new(fnm_path);
+            let client = state.create_client();
             let version_clone = version.clone();
 
             return Task::run(
@@ -593,8 +596,7 @@ impl FnmUi {
                 version: version.clone(),
             });
 
-            let fnm_path = state.fnm_path.clone();
-            let client = FnmClient::new(fnm_path);
+            let client = state.create_client();
             let version_clone = version.clone();
 
             return Task::perform(
@@ -661,8 +663,7 @@ impl FnmUi {
                 previous: previous.clone(),
             });
 
-            let fnm_path = state.fnm_path.clone();
-            let client = FnmClient::new(fnm_path);
+            let client = state.create_client();
             let version_clone = version.clone();
 
             return Task::perform(
@@ -848,9 +849,15 @@ impl FnmUi {
 
     fn handle_onboarding_complete(&mut self) -> Task<Message> {
         let fnm_path = PathBuf::from("fnm");
-        self.state = AppState::Main(MainState::new(fnm_path.clone()));
+        let fnm_dir = fnm_core::detect_fnm_dir();
+        self.state = AppState::Main(MainState::new(fnm_path.clone(), fnm_dir.clone()));
 
         let client = FnmClient::new(fnm_path);
+        let client = if let Some(dir) = fnm_dir {
+            client.with_fnm_dir(dir)
+        } else {
+            client
+        };
         Task::perform(
             async move {
                 let versions = client.list_installed().await.unwrap_or_default();
@@ -1000,6 +1007,8 @@ async fn initialize() -> InitResult {
 
     InitResult {
         fnm_found: detection.found,
+        fnm_path: detection.path,
+        fnm_dir: detection.fnm_dir,
         fnm_version: detection.version,
         environments: vec![EnvironmentId::Native],
     }

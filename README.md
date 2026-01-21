@@ -20,16 +20,48 @@ A native GUI application for [fnm](https://github.com/Schniz/fnm) (Fast Node Man
 
 ### Download Pre-built Binaries
 
-Download the latest release for your platform from the [Releases](https://github.com/user/fnm-ui/releases) page.
+Download the latest release for your platform from the [Releases](https://github.com/almeidx/fnm-ui/releases) page.
 
 | Platform | Download |
 |----------|----------|
-| macOS (Apple Silicon) | `fnm-ui-macos-arm64.dmg` |
-| macOS (Intel) | `fnm-ui-macos-x64.dmg` |
+| macOS (Apple Silicon) | `fnm-ui-macos-arm64.zip` |
+| macOS (Intel) | `fnm-ui-macos-x64.zip` |
 | Windows (x64) | `fnm-ui-windows-x64.msi` |
-| Windows (ARM64) | `fnm-ui-windows-arm64.msi` |
-| Linux (x64) | `fnm-ui-linux-x64.tar.gz` |
-| Linux (ARM64) | `fnm-ui-linux-arm64.tar.gz` |
+| Linux (x64) | `fnm-ui-linux-x64.zip` |
+| Linux (ARM64) | `fnm-ui-linux-arm64.zip` |
+
+### macOS Installation
+
+1. Download the appropriate `.zip` file for your Mac
+2. Extract the zip file
+3. Drag `FNM UI.app` to your Applications folder
+4. **Important**: On first launch, macOS may block the app because it's not signed. To fix this:
+   ```bash
+   xattr -cr "/Applications/FNM UI.app"
+   ```
+   Or right-click the app and select "Open" to bypass Gatekeeper.
+
+### Windows Installation
+
+1. Download `fnm-ui-windows-x64.msi`
+2. Double-click to run the installer
+3. The app will be available in your Start Menu
+
+### Linux Installation
+
+1. Download the appropriate `.zip` file
+2. Extract the archive:
+   ```bash
+   unzip fnm-ui-linux-x64.zip
+   ```
+3. Move the binary to a location in your PATH:
+   ```bash
+   sudo mv fnm-ui /usr/local/bin/
+   ```
+4. (Optional) Install the desktop entry for application launchers:
+   ```bash
+   mv fnm-ui.desktop ~/.local/share/applications/
+   ```
 
 ### Build from Source
 

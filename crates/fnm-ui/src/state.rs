@@ -69,11 +69,12 @@ pub struct MainState {
     pub modal: Option<Modal>,
     pub search_query: String,
     pub fnm_path: PathBuf,
+    pub fnm_dir: Option<PathBuf>,
     pub app_update: Option<AppUpdate>,
 }
 
 impl MainState {
-    pub fn new(fnm_path: PathBuf) -> Self {
+    pub fn new(fnm_path: PathBuf, fnm_dir: Option<PathBuf>) -> Self {
         Self {
             environments: vec![EnvironmentState::new(EnvironmentId::Native)],
             active_environment_idx: 0,
@@ -83,7 +84,17 @@ impl MainState {
             modal: None,
             search_query: String::new(),
             fnm_path,
+            fnm_dir,
             app_update: None,
+        }
+    }
+
+    pub fn create_client(&self) -> fnm_core::FnmClient {
+        let client = fnm_core::FnmClient::new(self.fnm_path.clone());
+        if let Some(dir) = &self.fnm_dir {
+            client.with_fnm_dir(dir.clone())
+        } else {
+            client
         }
     }
 

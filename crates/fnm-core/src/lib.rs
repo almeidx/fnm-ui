@@ -9,7 +9,7 @@ mod version;
 pub mod commands;
 
 pub use client::{Environment, FnmClient};
-pub use detection::{detect_fnm, install_fnm, FnmDetection};
+pub use detection::{detect_fnm, detect_fnm_dir, install_fnm, FnmDetection};
 pub use error::FnmError;
 pub use progress::{InstallPhase, InstallProgress};
 pub use schedule::{fetch_release_schedule, ReleaseSchedule};
