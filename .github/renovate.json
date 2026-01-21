@@ -1,0 +1,22 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"assignees": ["almeidx"],
+	"commitMessagePrefix": "deps:",
+	"extends": ["config:recommended"],
+	"lockFileMaintenance": {
+		"enabled": true,
+		"schedule": ["* 5-9 * * SUN"]
+	},
+	"minimumReleaseAge": "1 day",
+	"packageRules": [
+		{
+			"groupName": "patch/minor dependencies",
+			"groupSlug": "all-non-major",
+			"matchUpdateTypes": ["patch", "minor"],
+			"schedule": ["* 5-9 * * *", "* * * * SAT,SUN"]
+		}
+	],
+	"prHourlyLimit": 0,
+	"rangeStrategy": "bump",
+	"timezone": "Europe/Lisbon"
+}
