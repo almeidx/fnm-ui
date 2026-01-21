@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.2] - 2026-01-21
+
+- feat: add Windows MSI installer
+- feat: create proper app bundles for all platforms
+- fix: Don't bump version when updating prerelease identifier
+
+
 ## [0.1.2-alpha.1] - 2026-01-21
 
 - ci: Use ARM runner for Linux ARM64 builds
