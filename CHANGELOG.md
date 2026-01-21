@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.3] - 2026-01-21
+
+- fix: auto-detect FNM_DIR for GUI app bundles
+
+
 ## [0.1.2-alpha.2] - 2026-01-21
 
 - feat: add Windows MSI installer
