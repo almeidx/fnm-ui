@@ -1,12 +1,9 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use iced::widget::{column, container, text};
 use iced::{Element, Subscription, Task, Theme};
 
-use fnm_core::{
-    check_for_update, detect_fnm, fetch_release_schedule, FnmClient, InstallPhase, VersionGroup,
-};
+use fnm_core::{check_for_update, detect_fnm, fetch_release_schedule, FnmClient};
 use fnm_platform::EnvironmentId;
 use fnm_shell::detect_shells;
 
@@ -15,7 +12,7 @@ use crate::settings::{AppSettings, ThemeSetting};
 use crate::state::{
     AppState, InstallModalState, MainState, Modal, OnboardingState, OnboardingStep, Operation,
     SettingsModalState, ShellConfigStatus, ShellSetupStatus, ShellVerificationStatus, Toast,
-    ToastStatus, UndoAction,
+    UndoAction,
 };
 use crate::theme::{dark_theme, get_system_theme, light_theme};
 use crate::views;
@@ -222,7 +219,7 @@ impl FnmUi {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self) -> Element<'_, Message> {
         match &self.state {
             AppState::Loading => views::loading::view(),
             AppState::Onboarding(state) => views::onboarding::view(state),
@@ -239,9 +236,7 @@ impl FnmUi {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let tick = iced::time::every(std::time::Duration::from_secs(1)).map(|_| Message::Tick);
-
-        tick
+        iced::time::every(std::time::Duration::from_secs(1)).map(|_| Message::Tick)
     }
 
     fn handle_initialized(&mut self, result: InitResult) -> Task<Message> {

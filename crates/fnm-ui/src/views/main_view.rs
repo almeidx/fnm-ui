@@ -1,5 +1,5 @@
 use iced::widget::{
-    button, column, container, horizontal_space, mouse_area, row, scrollable, text, text_input,
+    button, column, container, horizontal_space, mouse_area, row, text, text_input,
     Space,
 };
 use iced::{Alignment, Element, Length};
@@ -33,7 +33,7 @@ pub fn view<'a>(state: &'a MainState, _settings: &'a AppSettings) -> Element<'a,
     toast_container::view(with_modal, &state.toasts)
 }
 
-fn header_view(state: &MainState) -> Element<'_, Message> {
+fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     let env = state.active_environment();
 
     let title_section = column![
@@ -79,7 +79,7 @@ fn header_view(state: &MainState) -> Element<'_, Message> {
         .into()
 }
 
-fn search_bar_view(state: &MainState) -> Element<'_, Message> {
+fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     text_input("Search versions...", &state.search_query)
         .on_input(Message::SearchChanged)
         .padding(14)
@@ -88,7 +88,7 @@ fn search_bar_view(state: &MainState) -> Element<'_, Message> {
         .into()
 }
 
-fn operation_status_view(state: &MainState) -> Element<'_, Message> {
+fn operation_status_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     if let Some(op) = &state.current_operation {
         match op {
             Operation::Install { version, progress } => {
@@ -176,7 +176,7 @@ fn modal_overlay<'a>(
     iced::widget::stack![content, backdrop, modal_layer].into()
 }
 
-fn settings_modal_view(settings: &SettingsModalState) -> Element<'_, Message> {
+fn settings_modal_view<'a>(settings: &'a SettingsModalState) -> Element<'a, Message> {
     let mut content = column![
         row![
             text("Settings").size(20),
@@ -266,7 +266,7 @@ fn settings_modal_view(settings: &SettingsModalState) -> Element<'_, Message> {
     content.into()
 }
 
-fn confirm_uninstall_view(version: &str) -> Element<'_, Message> {
+fn confirm_uninstall_view<'a>(version: &'a str) -> Element<'a, Message> {
     column![
         text(format!("Remove Node {}?", version)).size(20),
         Space::with_height(12),

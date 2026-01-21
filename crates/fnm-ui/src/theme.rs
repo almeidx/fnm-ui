@@ -101,8 +101,7 @@ pub mod styles {
         }
     }
 
-    pub fn danger_button(theme: &Theme, status: button::Status) -> button::Style {
-        let palette = theme.palette();
+    pub fn danger_button(_theme: &Theme, status: button::Status) -> button::Style {
         let danger_muted = Color::from_rgb8(255, 69, 58);
 
         let base = button::Style {
@@ -271,7 +270,7 @@ pub mod styles {
         }
     }
 
-    pub fn search_input(theme: &Theme, status: text_input::Status) -> text_input::Style {
+    pub fn search_input(theme: &Theme, _status: text_input::Status) -> text_input::Style {
         let palette = theme.palette();
         let is_dark = palette.background.r < 0.5;
 
@@ -294,7 +293,7 @@ pub mod styles {
                 color: Color::TRANSPARENT,
             },
             icon: palette.text,
-            placeholder: placeholder,
+            placeholder,
             value: palette.text,
             selection: Color {
                 a: 0.3,
@@ -339,6 +338,7 @@ pub mod styles {
         }
     }
 
+    #[allow(dead_code)]
     pub fn badge_update(_theme: &Theme) -> container::Style {
         let update_color = Color::from_rgb8(0, 122, 255);
 

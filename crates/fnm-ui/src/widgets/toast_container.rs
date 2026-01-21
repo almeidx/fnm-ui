@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, horizontal_space, row, text, Space};
+use iced::widget::{button, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
@@ -25,7 +25,7 @@ pub fn view<'a>(content: Element<'a, Message>, toasts: &'a [Toast]) -> Element<'
     iced::widget::stack![content, toast_layer].into()
 }
 
-fn toast_view(toast: &Toast) -> Element<Message> {
+fn toast_view<'a>(toast: &'a Toast) -> Element<'a, Message> {
     let (bg_color, text_color) = match toast.status {
         ToastStatus::Success => (iced::Color::from_rgb8(52, 199, 89), iced::Color::WHITE),
         ToastStatus::Error => (iced::Color::from_rgb8(255, 59, 48), iced::Color::WHITE),

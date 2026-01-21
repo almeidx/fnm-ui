@@ -259,7 +259,7 @@ pub fn view<'a>(
     .into()
 }
 
-fn version_row(version: &RemoteVersion) -> Element<Message> {
+fn version_row<'a>(version: &'a RemoteVersion) -> Element<'a, Message> {
     let version_str = version.version.to_string();
     let version_display = version_str.clone();
     let version_for_changelog = version_str.clone();

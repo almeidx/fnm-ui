@@ -5,7 +5,7 @@ use crate::message::Message;
 use crate::state::{OnboardingState, OnboardingStep};
 use crate::theme::styles;
 
-pub fn view(state: &OnboardingState) -> Element<Message> {
+pub fn view<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     let content = match state.step {
         OnboardingStep::Welcome => welcome_step(),
         OnboardingStep::InstallFnm => install_fnm_step(state),
@@ -34,7 +34,7 @@ pub fn view(state: &OnboardingState) -> Element<Message> {
     .into()
 }
 
-fn step_indicator(state: &OnboardingState) -> Element<Message> {
+fn step_indicator<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     let steps = [
         ("Welcome", OnboardingStep::Welcome),
         ("Install fnm", OnboardingStep::InstallFnm),
@@ -103,7 +103,7 @@ fn welcome_step() -> Element<'static, Message> {
     .into()
 }
 
-fn install_fnm_step(state: &OnboardingState) -> Element<Message> {
+fn install_fnm_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     let mut content = column![
         text("Install fnm").size(28),
         Space::with_height(16),
@@ -145,7 +145,7 @@ fn install_fnm_step(state: &OnboardingState) -> Element<Message> {
     content.into()
 }
 
-fn configure_shell_step(state: &OnboardingState) -> Element<Message> {
+fn configure_shell_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     let mut content = column![
         text("Configure Shell").size(28),
         Space::with_height(16),
@@ -160,7 +160,7 @@ fn configure_shell_step(state: &OnboardingState) -> Element<Message> {
             if shell.configured {
                 container(text("Configured").size(14))
                     .padding([4, 8])
-                    .style(|theme| crate::theme::styles::badge_lts(theme))
+                    .style(crate::theme::styles::badge_lts)
             } else if shell.configuring {
                 container(text("Configuring...").size(14))
             } else if let Some(error) = &shell.error {
@@ -184,7 +184,7 @@ fn configure_shell_step(state: &OnboardingState) -> Element<Message> {
     content.into()
 }
 
-fn install_node_step(state: &OnboardingState) -> Element<Message> {
+fn install_node_step<'a>(_state: &'a OnboardingState) -> Element<'a, Message> {
     column![
         text("Install Node.js").size(28),
         Space::with_height(16),
@@ -208,7 +208,7 @@ fn complete_step() -> Element<'static, Message> {
     .into()
 }
 
-fn navigation_buttons(state: &OnboardingState) -> Element<Message> {
+fn navigation_buttons<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     let back_button = if state.step != OnboardingStep::Welcome {
         button(text("Back"))
             .on_press(Message::OnboardingBack)

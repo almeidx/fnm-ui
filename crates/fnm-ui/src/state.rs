@@ -1,13 +1,14 @@
 use fnm_core::{
-    AppUpdate, FnmClient, InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule,
-    RemoteVersion, VersionGroup,
+    AppUpdate, InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion,
+    VersionGroup,
 };
 use fnm_platform::EnvironmentId;
-use fnm_shell::{ShellInfo, ShellType};
+use fnm_shell::ShellType;
 use std::path::PathBuf;
 use std::time::Instant;
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum AppState {
     Loading,
     Onboarding(OnboardingState),
@@ -15,6 +16,7 @@ pub enum AppState {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct OnboardingState {
     pub step: OnboardingStep,
     pub fnm_installing: bool,
@@ -47,6 +49,7 @@ pub enum OnboardingStep {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ShellConfigStatus {
     pub shell_type: ShellType,
     pub shell_name: String,
@@ -106,6 +109,7 @@ impl MainState {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct EnvironmentState {
     pub id: EnvironmentId,
     pub name: String,
@@ -151,6 +155,7 @@ pub struct VersionCache {
     pub schedule: Option<ReleaseSchedule>,
 }
 
+#[allow(dead_code)]
 impl VersionCache {
     pub fn new() -> Self {
         Self {
@@ -173,11 +178,12 @@ impl VersionCache {
         self.schedule
             .as_ref()
             .map(|s| s.is_lts(major))
-            .unwrap_or(major % 2 == 0)
+            .unwrap_or(major.is_multiple_of(2))
     }
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Operation {
     Install {
         version: String,
@@ -233,6 +239,7 @@ impl Toast {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum ToastStatus {
     Info,
     Success,
@@ -277,6 +284,7 @@ pub struct ShellSetupStatus {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum ShellVerificationStatus {
     Unknown,
     Configured,
@@ -286,6 +294,7 @@ pub enum ShellVerificationStatus {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct InstallModalState {
     pub search_query: String,
     pub filtered_versions: Vec<RemoteVersion>,

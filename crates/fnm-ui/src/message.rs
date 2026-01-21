@@ -2,9 +2,10 @@ use fnm_core::{
     AppUpdate, InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion,
 };
 use fnm_platform::EnvironmentId;
-use fnm_shell::{ShellType, VerificationResult};
+use fnm_shell::ShellType;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Message {
     NoOp,
     Initialized(InitResult),
@@ -94,6 +95,7 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct InitResult {
     pub fnm_found: bool,
     pub fnm_version: Option<String>,
