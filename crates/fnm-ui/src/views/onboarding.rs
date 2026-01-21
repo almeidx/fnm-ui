@@ -56,13 +56,15 @@ fn step_indicator<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
             };
 
             column![
-                container(Space::new().width(12).height(12)).style(move |_theme| container::Style {
-                    background: Some(iced::Background::Color(dot_color)),
-                    border: iced::Border {
-                        radius: 6.0.into(),
+                container(Space::new().width(12).height(12)).style(move |_theme| {
+                    container::Style {
+                        background: Some(iced::Background::Color(dot_color)),
+                        border: iced::Border {
+                            radius: 6.0.into(),
+                            ..Default::default()
+                        },
                         ..Default::default()
-                    },
-                    ..Default::default()
+                    }
                 }),
                 text(*name).size(11),
             ]
