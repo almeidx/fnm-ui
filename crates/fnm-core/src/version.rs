@@ -12,7 +12,11 @@ pub struct NodeVersion {
 
 impl NodeVersion {
     pub fn new(major: u32, minor: u32, patch: u32) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 
     pub fn major_group(&self) -> u32 {
@@ -60,7 +64,10 @@ impl FromStr for NodeVersion {
         let parts: Vec<&str> = s.split('.').collect();
 
         if parts.len() < 3 {
-            return Err(VersionParseError(format!("Expected X.Y.Z format, got: {}", s)));
+            return Err(VersionParseError(format!(
+                "Expected X.Y.Z format, got: {}",
+                s
+            )));
         }
 
         let major = parts[0]
@@ -146,9 +153,7 @@ pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
 
             // fnm list output format: "* v22.21.1" or "* v25.2.1 default"
             // Find the version string (starts with 'v')
-            let version_str = line
-                .split_whitespace()
-                .find(|s| s.starts_with('v'))?;
+            let version_str = line.split_whitespace().find(|s| s.starts_with('v'))?;
 
             let version = version_str.parse().ok()?;
 

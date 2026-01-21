@@ -11,9 +11,9 @@ use fnm_shell::detect_shells;
 use crate::message::{InitResult, Message};
 use crate::settings::{AppSettings, ThemeSetting};
 use crate::state::{
-    AppState, InstallModalState, MainState, Modal, OnboardingState, OnboardingStep,
-    Operation, SettingsModalState, ShellConfigStatus, ShellSetupStatus, ShellVerificationStatus,
-    Toast, ToastStatus, UndoAction,
+    AppState, InstallModalState, MainState, Modal, OnboardingState, OnboardingStep, Operation,
+    SettingsModalState, ShellConfigStatus, ShellSetupStatus, ShellVerificationStatus, Toast,
+    ToastStatus, UndoAction,
 };
 use crate::theme::{dark_theme, get_system_theme, light_theme};
 use crate::views;
@@ -343,7 +343,10 @@ impl FnmUi {
         Task::none()
     }
 
-    fn handle_remote_versions_fetched(&mut self, result: Result<Vec<fnm_core::RemoteVersion>, String>) {
+    fn handle_remote_versions_fetched(
+        &mut self,
+        result: Result<Vec<fnm_core::RemoteVersion>, String>,
+    ) {
         if let AppState::Main(state) = &mut self.state {
             state.available_versions.loading = false;
             match result {
@@ -378,7 +381,10 @@ impl FnmUi {
         Task::none()
     }
 
-    fn handle_release_schedule_fetched(&mut self, result: Result<fnm_core::ReleaseSchedule, String>) {
+    fn handle_release_schedule_fetched(
+        &mut self,
+        result: Result<fnm_core::ReleaseSchedule, String>,
+    ) {
         if let AppState::Main(state) = &mut self.state {
             if let Ok(schedule) = result {
                 state.available_versions.schedule = Some(schedule.clone());
@@ -676,10 +682,7 @@ impl FnmUi {
             } else {
                 state.add_toast(Toast::error(
                     toast_id,
-                    format!(
-                        "Failed to set default: {}",
-                        error.unwrap_or_default()
-                    ),
+                    format!("Failed to set default: {}", error.unwrap_or_default()),
                 ));
             }
         }
@@ -745,7 +748,10 @@ impl FnmUi {
         Task::none()
     }
 
-    fn handle_onboarding_fnm_install_result(&mut self, result: Result<(), String>) -> Task<Message> {
+    fn handle_onboarding_fnm_install_result(
+        &mut self,
+        result: Result<(), String>,
+    ) -> Task<Message> {
         if let AppState::Onboarding(state) = &mut self.state {
             state.fnm_installing = false;
             match result {
@@ -760,7 +766,10 @@ impl FnmUi {
         Task::none()
     }
 
-    fn handle_onboarding_configure_shell(&mut self, shell_type: fnm_shell::ShellType) -> Task<Message> {
+    fn handle_onboarding_configure_shell(
+        &mut self,
+        shell_type: fnm_shell::ShellType,
+    ) -> Task<Message> {
         if let AppState::Onboarding(state) = &mut self.state {
             if let Some(shell) = state
                 .detected_shells
@@ -773,13 +782,13 @@ impl FnmUi {
 
             return Task::perform(
                 async move {
-                    use fnm_shell::{ShellConfig, get_or_create_config_path};
+                    use fnm_shell::{get_or_create_config_path, ShellConfig};
 
                     let config_path = get_or_create_config_path(&shell_type)
                         .ok_or_else(|| "No config file path found".to_string())?;
 
-                    let mut config = ShellConfig::load(shell_type, config_path)
-                        .map_err(|e| e.to_string())?;
+                    let mut config =
+                        ShellConfig::load(shell_type, config_path).map_err(|e| e.to_string())?;
 
                     let edit = config.add_fnm_init();
                     if edit.has_changes() {
@@ -852,7 +861,10 @@ impl FnmUi {
         )
     }
 
-    fn handle_shell_setup_checked(&mut self, results: Vec<(fnm_shell::ShellType, fnm_shell::VerificationResult)>) {
+    fn handle_shell_setup_checked(
+        &mut self,
+        results: Vec<(fnm_shell::ShellType, fnm_shell::VerificationResult)>,
+    ) {
         if let AppState::Main(state) = &mut self.state {
             if let Some(Modal::Settings(settings_state)) = &mut state.modal {
                 settings_state.checking_shells = false;
@@ -860,11 +872,21 @@ impl FnmUi {
                     .into_iter()
                     .map(|(shell_type, result)| {
                         let status = match result {
-                            fnm_shell::VerificationResult::Configured => ShellVerificationStatus::Configured,
-                            fnm_shell::VerificationResult::NotConfigured => ShellVerificationStatus::NotConfigured,
-                            fnm_shell::VerificationResult::ConfigFileNotFound => ShellVerificationStatus::NotConfigured,
-                            fnm_shell::VerificationResult::FunctionalButNotInConfig => ShellVerificationStatus::FunctionalButNotInConfig,
-                            fnm_shell::VerificationResult::Error(e) => ShellVerificationStatus::Error(e),
+                            fnm_shell::VerificationResult::Configured => {
+                                ShellVerificationStatus::Configured
+                            }
+                            fnm_shell::VerificationResult::NotConfigured => {
+                                ShellVerificationStatus::NotConfigured
+                            }
+                            fnm_shell::VerificationResult::ConfigFileNotFound => {
+                                ShellVerificationStatus::NotConfigured
+                            }
+                            fnm_shell::VerificationResult::FunctionalButNotInConfig => {
+                                ShellVerificationStatus::FunctionalButNotInConfig
+                            }
+                            fnm_shell::VerificationResult::Error(e) => {
+                                ShellVerificationStatus::Error(e)
+                            }
                         };
                         ShellSetupStatus {
                             shell_name: shell_type.name().to_string(),
@@ -881,7 +903,11 @@ impl FnmUi {
     fn handle_configure_shell(&mut self, shell_type: fnm_shell::ShellType) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             if let Some(Modal::Settings(settings_state)) = &mut state.modal {
-                if let Some(shell) = settings_state.shell_statuses.iter_mut().find(|s| s.shell_type == shell_type) {
+                if let Some(shell) = settings_state
+                    .shell_statuses
+                    .iter_mut()
+                    .find(|s| s.shell_type == shell_type)
+                {
                     shell.configuring = true;
                 }
             }
@@ -890,7 +916,7 @@ impl FnmUi {
         let shell_type_for_callback = shell_type.clone();
         Task::perform(
             async move {
-                use fnm_shell::{ShellConfig, get_or_create_config_path};
+                use fnm_shell::{get_or_create_config_path, ShellConfig};
 
                 let config_path = get_or_create_config_path(&shell_type)
                     .ok_or_else(|| "No config file path found".to_string())?;
@@ -909,10 +935,18 @@ impl FnmUi {
         )
     }
 
-    fn handle_shell_configured(&mut self, shell_type: fnm_shell::ShellType, result: Result<(), String>) {
+    fn handle_shell_configured(
+        &mut self,
+        shell_type: fnm_shell::ShellType,
+        result: Result<(), String>,
+    ) {
         if let AppState::Main(state) = &mut self.state {
             if let Some(Modal::Settings(settings_state)) = &mut state.modal {
-                if let Some(shell) = settings_state.shell_statuses.iter_mut().find(|s| s.shell_type == shell_type) {
+                if let Some(shell) = settings_state
+                    .shell_statuses
+                    .iter_mut()
+                    .find(|s| s.shell_type == shell_type)
+                {
                     shell.configuring = false;
                     match result {
                         Ok(()) => shell.status = ShellVerificationStatus::Configured,

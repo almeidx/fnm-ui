@@ -106,9 +106,10 @@ impl FnmClient {
 
         let mut child = cmd.spawn()?;
 
-        let stdout = child.stdout.take().ok_or_else(|| {
-            FnmError::IoError("Failed to capture stdout".to_string())
-        })?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| FnmError::IoError("Failed to capture stdout".to_string()))?;
 
         let tx_stdout = tx.clone();
         tokio::spawn(async move {
@@ -121,9 +122,10 @@ impl FnmClient {
             }
         });
 
-        let stderr = child.stderr.take().ok_or_else(|| {
-            FnmError::IoError("Failed to capture stderr".to_string())
-        })?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| FnmError::IoError("Failed to capture stderr".to_string()))?;
 
         let tx_stderr = tx.clone();
         tokio::spawn(async move {

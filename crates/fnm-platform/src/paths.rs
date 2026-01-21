@@ -27,9 +27,7 @@ impl AppPaths {
                 cache_dir: dirs::cache_dir()
                     .expect("No cache directory")
                     .join("fnm-ui"),
-                data_dir: dirs::data_dir()
-                    .expect("No data directory")
-                    .join("fnm-ui"),
+                data_dir: dirs::data_dir().expect("No data directory").join("fnm-ui"),
             }
         }
 
@@ -42,9 +40,7 @@ impl AppPaths {
                 cache_dir: dirs::cache_dir()
                     .expect("No cache directory")
                     .join("fnm-ui"),
-                data_dir: dirs::data_dir()
-                    .expect("No data directory")
-                    .join("fnm-ui"),
+                data_dir: dirs::data_dir().expect("No data directory").join("fnm-ui"),
             }
         }
     }

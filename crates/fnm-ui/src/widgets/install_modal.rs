@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use iced::widget::{button, column, container, horizontal_space, row, scrollable, text, text_input, Space};
+use iced::widget::{
+    button, column, container, horizontal_space, row, scrollable, text, text_input, Space,
+};
 use iced::{Alignment, Element, Length};
 
 use fnm_core::{ReleaseSchedule, RemoteVersion};
@@ -92,7 +94,10 @@ fn get_recommended_versions<'a>(
         .collect()
 }
 
-pub fn view<'a>(modal_state: &'a InstallModalState, _main_state: &'a MainState) -> Element<'a, Message> {
+pub fn view<'a>(
+    modal_state: &'a InstallModalState,
+    _main_state: &'a MainState,
+) -> Element<'a, Message> {
     let header = row![
         text("Install Node.js").size(20),
         horizontal_space(),
@@ -103,13 +108,18 @@ pub fn view<'a>(modal_state: &'a InstallModalState, _main_state: &'a MainState) 
     ]
     .align_y(Alignment::Center);
 
-    let search = text_input("Search versions (e.g., '20', 'lts')", &modal_state.search_query)
-        .on_input(Message::InstallModalSearchChanged)
-        .padding(14)
-        .size(14)
-        .style(styles::search_input);
+    let search = text_input(
+        "Search versions (e.g., '20', 'lts')",
+        &modal_state.search_query,
+    )
+    .on_input(Message::InstallModalSearchChanged)
+    .padding(14)
+    .size(14)
+    .style(styles::search_input);
 
-    let content: Element<Message> = if modal_state.loading && modal_state.filtered_versions.is_empty() {
+    let content: Element<Message> = if modal_state.loading
+        && modal_state.filtered_versions.is_empty()
+    {
         container(text("Loading available versions...").size(14))
             .center_x(Length::Fill)
             .padding(24)
@@ -131,14 +141,17 @@ pub fn view<'a>(modal_state: &'a InstallModalState, _main_state: &'a MainState) 
         .padding(24)
         .into()
     } else if modal_state.search_query.is_empty() {
-        let recommended = get_recommended_versions(&modal_state.filtered_versions, modal_state.schedule.as_ref());
+        let recommended = get_recommended_versions(
+            &modal_state.filtered_versions,
+            modal_state.schedule.as_ref(),
+        );
 
         let mut version_items: Vec<Element<Message>> = Vec::new();
         version_items.push(
             text("Recommended Versions")
                 .size(12)
                 .color(iced::Color::from_rgb8(142, 142, 147))
-                .into()
+                .into(),
         );
         version_items.push(Space::with_height(8).into());
 
@@ -151,7 +164,7 @@ pub fn view<'a>(modal_state: &'a InstallModalState, _main_state: &'a MainState) 
             text("Search for other versions above")
                 .size(12)
                 .color(iced::Color::from_rgb8(142, 142, 147))
-                .into()
+                .into(),
         );
 
         scrollable(column(version_items).spacing(4))
@@ -181,12 +194,13 @@ pub fn view<'a>(modal_state: &'a InstallModalState, _main_state: &'a MainState) 
                 text("LTS Versions")
                     .size(12)
                     .color(iced::Color::from_rgb8(142, 142, 147))
-                    .into()
+                    .into(),
             );
             version_items.push(Space::with_height(4).into());
 
             for (major, versions) in grouped_lts {
-                let codename = versions.first()
+                let codename = versions
+                    .first()
                     .and_then(|v| v.lts_codename.as_ref())
                     .map(|c| format!(" ({})", c))
                     .unwrap_or_default();
@@ -194,7 +208,7 @@ pub fn view<'a>(modal_state: &'a InstallModalState, _main_state: &'a MainState) 
                     text(format!("Node {}.x{}", major, codename))
                         .size(11)
                         .color(iced::Color::from_rgb8(142, 142, 147))
-                        .into()
+                        .into(),
                 );
                 for version in versions {
                     version_items.push(version_row(version));
@@ -210,7 +224,7 @@ pub fn view<'a>(modal_state: &'a InstallModalState, _main_state: &'a MainState) 
                 text("Other Versions")
                     .size(12)
                     .color(iced::Color::from_rgb8(142, 142, 147))
-                    .into()
+                    .into(),
             );
             version_items.push(Space::with_height(4).into());
 
@@ -219,7 +233,7 @@ pub fn view<'a>(modal_state: &'a InstallModalState, _main_state: &'a MainState) 
                     text(format!("Node {}.x", major))
                         .size(11)
                         .color(iced::Color::from_rgb8(142, 142, 147))
-                        .into()
+                        .into(),
                 );
                 for version in versions {
                     version_items.push(version_row(version));
@@ -233,10 +247,16 @@ pub fn view<'a>(modal_state: &'a InstallModalState, _main_state: &'a MainState) 
             .into()
     };
 
-    column![header, Space::with_height(16), search, Space::with_height(16), content,]
-        .spacing(8)
-        .width(Length::Fill)
-        .into()
+    column![
+        header,
+        Space::with_height(16),
+        search,
+        Space::with_height(16),
+        content,
+    ]
+    .spacing(8)
+    .width(Length::Fill)
+    .into()
 }
 
 fn version_row(version: &RemoteVersion) -> Element<Message> {

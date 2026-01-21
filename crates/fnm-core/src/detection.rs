@@ -68,11 +68,7 @@ fn get_common_fnm_paths() -> Vec<PathBuf> {
 }
 
 async fn get_fnm_version(path: &PathBuf) -> Option<String> {
-    let output = Command::new(path)
-        .arg("--version")
-        .output()
-        .await
-        .ok()?;
+    let output = Command::new(path).arg("--version").output().await.ok()?;
 
     if !output.status.success() {
         return None;
@@ -108,10 +104,7 @@ pub async fn install_fnm() -> Result<(), crate::FnmError> {
     #[cfg(windows)]
     {
         let status = Command::new("powershell")
-            .args([
-                "-Command",
-                "irm https://fnm.vercel.app/install | iex",
-            ])
+            .args(["-Command", "irm https://fnm.vercel.app/install | iex"])
             .status()
             .await?;
 
@@ -139,8 +132,7 @@ pub async fn check_fnm_update(current_version: &str) -> Option<String> {
         return None;
     }
 
-    let json: serde_json::Value =
-        serde_json::from_slice(&output.stdout).ok()?;
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
 
     let latest_version = json["tag_name"].as_str()?;
     let latest_version = latest_version.strip_prefix('v').unwrap_or(latest_version);

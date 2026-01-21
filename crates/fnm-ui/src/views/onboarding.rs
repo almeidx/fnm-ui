@@ -19,10 +19,15 @@ pub fn view(state: &OnboardingState) -> Element<Message> {
     let nav_buttons = navigation_buttons(state);
 
     container(
-        column![progress, content, Space::with_height(Length::Fill), nav_buttons,]
-            .spacing(32)
-            .padding(48)
-            .max_width(600),
+        column![
+            progress,
+            content,
+            Space::with_height(Length::Fill),
+            nav_buttons,
+        ]
+        .spacing(32)
+        .padding(48)
+        .max_width(600),
     )
     .center_x(Length::Fill)
     .center_y(Length::Fill)
@@ -51,15 +56,14 @@ fn step_indicator(state: &OnboardingState) -> Element<Message> {
             };
 
             column![
-                container(Space::new(12, 12))
-                    .style(move |_theme| container::Style {
-                        background: Some(iced::Background::Color(dot_color)),
-                        border: iced::Border {
-                            radius: 6.0.into(),
-                            ..Default::default()
-                        },
+                container(Space::new(12, 12)).style(move |_theme| container::Style {
+                    background: Some(iced::Background::Color(dot_color)),
+                    border: iced::Border {
+                        radius: 6.0.into(),
                         ..Default::default()
-                    }),
+                    },
+                    ..Default::default()
+                }),
                 text(*name).size(11),
             ]
             .spacing(4)
@@ -88,7 +92,8 @@ fn welcome_step() -> Element<'static, Message> {
     column![
         text("Welcome to fnm-ui").size(32),
         Space::with_height(16),
-        text("fnm-ui helps you manage Node.js versions with a simple graphical interface.").size(16),
+        text("fnm-ui helps you manage Node.js versions with a simple graphical interface.")
+            .size(16),
         Space::with_height(8),
         text("We'll help you set up fnm (Fast Node Manager) to get started.").size(16),
         Space::with_height(24),
@@ -108,11 +113,9 @@ fn install_fnm_step(state: &OnboardingState) -> Element<Message> {
 
     if state.fnm_installing {
         content = content.push(
-            row![
-                text("Installing fnm...").size(16),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
+            row![text("Installing fnm...").size(16),]
+                .spacing(8)
+                .align_y(Alignment::Center),
         );
     } else if let Some(error) = &state.install_error {
         content = content.push(

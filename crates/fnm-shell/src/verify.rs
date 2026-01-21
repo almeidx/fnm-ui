@@ -17,22 +17,20 @@ pub async fn verify_shell_config(shell_type: &ShellType) -> VerificationResult {
     let existing_config = config_files.iter().find(|p| p.exists());
 
     match existing_config {
-        Some(config_path) => {
-            match ShellConfig::load(shell_type.clone(), config_path.clone()) {
-                Ok(config) => {
-                    if config.has_fnm_init() {
-                        VerificationResult::Configured
+        Some(config_path) => match ShellConfig::load(shell_type.clone(), config_path.clone()) {
+            Ok(config) => {
+                if config.has_fnm_init() {
+                    VerificationResult::Configured
+                } else {
+                    if functional_test(shell_type).await {
+                        VerificationResult::FunctionalButNotInConfig
                     } else {
-                        if functional_test(shell_type).await {
-                            VerificationResult::FunctionalButNotInConfig
-                        } else {
-                            VerificationResult::NotConfigured
-                        }
+                        VerificationResult::NotConfigured
                     }
                 }
-                Err(e) => VerificationResult::Error(e.to_string()),
             }
-        }
+            Err(e) => VerificationResult::Error(e.to_string()),
+        },
         None => {
             if functional_test(shell_type).await {
                 VerificationResult::FunctionalButNotInConfig

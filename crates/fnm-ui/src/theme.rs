@@ -51,7 +51,10 @@ pub mod styles {
                 color: Color::TRANSPARENT,
             },
             shadow: Shadow {
-                color: Color { a: 0.15, ..palette.primary },
+                color: Color {
+                    a: 0.15,
+                    ..palette.primary
+                },
                 offset: iced::Vector::new(0.0, 2.0),
                 blur_radius: 8.0,
             },
@@ -62,7 +65,10 @@ pub mod styles {
             button::Status::Hovered => button::Style {
                 background: Some(Background::Color(lighten(palette.primary, 0.05))),
                 shadow: Shadow {
-                    color: Color { a: 0.25, ..palette.primary },
+                    color: Color {
+                        a: 0.25,
+                        ..palette.primary
+                    },
                     offset: iced::Vector::new(0.0, 4.0),
                     blur_radius: 12.0,
                 },
@@ -71,15 +77,24 @@ pub mod styles {
             button::Status::Pressed => button::Style {
                 background: Some(Background::Color(darken(palette.primary, 0.05))),
                 shadow: Shadow {
-                    color: Color { a: 0.1, ..palette.primary },
+                    color: Color {
+                        a: 0.1,
+                        ..palette.primary
+                    },
                     offset: iced::Vector::new(0.0, 1.0),
                     blur_radius: 4.0,
                 },
                 ..base
             },
             button::Status::Disabled => button::Style {
-                background: Some(Background::Color(Color { a: 0.4, ..palette.primary })),
-                text_color: Color { a: 0.6, ..Color::WHITE },
+                background: Some(Background::Color(Color {
+                    a: 0.4,
+                    ..palette.primary
+                })),
+                text_color: Color {
+                    a: 0.6,
+                    ..Color::WHITE
+                },
                 shadow: Shadow::default(),
                 ..base
             },
@@ -104,15 +119,28 @@ pub mod styles {
         match status {
             button::Status::Active => base,
             button::Status::Hovered => button::Style {
-                background: Some(Background::Color(Color { r: 1.0, g: 0.27, b: 0.23, a: 0.1 })),
+                background: Some(Background::Color(Color {
+                    r: 1.0,
+                    g: 0.27,
+                    b: 0.23,
+                    a: 0.1,
+                })),
                 ..base
             },
             button::Status::Pressed => button::Style {
-                background: Some(Background::Color(Color { r: 1.0, g: 0.27, b: 0.23, a: 0.15 })),
+                background: Some(Background::Color(Color {
+                    r: 1.0,
+                    g: 0.27,
+                    b: 0.23,
+                    a: 0.15,
+                })),
                 ..base
             },
             button::Status::Disabled => button::Style {
-                text_color: Color { a: 0.4, ..danger_muted },
+                text_color: Color {
+                    a: 0.4,
+                    ..danger_muted
+                },
                 ..base
             },
         }
@@ -160,7 +188,10 @@ pub mod styles {
                 ..base
             },
             button::Status::Disabled => button::Style {
-                text_color: Color { a: 0.4, ..palette.text },
+                text_color: Color {
+                    a: 0.4,
+                    ..palette.text
+                },
                 ..base
             },
         }
@@ -171,7 +202,10 @@ pub mod styles {
 
         let base = button::Style {
             background: Some(Background::Color(Color::TRANSPARENT)),
-            text_color: Color { a: 0.6, ..palette.text },
+            text_color: Color {
+                a: 0.6,
+                ..palette.text
+            },
             border: Border {
                 radius: 6.0.into(),
                 width: 0.0,
@@ -184,16 +218,25 @@ pub mod styles {
             button::Status::Active => base,
             button::Status::Hovered => button::Style {
                 text_color: palette.text,
-                background: Some(Background::Color(Color { a: 0.05, ..palette.text })),
+                background: Some(Background::Color(Color {
+                    a: 0.05,
+                    ..palette.text
+                })),
                 ..base
             },
             button::Status::Pressed => button::Style {
                 text_color: palette.text,
-                background: Some(Background::Color(Color { a: 0.1, ..palette.text })),
+                background: Some(Background::Color(Color {
+                    a: 0.1,
+                    ..palette.text
+                })),
                 ..base
             },
             button::Status::Disabled => button::Style {
-                text_color: Color { a: 0.3, ..palette.text },
+                text_color: Color {
+                    a: 0.3,
+                    ..palette.text
+                },
                 ..base
             },
         }
@@ -217,7 +260,10 @@ pub mod styles {
                 color: Color::TRANSPARENT,
             },
             shadow: Shadow {
-                color: Color { a: if is_dark { 0.3 } else { 0.08 }, ..Color::BLACK },
+                color: Color {
+                    a: if is_dark { 0.3 } else { 0.08 },
+                    ..Color::BLACK
+                },
                 offset: iced::Vector::new(0.0, 2.0),
                 blur_radius: 12.0,
             },
@@ -235,7 +281,10 @@ pub mod styles {
             Color::from_rgb8(239, 239, 244)
         };
 
-        let placeholder = Color { a: 0.4, ..palette.text };
+        let placeholder = Color {
+            a: 0.4,
+            ..palette.text
+        };
 
         text_input::Style {
             background: Background::Color(bg),
@@ -247,7 +296,10 @@ pub mod styles {
             icon: palette.text,
             placeholder: placeholder,
             value: palette.text,
-            selection: Color { a: 0.3, ..palette.primary },
+            selection: Color {
+                a: 0.3,
+                ..palette.primary
+            },
         }
     }
 
@@ -255,7 +307,10 @@ pub mod styles {
         let palette = theme.palette();
 
         container::Style {
-            background: Some(Background::Color(Color { a: 0.15, ..palette.primary })),
+            background: Some(Background::Color(Color {
+                a: 0.15,
+                ..palette.primary
+            })),
             text_color: Some(palette.primary),
             border: Border {
                 radius: 6.0.into(),
@@ -270,7 +325,10 @@ pub mod styles {
         let palette = theme.palette();
 
         container::Style {
-            background: Some(Background::Color(Color { a: 0.15, ..palette.success })),
+            background: Some(Background::Color(Color {
+                a: 0.15,
+                ..palette.success
+            })),
             text_color: Some(palette.success),
             border: Border {
                 radius: 6.0.into(),
@@ -285,7 +343,10 @@ pub mod styles {
         let update_color = Color::from_rgb8(0, 122, 255);
 
         container::Style {
-            background: Some(Background::Color(Color { a: 0.15, ..update_color })),
+            background: Some(Background::Color(Color {
+                a: 0.15,
+                ..update_color
+            })),
             text_color: Some(update_color),
             border: Border {
                 radius: 6.0.into(),
@@ -300,7 +361,10 @@ pub mod styles {
         let update_color = Color::from_rgb8(0, 122, 255);
 
         let base = button::Style {
-            background: Some(Background::Color(Color { a: 0.15, ..update_color })),
+            background: Some(Background::Color(Color {
+                a: 0.15,
+                ..update_color
+            })),
             text_color: update_color,
             border: Border {
                 radius: 6.0.into(),
@@ -313,15 +377,24 @@ pub mod styles {
         match status {
             button::Status::Active => base,
             button::Status::Hovered => button::Style {
-                background: Some(Background::Color(Color { a: 0.25, ..update_color })),
+                background: Some(Background::Color(Color {
+                    a: 0.25,
+                    ..update_color
+                })),
                 ..base
             },
             button::Status::Pressed => button::Style {
-                background: Some(Background::Color(Color { a: 0.35, ..update_color })),
+                background: Some(Background::Color(Color {
+                    a: 0.35,
+                    ..update_color
+                })),
                 ..base
             },
             button::Status::Disabled => button::Style {
-                text_color: Color { a: 0.4, ..update_color },
+                text_color: Color {
+                    a: 0.4,
+                    ..update_color
+                },
                 ..base
             },
         }

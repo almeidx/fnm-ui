@@ -145,8 +145,5 @@ pub fn detect_shells() -> Vec<ShellInfo> {
 }
 
 fn find_existing_config(shell: &ShellType) -> Option<PathBuf> {
-    shell
-        .config_files()
-        .into_iter()
-        .find(|path| path.exists())
+    shell.config_files().into_iter().find(|path| path.exists())
 }

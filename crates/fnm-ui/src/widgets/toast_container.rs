@@ -9,18 +9,12 @@ pub fn view<'a>(content: Element<'a, Message>, toasts: &'a [Toast]) -> Element<'
         return content;
     }
 
-    let toast_elements: Vec<Element<Message>> = toasts
-        .iter()
-        .map(|toast| toast_view(toast))
-        .collect();
+    let toast_elements: Vec<Element<Message>> =
+        toasts.iter().map(|toast| toast_view(toast)).collect();
 
-    let toast_column = container(
-        column(toast_elements)
-            .spacing(8)
-            .align_x(Alignment::End),
-    )
-    .padding(16)
-    .width(Length::Shrink);
+    let toast_column = container(column(toast_elements).spacing(8).align_x(Alignment::End))
+        .padding(16)
+        .width(Length::Shrink);
 
     let toast_layer = container(toast_column)
         .width(Length::Fill)
@@ -33,22 +27,10 @@ pub fn view<'a>(content: Element<'a, Message>, toasts: &'a [Toast]) -> Element<'
 
 fn toast_view(toast: &Toast) -> Element<Message> {
     let (bg_color, text_color) = match toast.status {
-        ToastStatus::Success => (
-            iced::Color::from_rgb8(52, 199, 89),
-            iced::Color::WHITE,
-        ),
-        ToastStatus::Error => (
-            iced::Color::from_rgb8(255, 59, 48),
-            iced::Color::WHITE,
-        ),
-        ToastStatus::Warning => (
-            iced::Color::from_rgb8(255, 149, 0),
-            iced::Color::WHITE,
-        ),
-        ToastStatus::Info => (
-            iced::Color::from_rgb8(0, 122, 255),
-            iced::Color::WHITE,
-        ),
+        ToastStatus::Success => (iced::Color::from_rgb8(52, 199, 89), iced::Color::WHITE),
+        ToastStatus::Error => (iced::Color::from_rgb8(255, 59, 48), iced::Color::WHITE),
+        ToastStatus::Warning => (iced::Color::from_rgb8(255, 149, 0), iced::Color::WHITE),
+        ToastStatus::Info => (iced::Color::from_rgb8(0, 122, 255), iced::Color::WHITE),
     };
 
     let mut content = row![text(&toast.message).size(14),].spacing(8);

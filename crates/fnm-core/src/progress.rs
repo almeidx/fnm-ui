@@ -103,7 +103,10 @@ fn extract_bytes(line: &str) -> Option<(u64, u64)> {
 fn parse_byte_size(s: &str) -> Option<u64> {
     let s = s.trim();
     let (num_str, multiplier) = if s.ends_with("GB") || s.ends_with("G") {
-        (s.trim_end_matches("GB").trim_end_matches('G'), 1_000_000_000)
+        (
+            s.trim_end_matches("GB").trim_end_matches('G'),
+            1_000_000_000,
+        )
     } else if s.ends_with("MB") || s.ends_with('M') {
         (s.trim_end_matches("MB").trim_end_matches('M'), 1_000_000)
     } else if s.ends_with("KB") || s.ends_with('K') {
@@ -114,5 +117,9 @@ fn parse_byte_size(s: &str) -> Option<u64> {
         (s, 1)
     };
 
-    num_str.trim().parse::<f64>().ok().map(|n| (n * multiplier as f64) as u64)
+    num_str
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .map(|n| (n * multiplier as f64) as u64)
 }

@@ -1,4 +1,7 @@
-use fnm_core::{FnmClient, InstalledVersion, InstallProgress, NodeVersion, ReleaseSchedule, RemoteVersion, VersionGroup};
+use fnm_core::{
+    FnmClient, InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion,
+    VersionGroup,
+};
 use fnm_platform::EnvironmentId;
 use fnm_shell::{ShellInfo, ShellType};
 use std::path::PathBuf;
@@ -126,7 +129,10 @@ impl EnvironmentState {
     }
 
     pub fn update_versions(&mut self, versions: Vec<InstalledVersion>) {
-        self.default_version = versions.iter().find(|v| v.is_default).map(|v| v.version.clone());
+        self.default_version = versions
+            .iter()
+            .find(|v| v.is_default)
+            .map(|v| v.version.clone());
         self.version_groups = VersionGroup::from_versions(versions.clone());
         self.installed_versions = versions;
         self.loading = false;

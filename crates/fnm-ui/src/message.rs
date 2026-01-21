@@ -1,4 +1,4 @@
-use fnm_core::{InstalledVersion, InstallProgress, NodeVersion, ReleaseSchedule, RemoteVersion};
+use fnm_core::{InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion};
 use fnm_platform::EnvironmentId;
 use fnm_shell::{ShellType, VerificationResult};
 
@@ -19,7 +19,9 @@ pub enum Message {
     },
     RefreshEnvironment,
 
-    VersionGroupToggled { major: u32 },
+    VersionGroupToggled {
+        major: u32,
+    },
     SearchChanged(String),
 
     FetchRemoteVersions,

@@ -96,17 +96,15 @@ pub fn view<'a>(
         .iter()
         .map(|group| {
             let installed_latest = group.versions.iter().map(|v| &v.version).max();
-            let update_available = latest_by_major
-                .get(&group.major)
-                .and_then(|latest| {
-                    installed_latest.and_then(|installed| {
-                        if latest > installed {
-                            Some(latest.to_string())
-                        } else {
-                            None
-                        }
-                    })
-                });
+            let update_available = latest_by_major.get(&group.major).and_then(|latest| {
+                installed_latest.and_then(|installed| {
+                    if latest > installed {
+                        Some(latest.to_string())
+                    } else {
+                        None
+                    }
+                })
+            });
             version_group_view(group, default_version, search_query, update_available)
         })
         .collect();
@@ -144,12 +142,10 @@ fn version_group_view<'a>(
     update_available: Option<String>,
 ) -> Element<'a, Message> {
     let has_lts = group.versions.iter().any(|v| v.lts_codename.is_some());
-    let has_default = group.versions.iter().any(|v| {
-        default
-            .as_ref()
-            .map(|d| d == &v.version)
-            .unwrap_or(false)
-    });
+    let has_default = group
+        .versions
+        .iter()
+        .any(|v| default.as_ref().map(|d| d == &v.version).unwrap_or(false));
 
     let mut header_row = row![
         text(if group.is_expanded { "▼" } else { "▶" }).size(12),
@@ -163,7 +159,7 @@ fn version_group_view<'a>(
         header_row = header_row.push(
             container(text("LTS").size(10))
                 .padding([2, 6])
-                .style(styles::badge_lts)
+                .style(styles::badge_lts),
         );
     }
 
@@ -171,7 +167,7 @@ fn version_group_view<'a>(
         header_row = header_row.push(
             container(text("default").size(10))
                 .padding([2, 6])
-                .style(styles::badge_default)
+                .style(styles::badge_default),
         );
     }
 
@@ -189,13 +185,10 @@ fn version_group_view<'a>(
         row![
             header_button,
             horizontal_space(),
-            button(
-                container(text(format!("{} available", new_version)).size(10))
-                    .padding([2, 6])
-            )
-            .on_press(Message::StartInstall(version_to_install))
-            .style(styles::update_badge_button)
-            .padding(0),
+            button(container(text(format!("{} available", new_version)).size(10)).padding([2, 6]))
+                .on_press(Message::StartInstall(version_to_install))
+                .style(styles::update_badge_button)
+                .padding(0),
         ]
         .align_y(Alignment::Center)
         .into()

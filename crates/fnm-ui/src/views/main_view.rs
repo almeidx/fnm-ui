@@ -20,14 +20,9 @@ pub fn view<'a>(state: &'a MainState, _settings: &'a AppSettings) -> Element<'a,
     );
     let operation_status = operation_status_view(state);
 
-    let main_content = column![
-        header,
-        search_bar,
-        version_list,
-        operation_status,
-    ]
-    .spacing(20)
-    .padding(32);
+    let main_content = column![header, search_bar, version_list, operation_status,]
+        .spacing(20)
+        .padding(32);
 
     let with_modal: Element<Message> = if let Some(modal) = &state.modal {
         modal_overlay(main_content.into(), modal, state)
@@ -51,35 +46,25 @@ fn header_view(state: &MainState) -> Element<'_, Message> {
     .spacing(2);
 
     let button_row = row![
-        button(
-            text("Install").size(13)
-        )
-        .on_press(Message::OpenInstallModal)
-        .style(styles::primary_button)
-        .padding([8, 16]),
-        button(
-            text("Refresh").size(13)
-        )
-        .on_press(Message::RefreshEnvironment)
-        .style(styles::secondary_button)
-        .padding([8, 16]),
-        button(
-            text("Settings").size(13)
-        )
-        .on_press(Message::OpenSettings)
-        .style(styles::ghost_button)
-        .padding([8, 12]),
+        button(text("Install").size(13))
+            .on_press(Message::OpenInstallModal)
+            .style(styles::primary_button)
+            .padding([8, 16]),
+        button(text("Refresh").size(13))
+            .on_press(Message::RefreshEnvironment)
+            .style(styles::secondary_button)
+            .padding([8, 16]),
+        button(text("Settings").size(13))
+            .on_press(Message::OpenSettings)
+            .style(styles::ghost_button)
+            .padding([8, 12]),
     ]
     .spacing(8)
     .align_y(Alignment::Center);
 
-    row![
-        title_section,
-        horizontal_space(),
-        button_row,
-    ]
-    .align_y(Alignment::Center)
-    .into()
+    row![title_section, horizontal_space(), button_row,]
+        .align_y(Alignment::Center)
+        .into()
 }
 
 fn search_bar_view(state: &MainState) -> Element<'_, Message> {
@@ -115,28 +100,20 @@ fn operation_status_view(state: &MainState) -> Element<'_, Message> {
                 .style(styles::card_container)
                 .into()
             }
-            Operation::Uninstall { version } => {
-                container(
-                    row![
-                        text(format!("Removing Node {}...", version)).size(14),
-                    ]
+            Operation::Uninstall { version } => container(
+                row![text(format!("Removing Node {}...", version)).size(14),]
                     .spacing(8)
                     .padding(20),
-                )
-                .style(styles::card_container)
-                .into()
-            }
-            Operation::SetDefault { version, .. } => {
-                container(
-                    row![
-                        text(format!("Setting default to Node {}...", version)).size(14),
-                    ]
+            )
+            .style(styles::card_container)
+            .into(),
+            Operation::SetDefault { version, .. } => container(
+                row![text(format!("Setting default to Node {}...", version)).size(14),]
                     .spacing(8)
                     .padding(20),
-                )
-                .style(styles::card_container)
-                .into()
-            }
+            )
+            .style(styles::card_container)
+            .into(),
         }
     } else {
         Space::new(0, 0).into()
@@ -239,7 +216,8 @@ fn settings_modal_view(settings: &SettingsModalState) -> Element<'_, Message> {
 
             let is_configured = matches!(
                 shell.status,
-                ShellVerificationStatus::Configured | ShellVerificationStatus::FunctionalButNotInConfig
+                ShellVerificationStatus::Configured
+                    | ShellVerificationStatus::FunctionalButNotInConfig
             );
 
             let shell_row = if shell.configuring {
@@ -250,13 +228,17 @@ fn settings_modal_view(settings: &SettingsModalState) -> Element<'_, Message> {
             } else if is_configured {
                 row![
                     text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text(status_text).size(12).color(iced::Color::from_rgb8(52, 199, 89)),
+                    text(status_text)
+                        .size(12)
+                        .color(iced::Color::from_rgb8(52, 199, 89)),
                 ]
             } else {
                 let shell_type = shell.shell_type.clone();
                 row![
                     text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text(status_text).size(12).color(iced::Color::from_rgb8(255, 149, 0)),
+                    text(status_text)
+                        .size(12)
+                        .color(iced::Color::from_rgb8(255, 149, 0)),
                     horizontal_space(),
                     button(text("Configure").size(11))
                         .on_press(Message::ConfigureShell(shell_type))
