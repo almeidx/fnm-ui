@@ -157,6 +157,21 @@ impl FnmUi {
                 let _ = self.settings.save();
                 Task::none()
             }
+            Message::ShellOptionUseOnCdToggled(value) => {
+                self.settings.shell_options.use_on_cd = value;
+                let _ = self.settings.save();
+                Task::none()
+            }
+            Message::ShellOptionResolveEnginesToggled(value) => {
+                self.settings.shell_options.resolve_engines = value;
+                let _ = self.settings.save();
+                Task::none()
+            }
+            Message::ShellOptionCorepackEnabledToggled(value) => {
+                self.settings.shell_options.corepack_enabled = value;
+                let _ = self.settings.save();
+                Task::none()
+            }
             Message::CheckShellSetup => self.handle_check_shell_setup(),
             Message::ShellSetupChecked(results) => {
                 self.handle_shell_setup_checked(results);
@@ -804,6 +819,12 @@ impl FnmUi {
                 shell.error = None;
             }
 
+            let shell_options = fnm_shell::FnmShellOptions {
+                use_on_cd: self.settings.shell_options.use_on_cd,
+                resolve_engines: self.settings.shell_options.resolve_engines,
+                corepack_enabled: self.settings.shell_options.corepack_enabled,
+            };
+
             return Task::perform(
                 async move {
                     use fnm_shell::{get_or_create_config_path, ShellConfig};
@@ -814,7 +835,7 @@ impl FnmUi {
                     let mut config =
                         ShellConfig::load(shell_type, config_path).map_err(|e| e.to_string())?;
 
-                    let edit = config.add_fnm_init();
+                    let edit = config.add_fnm_init(&shell_options);
                     if edit.has_changes() {
                         config.apply_edit(&edit).map_err(|e| e.to_string())?;
                     }
@@ -902,7 +923,7 @@ impl FnmUi {
                     .into_iter()
                     .map(|(shell_type, result)| {
                         let status = match result {
-                            fnm_shell::VerificationResult::Configured => {
+                            fnm_shell::VerificationResult::Configured(_) => {
                                 ShellVerificationStatus::Configured
                             }
                             fnm_shell::VerificationResult::NotConfigured => {
@@ -943,6 +964,12 @@ impl FnmUi {
             }
         }
 
+        let shell_options = fnm_shell::FnmShellOptions {
+            use_on_cd: self.settings.shell_options.use_on_cd,
+            resolve_engines: self.settings.shell_options.resolve_engines,
+            corepack_enabled: self.settings.shell_options.corepack_enabled,
+        };
+
         let shell_type_for_callback = shell_type.clone();
         Task::perform(
             async move {
@@ -954,7 +981,7 @@ impl FnmUi {
                 let mut config = ShellConfig::load(shell_type.clone(), config_path)
                     .map_err(|e| e.to_string())?;
 
-                let edit = config.add_fnm_init();
+                let edit = config.add_fnm_init(&shell_options);
                 if edit.has_changes() {
                     config.apply_edit(&edit).map_err(|e| e.to_string())?;
                 }

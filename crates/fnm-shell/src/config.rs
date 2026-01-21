@@ -1,4 +1,4 @@
-use crate::detect::ShellType;
+use crate::detect::{FnmShellOptions, ShellType};
 use std::fs;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -49,8 +49,20 @@ impl ShellConfig {
             .any(|pattern| self.content.contains(pattern))
     }
 
-    pub fn add_fnm_init(&mut self) -> ShellConfigEdit {
-        let init_command = self.shell_type.fnm_init_command();
+    pub fn detect_fnm_options(&self) -> Option<FnmShellOptions> {
+        if !self.has_fnm_init() {
+            return None;
+        }
+
+        Some(FnmShellOptions {
+            use_on_cd: self.content.contains("--use-on-cd"),
+            resolve_engines: self.content.contains("--resolve-engines"),
+            corepack_enabled: self.content.contains("--corepack-enabled"),
+        })
+    }
+
+    pub fn add_fnm_init(&mut self, options: &FnmShellOptions) -> ShellConfigEdit {
+        let init_command = self.shell_type.fnm_init_command(options);
 
         if self.has_fnm_init() {
             return ShellConfigEdit {
@@ -85,6 +97,42 @@ impl ShellConfig {
         self.content = edit.modified.clone();
 
         Ok(())
+    }
+
+    pub fn update_fnm_init(&mut self, options: &FnmShellOptions) -> ShellConfigEdit {
+        let new_init_command = self.shell_type.fnm_init_command(options);
+
+        if !self.has_fnm_init() {
+            return self.add_fnm_init(options);
+        }
+
+        let mut modified = self.content.clone();
+        let mut changes = Vec::new();
+
+        // Pattern to match fnm env commands with various flag combinations
+        // Matches: eval "$(fnm env ...)" or eval "`fnm env ...`" or fnm env ... | source
+        let patterns = [
+            r#"eval "\$\(fnm env[^)]*\)""#,
+            r#"eval "`fnm env[^`]*`""#,
+            r"fnm env[^\n]*\| source",
+            r"fnm env[^\n]*\| Out-String \| Invoke-Expression",
+        ];
+
+        for pattern in patterns {
+            if let Ok(re) = regex::Regex::new(pattern) {
+                if re.is_match(&modified) {
+                    modified = re.replace(&modified, new_init_command.as_str()).to_string();
+                    changes.push(format!("Updated fnm initialization to: {}", new_init_command));
+                    break;
+                }
+            }
+        }
+
+        ShellConfigEdit {
+            original: self.content.clone(),
+            modified,
+            changes,
+        }
     }
 }
 

@@ -1,11 +1,11 @@
 use crate::config::ShellConfig;
-use crate::detect::ShellType;
+use crate::detect::{FnmShellOptions, ShellType};
 use std::path::PathBuf;
 use tokio::process::Command;
 
 #[derive(Debug, Clone)]
 pub enum VerificationResult {
-    Configured,
+    Configured(Option<FnmShellOptions>),
     NotConfigured,
     ConfigFileNotFound,
     FunctionalButNotInConfig,
@@ -20,7 +20,8 @@ pub async fn verify_shell_config(shell_type: &ShellType) -> VerificationResult {
         Some(config_path) => match ShellConfig::load(shell_type.clone(), config_path.clone()) {
             Ok(config) => {
                 if config.has_fnm_init() {
-                    VerificationResult::Configured
+                    let options = config.detect_fnm_options();
+                    VerificationResult::Configured(options)
                 } else if functional_test(shell_type).await {
                     VerificationResult::FunctionalButNotInConfig
                 } else {

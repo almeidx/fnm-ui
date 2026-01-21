@@ -21,6 +21,35 @@ pub struct AppSettings {
 
     #[serde(default)]
     pub node_dist_mirror: Option<String>,
+
+    #[serde(default)]
+    pub shell_options: ShellOptions,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShellOptions {
+    #[serde(default = "default_true")]
+    pub use_on_cd: bool,
+
+    #[serde(default)]
+    pub resolve_engines: bool,
+
+    #[serde(default)]
+    pub corepack_enabled: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for ShellOptions {
+    fn default() -> Self {
+        Self {
+            use_on_cd: true,
+            resolve_engines: false,
+            corepack_enabled: false,
+        }
+    }
 }
 
 fn default_cache_ttl() -> u64 {
@@ -36,6 +65,7 @@ impl Default for AppSettings {
             start_minimized: false,
             fnm_dir: None,
             node_dist_mirror: None,
+            shell_options: ShellOptions::default(),
         }
     }
 }

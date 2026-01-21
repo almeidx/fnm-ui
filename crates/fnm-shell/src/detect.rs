@@ -64,17 +64,63 @@ impl ShellType {
         }
     }
 
-    pub fn fnm_init_command(&self) -> String {
+    pub fn fnm_init_command(&self, options: &FnmShellOptions) -> String {
+        let mut flags = Vec::new();
+
+        if options.use_on_cd {
+            flags.push("--use-on-cd");
+        }
+        if options.resolve_engines {
+            flags.push("--resolve-engines");
+        }
+        if options.corepack_enabled {
+            flags.push("--corepack-enabled");
+        }
+
+        let flags_str = flags.join(" ");
+
         match self {
-            ShellType::Bash => r#"eval "$(fnm env --use-on-cd --shell bash)""#.to_string(),
-            ShellType::Zsh => r#"eval "$(fnm env --use-on-cd --shell zsh)""#.to_string(),
-            ShellType::Fish => "fnm env --use-on-cd --shell fish | source".to_string(),
+            ShellType::Bash => {
+                if flags_str.is_empty() {
+                    r#"eval "$(fnm env --shell bash)""#.to_string()
+                } else {
+                    format!(r#"eval "$(fnm env {} --shell bash)""#, flags_str)
+                }
+            }
+            ShellType::Zsh => {
+                if flags_str.is_empty() {
+                    r#"eval "$(fnm env --shell zsh)""#.to_string()
+                } else {
+                    format!(r#"eval "$(fnm env {} --shell zsh)""#, flags_str)
+                }
+            }
+            ShellType::Fish => {
+                if flags_str.is_empty() {
+                    "fnm env --shell fish | source".to_string()
+                } else {
+                    format!("fnm env {} --shell fish | source", flags_str)
+                }
+            }
             ShellType::PowerShell => {
-                "fnm env --use-on-cd | Out-String | Invoke-Expression".to_string()
+                if flags_str.is_empty() {
+                    "fnm env --shell powershell | Out-String | Invoke-Expression".to_string()
+                } else {
+                    format!(
+                        "fnm env {} --shell powershell | Out-String | Invoke-Expression",
+                        flags_str
+                    )
+                }
             }
             ShellType::Cmd => String::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct FnmShellOptions {
+    pub use_on_cd: bool,
+    pub resolve_engines: bool,
+    pub corepack_enabled: bool,
 }
 
 #[derive(Debug, Clone)]

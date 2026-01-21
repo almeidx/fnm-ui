@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, mouse_area, row, text, text_input, Space};
+use iced::widget::{button, column, container, mouse_area, row, text, text_input, toggler, Space};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
@@ -7,7 +7,7 @@ use crate::state::{MainState, Modal, Operation, SettingsModalState, ShellVerific
 use crate::theme::styles;
 use crate::widgets::{install_modal, toast_container, version_list};
 
-pub fn view<'a>(state: &'a MainState, _settings: &'a AppSettings) -> Element<'a, Message> {
+pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, Message> {
     let header = header_view(state);
     let search_bar = search_bar_view(state);
     let version_list = version_list::view(
@@ -22,7 +22,7 @@ pub fn view<'a>(state: &'a MainState, _settings: &'a AppSettings) -> Element<'a,
         .padding(32);
 
     let with_modal: Element<Message> = if let Some(modal) = &state.modal {
-        modal_overlay(main_content.into(), modal, state)
+        modal_overlay(main_content.into(), modal, state, settings)
     } else {
         main_content.into()
     };
@@ -133,10 +133,11 @@ fn modal_overlay<'a>(
     content: Element<'a, Message>,
     modal: &'a Modal,
     state: &'a MainState,
+    settings: &'a AppSettings,
 ) -> Element<'a, Message> {
     let modal_content: Element<Message> = match modal {
         Modal::Install(install_state) => install_modal::view(install_state, state),
-        Modal::Settings(settings_state) => settings_modal_view(settings_state),
+        Modal::Settings(settings_state) => settings_modal_view(settings_state, settings),
         Modal::ConfirmUninstall { version } => confirm_uninstall_view(version),
     };
 
@@ -173,7 +174,10 @@ fn modal_overlay<'a>(
     iced::widget::stack![content, backdrop, modal_layer].into()
 }
 
-fn settings_modal_view<'a>(settings: &'a SettingsModalState) -> Element<'a, Message> {
+fn settings_modal_view<'a>(
+    modal_state: &'a SettingsModalState,
+    settings: &'a AppSettings,
+) -> Element<'a, Message> {
     let mut content = column![
         row![
             text("Settings").size(20),
@@ -203,18 +207,47 @@ fn settings_modal_view<'a>(settings: &'a SettingsModalState) -> Element<'a, Mess
         ]
         .spacing(8),
         Space::new().height(24),
-        text("Shell Setup").size(13),
+        text("Shell Options").size(13),
         Space::new().height(8),
+        row![
+            toggler(settings.shell_options.use_on_cd)
+                .on_toggle(Message::ShellOptionUseOnCdToggled)
+                .size(18),
+            text("Auto-switch on cd").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+        row![
+            toggler(settings.shell_options.resolve_engines)
+                .on_toggle(Message::ShellOptionResolveEnginesToggled)
+                .size(18),
+            text("Resolve engines from package.json").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+        row![
+            toggler(settings.shell_options.corepack_enabled)
+                .on_toggle(Message::ShellOptionCorepackEnabledToggled)
+                .size(18),
+            text("Enable corepack").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+        text("Options for new shell configurations").size(11).color(iced::Color::from_rgb8(142, 142, 147)),
     ]
     .spacing(4)
     .width(Length::Fill);
 
-    if settings.checking_shells {
+    content = content.push(Space::new().height(24));
+    content = content.push(text("Shell Setup").size(13));
+    content = content.push(Space::new().height(8));
+
+    if modal_state.checking_shells {
         content = content.push(text("Checking shell configuration...").size(12));
-    } else if settings.shell_statuses.is_empty() {
+    } else if modal_state.shell_statuses.is_empty() {
         content = content.push(text("No shells detected").size(12));
     } else {
-        for shell in &settings.shell_statuses {
+        for shell in &modal_state.shell_statuses {
             let status_text = match &shell.status {
                 ShellVerificationStatus::Unknown => "Unknown",
                 ShellVerificationStatus::Configured => "Configured ✓",
