@@ -58,19 +58,12 @@ pub fn detect_fnm_dir() -> Option<PathBuf> {
     }
 
     let candidates = get_fnm_dir_candidates();
-    for candidate in candidates {
-        if candidate.exists() && candidate.join("node-versions").exists() {
-            return Some(candidate);
-        }
-    }
 
-    for candidate in get_fnm_dir_candidates() {
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-
-    None
+    candidates
+        .iter()
+        .find(|c| c.exists() && c.join("node-versions").exists())
+        .cloned()
+        .or_else(|| candidates.into_iter().find(|c| c.exists()))
 }
 
 fn get_fnm_dir_candidates() -> Vec<PathBuf> {
