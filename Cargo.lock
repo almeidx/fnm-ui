@@ -3353,9 +3353,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.105"
+version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "535d180e0ecab6268a3e718bb9fd44db66bbbc256257165fc699dadf70d16fe7"
+checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
 ]
@@ -4650,9 +4650,9 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 
 [[package]]
 name = "unicode-width"
-version = "0.1.14"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
+checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "untrusted"
@@ -4698,7 +4698,7 @@ checksum = "7ba6f5989077681266825251a52748b8c1d8a4ad098cc37e440103d0ea717fc0"
 
 [[package]]
 name = "versi"
-version = "0.1.2-alpha.5"
+version = "0.1.2-alpha.6"
 dependencies = [
  "async-stream",
  "chrono",
@@ -4718,7 +4718,7 @@ dependencies = [
 
 [[package]]
 name = "versi-backend"
-version = "0.1.2-alpha.5"
+version = "0.1.2-alpha.6"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4729,7 +4729,7 @@ dependencies = [
 
 [[package]]
 name = "versi-core"
-version = "0.1.2-alpha.5"
+version = "0.1.2-alpha.6"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4745,7 +4745,7 @@ dependencies = [
 
 [[package]]
 name = "versi-platform"
-version = "0.1.2-alpha.5"
+version = "0.1.2-alpha.6"
 dependencies = [
  "dirs",
  "serde",
@@ -4755,7 +4755,7 @@ dependencies = [
 
 [[package]]
 name = "versi-shell"
-version = "0.1.2-alpha.5"
+version = "0.1.2-alpha.6"
 dependencies = [
  "dirs",
  "serde",
