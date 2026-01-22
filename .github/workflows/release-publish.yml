@@ -184,9 +184,32 @@ jobs:
       - name: Create MSI installer
         run: |
           $VERSION = "${{ needs.version.outputs.version }}"
+
+          # Convert semantic version to MSI-compatible numeric version
+          # MSI requires format X.X.X where each part is 0-65535
+          # 0.1.2-alpha.11 -> 0.1.211 (patch*100 + prerelease)
+          # 0.1.2 -> 0.1.299 (patch*100 + 99 for stable release)
+          if ($VERSION -match '^(\d+)\.(\d+)\.(\d+)-(?:alpha|beta|rc)\.(\d+)$') {
+              $major = $Matches[1]
+              $minor = $Matches[2]
+              $patch = [int]$Matches[3]
+              $prerelease = [int]$Matches[4]
+              $MSI_VERSION = "$major.$minor.$($patch * 100 + $prerelease)"
+          } elseif ($VERSION -match '^(\d+)\.(\d+)\.(\d+)$') {
+              $major = $Matches[1]
+              $minor = $Matches[2]
+              $patch = [int]$Matches[3]
+              $MSI_VERSION = "$major.$minor.$($patch * 100 + 99)"
+          } else {
+              $MSI_VERSION = $VERSION
+          }
+
+          Write-Host "Semantic version: $VERSION"
+          Write-Host "MSI version: $MSI_VERSION"
+
           dotnet tool install --global wix --version 4.0.5
           wix extension add WixToolset.UI.wixext/4.0.5
-          (Get-Content wix/main.wxs) -replace 'VERSION_PLACEHOLDER', $VERSION | Set-Content wix/main.wxs
+          (Get-Content wix/main.wxs) -replace 'VERSION_PLACEHOLDER', $MSI_VERSION | Set-Content wix/main.wxs
           mkdir dist
           wix build wix/main.wxs -ext WixToolset.UI.wixext -o "dist/versi-${VERSION}-windows-x64.msi"
 
