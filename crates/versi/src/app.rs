@@ -947,27 +947,32 @@ impl FnmUi {
         &mut self,
         results: Vec<(versi_shell::ShellType, versi_shell::VerificationResult)>,
     ) {
+        let mut first_detected_options: Option<versi_shell::FnmShellOptions> = None;
+
         if let AppState::Main(state) = &mut self.state {
             if let Some(Modal::Settings(settings_state)) = &mut state.modal {
                 settings_state.checking_shells = false;
                 settings_state.shell_statuses = results
                     .into_iter()
                     .map(|(shell_type, result)| {
-                        let status = match result {
-                            versi_shell::VerificationResult::Configured(_) => {
-                                ShellVerificationStatus::Configured
+                        let (status, detected_options) = match result {
+                            versi_shell::VerificationResult::Configured(options) => {
+                                if first_detected_options.is_none() {
+                                    first_detected_options = options.clone();
+                                }
+                                (ShellVerificationStatus::Configured, options)
                             }
                             versi_shell::VerificationResult::NotConfigured => {
-                                ShellVerificationStatus::NotConfigured
+                                (ShellVerificationStatus::NotConfigured, None)
                             }
                             versi_shell::VerificationResult::ConfigFileNotFound => {
-                                ShellVerificationStatus::NoConfigFile
+                                (ShellVerificationStatus::NoConfigFile, None)
                             }
                             versi_shell::VerificationResult::FunctionalButNotInConfig => {
-                                ShellVerificationStatus::FunctionalButNotInConfig
+                                (ShellVerificationStatus::FunctionalButNotInConfig, None)
                             }
                             versi_shell::VerificationResult::Error(e) => {
-                                ShellVerificationStatus::Error(e)
+                                (ShellVerificationStatus::Error(e), None)
                             }
                         };
                         ShellSetupStatus {
@@ -975,10 +980,17 @@ impl FnmUi {
                             shell_type,
                             status,
                             configuring: false,
+                            detected_options,
                         }
                     })
                     .collect();
             }
+        }
+
+        if let Some(options) = first_detected_options {
+            self.settings.shell_options.use_on_cd = options.use_on_cd;
+            self.settings.shell_options.resolve_engines = options.resolve_engines;
+            self.settings.shell_options.corepack_enabled = options.corepack_enabled;
         }
     }
 

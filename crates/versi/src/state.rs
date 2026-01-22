@@ -301,11 +301,13 @@ impl SettingsModalState {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ShellSetupStatus {
     pub shell_type: versi_shell::ShellType,
     pub shell_name: String,
     pub status: ShellVerificationStatus,
     pub configuring: bool,
+    pub detected_options: Option<versi_shell::FnmShellOptions>,
 }
 
 #[derive(Debug, Clone)]
