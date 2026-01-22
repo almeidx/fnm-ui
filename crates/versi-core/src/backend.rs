@@ -18,7 +18,7 @@ use crate::version::{parse_installed_versions, parse_remote_versions};
 #[derive(Debug, Clone)]
 pub enum Environment {
     Native,
-    Wsl { distro: String, shell: String },
+    Wsl { distro: String, fnm_path: String },
 }
 
 #[derive(Clone)]
@@ -56,18 +56,18 @@ impl FnmBackend {
         self
     }
 
-    pub fn with_wsl(distro: String, shell: String) -> Self {
+    pub fn with_wsl(distro: String, fnm_path: String) -> Self {
         Self {
             info: BackendInfo {
                 name: "fnm",
-                path: PathBuf::from("fnm"),
+                path: PathBuf::from(&fnm_path),
                 version: None,
                 data_dir: None,
                 in_path: true,
             },
             fnm_dir: None,
             node_dist_mirror: None,
-            environment: Environment::Wsl { distro, shell },
+            environment: Environment::Wsl { distro, fnm_path },
         }
     }
 
@@ -88,11 +88,10 @@ impl FnmBackend {
                 cmd.hide_window();
                 cmd
             }
-            Environment::Wsl { distro, shell } => {
+            Environment::Wsl { distro, fnm_path } => {
                 let mut cmd = Command::new("wsl.exe");
-                let fnm_args = args.join(" ");
-                let shell_cmd = format!("fnm {}", fnm_args);
-                cmd.args(["-d", distro, "--", shell, "-l", "-c", &shell_cmd]);
+                cmd.args(["-d", distro, "--", fnm_path]);
+                cmd.args(args);
                 cmd.hide_window();
                 cmd
             }

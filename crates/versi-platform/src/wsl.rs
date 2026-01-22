@@ -40,7 +40,7 @@ pub struct WslDistro {
     pub name: String,
     pub is_default: bool,
     pub version: u8,
-    pub shell: String,
+    pub fnm_path: Option<String>,
 }
 
 #[derive(Error, Debug)]
@@ -70,7 +70,7 @@ pub fn detect_wsl_distros() -> Vec<WslDistro> {
             let mut distros = parse_wsl_list(&stdout);
 
             for distro in &mut distros {
-                distro.shell = get_default_shell(&distro.name);
+                distro.fnm_path = find_fnm_path(&distro.name);
             }
 
             distros
@@ -79,23 +79,39 @@ pub fn detect_wsl_distros() -> Vec<WslDistro> {
     }
 }
 
-fn get_default_shell(distro: &str) -> String {
+fn find_fnm_path(distro: &str) -> Option<String> {
+    // Check common fnm installation locations directly
+    let common_paths = [
+        "$HOME/.local/share/fnm/fnm",
+        "$HOME/.cargo/bin/fnm",
+        "/usr/local/bin/fnm",
+        "/usr/bin/fnm",
+        "$HOME/.fnm/fnm",
+    ];
+
+    // Build a command that checks each path and returns the first one that exists
+    let check_cmd = common_paths
+        .iter()
+        .map(|p| format!("[ -x {} ] && echo {}", p, p))
+        .collect::<Vec<_>>()
+        .join(" || ");
+
     let output = Command::new("wsl.exe")
-        .args(["-d", distro, "--", "sh", "-c", "echo $SHELL"])
+        .args(["-d", distro, "--", "sh", "-c", &check_cmd])
         .hide_window()
         .output();
 
     match output {
         Ok(output) if output.status.success() => {
-            let shell = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !shell.is_empty() {
-                return shell;
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return Some(path);
             }
         }
         _ => {}
     }
 
-    "sh".to_string()
+    None
 }
 
 fn decode_wsl_output(bytes: &[u8]) -> String {
@@ -134,14 +150,14 @@ fn parse_wsl_list(output: &str) -> Vec<WslDistro> {
                     name: parts[0].to_string(),
                     is_default,
                     version: parts[2].parse().unwrap_or(2),
-                    shell: String::new(),
+                    fnm_path: None,
                 })
             } else if !parts.is_empty() {
                 Some(WslDistro {
                     name: parts[0].to_string(),
                     is_default,
                     version: 2,
-                    shell: String::new(),
+                    fnm_path: None,
                 })
             } else {
                 None

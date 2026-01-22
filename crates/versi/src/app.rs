@@ -1176,10 +1176,13 @@ async fn initialize() -> InitResult {
     {
         use versi_platform::detect_wsl_distros;
         for distro in detect_wsl_distros() {
-            environments.push(EnvironmentId::Wsl {
-                distro: distro.name,
-                shell: distro.shell,
-            });
+            // Only include distros where fnm was found
+            if let Some(fnm_path) = distro.fnm_path {
+                environments.push(EnvironmentId::Wsl {
+                    distro: distro.name,
+                    fnm_path,
+                });
+            }
         }
     }
 
@@ -1205,8 +1208,8 @@ fn create_backend_for_environment(env_id: &EnvironmentId) -> Box<dyn VersionMana
             };
             Box::new(backend)
         }
-        EnvironmentId::Wsl { distro, shell } => {
-            Box::new(FnmBackend::with_wsl(distro.clone(), shell.clone()))
+        EnvironmentId::Wsl { distro, fnm_path } => {
+            Box::new(FnmBackend::with_wsl(distro.clone(), fnm_path.clone()))
         }
     }
 }

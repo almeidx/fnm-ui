@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EnvironmentId {
     Native,
-    Wsl { distro: String, shell: String },
+    Wsl { distro: String, fnm_path: String },
 }
 
 impl EnvironmentId {
@@ -44,10 +44,10 @@ impl Environment {
         }
     }
 
-    pub fn wsl(distro: String, shell: String) -> Self {
+    pub fn wsl(distro: String, fnm_path: String) -> Self {
         let id = EnvironmentId::Wsl {
             distro: distro.clone(),
-            shell,
+            fnm_path,
         };
         Self {
             name: id.display_name(),
