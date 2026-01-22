@@ -214,10 +214,12 @@ impl VersionManager for FnmBackend {
             .ok_or_else(|| BackendError::IoError("Failed to capture stderr".to_string()))?;
 
         let tx_stderr = tx.clone();
+        let (stderr_tx, mut stderr_rx) = mpsc::unbounded_channel::<String>();
         tokio::spawn(async move {
             let mut reader = BufReader::new(stderr).lines();
 
             while let Ok(Some(line)) = reader.next_line().await {
+                let _ = stderr_tx.send(line.clone());
                 if let Some(progress) = parse_progress_line(&line) {
                     let _ = tx_stderr.send(progress);
                 }
@@ -227,6 +229,14 @@ impl VersionManager for FnmBackend {
         let tx_final = tx;
         tokio::spawn(async move {
             let status = child.wait().await;
+
+            // Collect any stderr content for error reporting
+            let mut stderr_lines = Vec::new();
+            while let Ok(line) = stderr_rx.try_recv() {
+                stderr_lines.push(line);
+            }
+            let stderr_content = stderr_lines.join("\n");
+
             match status {
                 Ok(s) if s.success() => {
                     let _ = tx_final.send(InstallProgress {
@@ -238,6 +248,11 @@ impl VersionManager for FnmBackend {
                 _ => {
                     let _ = tx_final.send(InstallProgress {
                         phase: InstallPhase::Failed,
+                        error: if stderr_content.is_empty() {
+                            None
+                        } else {
+                            Some(stderr_content)
+                        },
                         ..Default::default()
                     });
                 }

@@ -143,6 +143,7 @@ pub struct InstallProgress {
     pub total_bytes: Option<u64>,
     pub speed: Option<String>,
     pub eta: Option<String>,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

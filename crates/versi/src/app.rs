@@ -591,9 +591,14 @@ impl FnmUi {
                     match backend.install_with_progress(&version_clone).await {
                         Ok(mut rx) => {
                             let mut final_success = false;
+                            let mut last_error: Option<String> = None;
                             while let Some(progress) = rx.recv().await {
                                 let is_complete = progress.phase == versi_core::InstallPhase::Complete;
                                 let is_failed = progress.phase == versi_core::InstallPhase::Failed;
+
+                                if is_failed {
+                                    last_error = progress.error.clone();
+                                }
 
                                 yield Message::InstallProgress {
                                     version: version_clone.clone(),
@@ -611,7 +616,7 @@ impl FnmUi {
                             yield Message::InstallComplete {
                                 version: version_clone.clone(),
                                 success: final_success,
-                                error: if final_success { None } else { Some("Installation failed".to_string()) },
+                                error: if final_success { None } else { last_error.or_else(|| Some("Installation failed".to_string())) },
                             };
                         }
                         Err(e) => {

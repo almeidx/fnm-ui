@@ -8,7 +8,6 @@ use crate::settings::AppSettings;
 use crate::state::{MainState, Modal, Operation, SettingsModalState, ShellVerificationStatus};
 use crate::theme::{is_system_dark, styles};
 use crate::widgets::{install_modal, toast_container, version_list};
-use versi_platform::EnvironmentId;
 
 pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, Message> {
     let header = header_view(state);
@@ -234,9 +233,8 @@ fn modal_overlay<'a>(
 fn settings_modal_view<'a>(
     modal_state: &'a SettingsModalState,
     settings: &'a AppSettings,
-    state: &'a MainState,
+    _state: &'a MainState,
 ) -> Element<'a, Message> {
-    let is_wsl = matches!(state.active_environment().id, EnvironmentId::Wsl { .. });
     let mut content = column![
         row![
             text("Settings").size(20),
@@ -310,15 +308,7 @@ fn settings_modal_view<'a>(
     content = content.push(text("Shell Setup").size(13));
     content = content.push(Space::new().height(8));
 
-    if is_wsl {
-        content = content.push(
-            text(
-                "Shell configuration for WSL environments should be done inside the WSL terminal.",
-            )
-            .size(12)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
-        );
-    } else if modal_state.checking_shells {
+    if modal_state.checking_shells {
         content = content.push(text("Checking shell configuration...").size(12));
     } else if modal_state.shell_statuses.is_empty() {
         content = content.push(text("No shells detected").size(12));
