@@ -90,14 +90,10 @@ impl FnmBackend {
             }
             Environment::Wsl { distro } => {
                 let mut cmd = Command::new("wsl.exe");
-                // Source common shell config files to ensure fnm is in PATH,
-                // then run the fnm command
+                // Use sh to expand $SHELL and run the user's default shell as a login shell
                 let fnm_args = args.join(" ");
-                let shell_cmd = format!(
-                    "source ~/.profile 2>/dev/null; source ~/.bashrc 2>/dev/null; fnm {}",
-                    fnm_args
-                );
-                cmd.args(["-d", distro, "--", "bash", "-c", &shell_cmd]);
+                let shell_cmd = format!("exec $SHELL -l -c 'fnm {}'", fnm_args);
+                cmd.args(["-d", distro, "--", "sh", "-c", &shell_cmd]);
                 cmd.hide_window();
                 cmd
             }
