@@ -4,7 +4,8 @@ use std::path::PathBuf;
 use tokio::process::Command;
 
 #[cfg(windows)]
-use tokio::os::windows::process::CommandExt;
+#[allow(unused_imports)]
+use std::os::windows::process::CommandExt;
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
