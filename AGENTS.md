@@ -44,7 +44,8 @@ versi/
 │   └── versi-platform/           # Platform abstractions
 │       └── src/
 │           ├── paths.rs          # Platform-native paths
-│           └── environment.rs    # Environment abstraction
+│           ├── environment.rs    # Environment abstraction
+│           └── wsl.rs            # WSL distro detection (Windows)
 ```
 
 ## Architecture
@@ -183,9 +184,10 @@ Key external crates:
 
 ### WSL (Windows Subsystem for Linux)
 - Accessed via Windows app's multi-environment support
-- Uses `wsl.exe --list` for distro detection
-- Each distro treated as separate environment
-- Commands executed via `wsl.exe -d <distro> fnm ...`
+- Uses `wsl.exe --list --running` to detect running distros (avoids starting WSL)
+- Detects fnm binary path by checking common locations (`~/.local/share/fnm/fnm`, `~/.cargo/bin/fnm`, etc.)
+- Only shows WSL tabs for distros where fnm is found
+- Commands executed directly via `wsl.exe -d <distro> /path/to/fnm ...` (no shell needed)
 
 ### Linux
 - Native x64 and ARM64 binaries
