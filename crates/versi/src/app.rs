@@ -254,7 +254,21 @@ impl FnmUi {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        iced::time::every(std::time::Duration::from_secs(1)).map(|_| Message::Tick)
+        let tick = iced::time::every(std::time::Duration::from_secs(1)).map(|_| Message::Tick);
+
+        let keyboard = iced::event::listen_with(|event, _status, _id| {
+            if let iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
+                key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape),
+                ..
+            }) = event
+            {
+                Some(Message::CloseModal)
+            } else {
+                None
+            }
+        });
+
+        Subscription::batch([tick, keyboard])
     }
 
     fn handle_initialized(&mut self, result: InitResult) -> Task<Message> {

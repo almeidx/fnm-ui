@@ -15,9 +15,8 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
         &state.search_query,
         &state.available_versions.versions,
     );
-    let operation_status = operation_status_view(state);
 
-    let main_content = column![header, search_bar, version_list, operation_status,]
+    let main_content = column![header, search_bar, version_list]
         .spacing(20)
         .padding(32);
 
@@ -27,7 +26,23 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
         main_content.into()
     };
 
-    toast_container::view(with_modal, &state.toasts)
+    let with_toasts = toast_container::view(with_modal, &state.toasts);
+
+    if let Some(operation) = operation_status_view(state) {
+        let operation_overlay = container(operation)
+            .padding(16)
+            .align_x(iced::alignment::Horizontal::Left)
+            .align_y(iced::alignment::Vertical::Bottom)
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        iced::widget::stack![with_toasts, operation_overlay]
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    } else {
+        with_toasts
+    }
 }
 
 fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
@@ -85,48 +100,48 @@ fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         .into()
 }
 
-fn operation_status_view<'a>(state: &'a MainState) -> Element<'a, Message> {
-    if let Some(op) = &state.current_operation {
-        match op {
-            Operation::Install { version, progress } => {
-                let phase_text = match progress.phase {
-                    versi_core::InstallPhase::Starting => "Preparing...",
-                    versi_core::InstallPhase::Downloading => "Downloading...",
-                    versi_core::InstallPhase::Extracting => "Extracting...",
-                    versi_core::InstallPhase::Installing => "Installing...",
-                    versi_core::InstallPhase::Complete => "Complete!",
-                    versi_core::InstallPhase::Failed => "Failed",
-                };
+fn operation_status_view<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
+    let op = state.current_operation.as_ref()?;
 
-                container(
-                    column![
-                        text(format!("Installing Node {}", version)).size(14),
-                        text(phase_text).size(12),
-                    ]
-                    .spacing(8)
-                    .padding(20),
-                )
-                .style(styles::card_container)
-                .into()
-            }
-            Operation::Uninstall { version } => container(
-                row![text(format!("Removing Node {}...", version)).size(14),]
-                    .spacing(8)
-                    .padding(20),
+    let element = match op {
+        Operation::Install { version, progress } => {
+            let phase_text = match progress.phase {
+                versi_core::InstallPhase::Starting => "Preparing...",
+                versi_core::InstallPhase::Downloading => "Downloading...",
+                versi_core::InstallPhase::Extracting => "Extracting...",
+                versi_core::InstallPhase::Installing => "Installing...",
+                versi_core::InstallPhase::Complete => "Complete!",
+                versi_core::InstallPhase::Failed => "Failed",
+            };
+
+            container(
+                column![
+                    text(format!("Installing Node {}", version)).size(14),
+                    text(phase_text).size(12),
+                ]
+                .spacing(8)
+                .padding(20),
             )
             .style(styles::card_container)
-            .into(),
-            Operation::SetDefault { version, .. } => container(
-                row![text(format!("Setting default to Node {}...", version)).size(14),]
-                    .spacing(8)
-                    .padding(20),
-            )
-            .style(styles::card_container)
-            .into(),
+            .into()
         }
-    } else {
-        Space::new().into()
-    }
+        Operation::Uninstall { version } => container(
+            row![text(format!("Removing Node {}...", version)).size(14),]
+                .spacing(8)
+                .padding(20),
+        )
+        .style(styles::card_container)
+        .into(),
+        Operation::SetDefault { version, .. } => container(
+            row![text(format!("Setting default to Node {}...", version)).size(14),]
+                .spacing(8)
+                .padding(20),
+        )
+        .style(styles::card_container)
+        .into(),
+    };
+
+    Some(element)
 }
 
 fn modal_overlay<'a>(

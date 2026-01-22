@@ -12,29 +12,19 @@ pub fn view<'a>(content: Element<'a, Message>, toasts: &'a [Toast]) -> Element<'
     let toast_elements: Vec<Element<Message>> =
         toasts.iter().map(|toast| toast_view(toast)).collect();
 
-    let toast_column = container(column(toast_elements).spacing(8).align_x(Alignment::End))
+    let toast_column = column(toast_elements).spacing(8);
+
+    let toast_overlay = container(toast_column)
         .padding(16)
-        .width(Length::Shrink);
-
-    let toast_layer = container(toast_column)
-        .width(Length::Shrink)
-        .height(Length::Shrink)
-        .style(|_theme| container::Style {
-            background: None,
-            ..Default::default()
-        });
-
-    let positioned_toasts = container(toast_layer)
-        .width(Length::Fill)
-        .height(Length::Fill)
         .align_x(iced::alignment::Horizontal::Right)
         .align_y(iced::alignment::Vertical::Bottom)
-        .style(|_theme| container::Style {
-            background: None,
-            ..Default::default()
-        });
+        .width(Length::Fill)
+        .height(Length::Fill);
 
-    iced::widget::stack![content, positioned_toasts].into()
+    iced::widget::stack![content, toast_overlay]
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
 }
 
 fn toast_view<'a>(toast: &'a Toast) -> Element<'a, Message> {
