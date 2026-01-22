@@ -98,6 +98,8 @@ pub enum Message {
     AppUpdateChecked(Option<AppUpdate>),
     OpenAppUpdate,
     DismissAppUpdate,
+
+    OpenLink(String),
 }
 
 #[derive(Debug, Clone)]

@@ -1,4 +1,6 @@
-use iced::widget::{button, column, container, mouse_area, row, text, text_input, toggler, Space};
+use iced::widget::{
+    button, column, container, mouse_area, row, scrollable, text, text_input, toggler, Space,
+};
 use iced::{Alignment, Element, Length};
 
 use crate::message::Message;
@@ -366,7 +368,36 @@ fn settings_modal_view<'a>(
         }
     }
 
-    content.into()
+    content = content.push(Space::new().height(24));
+    content = content.push(text("About").size(13));
+    content = content.push(Space::new().height(8));
+    content = content.push(text(format!("Versi v{}", env!("CARGO_PKG_VERSION"))).size(14));
+    content = content.push(Space::new().height(4));
+    content = content.push(
+        text("A native GUI for fnm (Fast Node Manager)")
+            .size(12)
+            .color(iced::Color::from_rgb8(142, 142, 147)),
+    );
+    content = content.push(Space::new().height(12));
+    content = content.push(
+        row![
+            button(text("GitHub").size(12))
+                .on_press(Message::OpenLink(
+                    "https://github.com/almeidx/versi".to_string()
+                ))
+                .style(styles::secondary_button)
+                .padding([6, 12]),
+            button(text("fnm").size(12))
+                .on_press(Message::OpenLink(
+                    "https://github.com/Schniz/fnm".to_string()
+                ))
+                .style(styles::secondary_button)
+                .padding([6, 12]),
+        ]
+        .spacing(8),
+    );
+
+    scrollable(content).height(Length::Shrink).into()
 }
 
 fn confirm_uninstall_view<'a>(version: &'a str) -> Element<'a, Message> {

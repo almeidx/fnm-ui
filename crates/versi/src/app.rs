@@ -233,6 +233,12 @@ impl FnmUi {
                 }
                 Task::none()
             }
+            Message::OpenLink(url) => Task::perform(
+                async move {
+                    let _ = open::that(&url);
+                },
+                |_| Message::NoOp,
+            ),
             Message::EnvironmentSelected(idx) => self.handle_environment_selected(idx),
             _ => Task::none(),
         }
