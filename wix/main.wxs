@@ -14,6 +14,8 @@
 
         <MediaTemplate EmbedCab="yes"/>
 
+        <Icon Id="AppIcon.ico" SourceFile="assets\icon.ico"/>
+
         <StandardDirectory Id="LocalAppDataFolder">
             <Directory Id="INSTALLFOLDER" Name="Versi">
                 <Component Id="MainExecutable" Guid="*">
@@ -32,7 +34,6 @@
                         Target="[INSTALLFOLDER]versi.exe"
                         WorkingDirectory="INSTALLFOLDER"
                         Icon="AppIcon.ico"/>
-                    <Icon Id="AppIcon.ico" SourceFile="assets\icon.ico"/>
                     <RemoveFolder Id="RemoveStartMenuFolder" On="uninstall"/>
                     <RegistryValue
                         Root="HKCU"
