@@ -61,7 +61,7 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
 fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     let env = state.active_environment();
 
-    let subtitle = match (&env.default_version, &state.fnm_version) {
+    let subtitle = match (&env.default_version, &env.fnm_version) {
         (Some(v), Some(fnm_v)) => format!("Default: {} · fnm {}", v, fnm_v),
         (Some(v), None) => format!("Default: {}", v),
         (None, Some(fnm_v)) => format!("fnm {}", fnm_v),

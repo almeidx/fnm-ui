@@ -398,14 +398,12 @@ impl FnmUi {
         let environments: Vec<EnvironmentState> = result
             .environments
             .iter()
-            .map(|env_id| EnvironmentState::new(env_id.clone()))
+            .map(|env_info| {
+                EnvironmentState::new(env_info.id.clone(), env_info.fnm_version.clone())
+            })
             .collect();
 
-        self.state = AppState::Main(MainState::new_with_environments(
-            backend,
-            environments,
-            result.fnm_version.clone(),
-        ));
+        self.state = AppState::Main(MainState::new_with_environments(backend, environments));
 
         let load_backend = FnmBackend::new(fnm_path, result.fnm_version, fnm_dir.clone());
         let load_backend = if let Some(dir) = fnm_dir {
@@ -1290,7 +1288,7 @@ impl FnmUi {
 
     fn handle_check_for_fnm_update(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &self.state {
-            if let Some(version) = &state.fnm_version {
+            if let Some(version) = &state.active_environment().fnm_version {
                 let version = version.clone();
                 return Task::perform(
                     async move { check_for_fnm_update(&version).await },
@@ -1309,6 +1307,8 @@ impl FnmUi {
 }
 
 async fn initialize() -> InitResult {
+    use crate::message::EnvironmentInfo;
+
     info!("Initializing application...");
 
     debug!("Detecting fnm installation...");
@@ -1319,7 +1319,10 @@ async fn initialize() -> InitResult {
     );
 
     #[allow(unused_mut)]
-    let mut environments = vec![EnvironmentId::Native];
+    let mut environments = vec![EnvironmentInfo {
+        id: EnvironmentId::Native,
+        fnm_version: detection.version.clone(),
+    }];
 
     #[cfg(windows)]
     {
@@ -1337,9 +1340,13 @@ async fn initialize() -> InitResult {
                     "Adding WSL environment: {} (fnm at {})",
                     distro.name, fnm_path
                 );
-                environments.push(EnvironmentId::Wsl {
-                    distro: distro.name,
-                    fnm_path,
+                let fnm_version = get_wsl_fnm_version(&distro.name, &fnm_path).await;
+                environments.push(EnvironmentInfo {
+                    id: EnvironmentId::Wsl {
+                        distro: distro.name,
+                        fnm_path,
+                    },
+                    fnm_version,
                 });
             } else {
                 debug!("Skipping WSL distro {} (no fnm found)", distro.name);
@@ -1361,6 +1368,30 @@ async fn initialize() -> InitResult {
         fnm_dir: detection.fnm_dir,
         fnm_version: detection.version,
         environments,
+    }
+}
+
+#[cfg(windows)]
+async fn get_wsl_fnm_version(distro: &str, fnm_path: &str) -> Option<String> {
+    use tokio::process::Command;
+
+    let output = Command::new("wsl.exe")
+        .args(["-d", distro, "--", fnm_path, "--version"])
+        .output()
+        .await
+        .ok()?;
+
+    if output.status.success() {
+        let version_str = String::from_utf8_lossy(&output.stdout);
+        let version = version_str
+            .trim()
+            .strip_prefix("fnm ")
+            .unwrap_or(version_str.trim())
+            .to_string();
+        debug!("WSL {} fnm version: {}", distro, version);
+        Some(version)
+    } else {
+        None
     }
 }
 

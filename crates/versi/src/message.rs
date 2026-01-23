@@ -120,5 +120,11 @@ pub struct InitResult {
     pub fnm_path: Option<PathBuf>,
     pub fnm_dir: Option<PathBuf>,
     pub fnm_version: Option<String>,
-    pub environments: Vec<EnvironmentId>,
+    pub environments: Vec<EnvironmentInfo>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EnvironmentInfo {
+    pub id: EnvironmentId,
+    pub fnm_version: Option<String>,
 }

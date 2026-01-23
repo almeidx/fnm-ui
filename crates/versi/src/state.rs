@@ -69,7 +69,6 @@ pub struct MainState {
     pub search_query: String,
     pub backend: Box<dyn VersionManager>,
     pub app_update: Option<AppUpdate>,
-    pub fnm_version: Option<String>,
     pub fnm_update: Option<FnmUpdate>,
 }
 
@@ -85,7 +84,6 @@ impl std::fmt::Debug for MainState {
             .field("search_query", &self.search_query)
             .field("backend", &self.backend.name())
             .field("app_update", &self.app_update)
-            .field("fnm_version", &self.fnm_version)
             .field("fnm_update", &self.fnm_update)
             .finish()
     }
@@ -94,7 +92,7 @@ impl std::fmt::Debug for MainState {
 impl MainState {
     pub fn new(backend: Box<dyn VersionManager>, fnm_version: Option<String>) -> Self {
         Self {
-            environments: vec![EnvironmentState::new(EnvironmentId::Native)],
+            environments: vec![EnvironmentState::new(EnvironmentId::Native, fnm_version)],
             active_environment_idx: 0,
             available_versions: VersionCache::new(),
             current_operation: None,
@@ -103,7 +101,6 @@ impl MainState {
             search_query: String::new(),
             backend,
             app_update: None,
-            fnm_version,
             fnm_update: None,
         }
     }
@@ -111,7 +108,6 @@ impl MainState {
     pub fn new_with_environments(
         backend: Box<dyn VersionManager>,
         environments: Vec<EnvironmentState>,
-        fnm_version: Option<String>,
     ) -> Self {
         Self {
             environments,
@@ -123,7 +119,6 @@ impl MainState {
             search_query: String::new(),
             backend,
             app_update: None,
-            fnm_version,
             fnm_update: None,
         }
     }
@@ -167,12 +162,13 @@ pub struct EnvironmentState {
     pub installed_versions: Vec<InstalledVersion>,
     pub version_groups: Vec<VersionGroup>,
     pub default_version: Option<NodeVersion>,
+    pub fnm_version: Option<String>,
     pub loading: bool,
     pub error: Option<String>,
 }
 
 impl EnvironmentState {
-    pub fn new(id: EnvironmentId) -> Self {
+    pub fn new(id: EnvironmentId, fnm_version: Option<String>) -> Self {
         let name = id.display_name();
         Self {
             id,
@@ -180,6 +176,7 @@ impl EnvironmentState {
             installed_versions: Vec::new(),
             version_groups: Vec::new(),
             default_version: None,
+            fnm_version,
             loading: true,
             error: None,
         }
