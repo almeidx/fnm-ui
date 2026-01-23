@@ -125,9 +125,9 @@ fn find_fnm_path(distro: &str) -> Option<String> {
 
     let check_cmd = common_paths
         .iter()
-        .map(|p| format!("[ -x {} ] && echo {}", p, p))
+        .map(|p| format!("[ -x {} ] && {{ echo {}; exit 0; }}", p, p))
         .collect::<Vec<_>>()
-        .join(" || ");
+        .join("; ");
 
     debug!(
         "Running fnm path detection for {}: wsl.exe -d {} -- sh -c \"{}\"",
@@ -155,10 +155,15 @@ fn find_fnm_path(distro: &str) -> Option<String> {
             );
 
             if output.status.success() {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path.is_empty() {
-                    debug!("fnm found at: {}", path);
-                    return Some(path);
+                let path = String::from_utf8_lossy(&output.stdout)
+                    .lines()
+                    .next()
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty());
+
+                if let Some(ref p) = path {
+                    debug!("fnm found at: {}", p);
+                    return path;
                 }
                 debug!("fnm path detection returned empty output");
             } else {
