@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.15] - 2026-01-23
+
+- feat: add debug logging with settings toggle
+- docs: update WSL documentation to reflect new implementation
+- refactor(wsl): detect fnm binary path directly instead of using shell
+- deps: Update Rust crate winresource to 0.1.29 (#25)
+
+
 ## [0.1.2-alpha.14] - 2026-01-22
 
 - refactor(wsl): detect and cache user's default shell
