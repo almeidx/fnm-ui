@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.16] - 2026-01-23
+
+- chore: fix clippy warning and apply cargo fmt
+- feat: enable/disable debug logging without restart
+- feat: add log file stats, clear button, and reveal in folder
+- fix: recreate log file if deleted while app is running
+- fix: add right padding to settings modal for scrollbar
+- feat: click to copy debug log path to clipboard
+- fix(wsl): return only first found fnm path instead of all matches
+
+
 ## [0.1.2-alpha.15] - 2026-01-23
 
 - feat: add debug logging with settings toggle
