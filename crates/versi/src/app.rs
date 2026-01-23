@@ -185,9 +185,12 @@ impl FnmUi {
                 self.update_shell_flags()
             }
             Message::DebugLoggingToggled(value) => {
-                info!("Debug logging toggled: {}", value);
                 self.settings.debug_logging = value;
                 let _ = self.settings.save();
+                crate::logging::set_logging_enabled(value);
+                if value {
+                    info!("Debug logging enabled");
+                }
                 Task::none()
             }
             Message::CopyToClipboard(text) => iced::clipboard::write(text),

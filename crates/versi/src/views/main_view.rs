@@ -435,13 +435,6 @@ fn settings_modal_view<'a>(
         ]
         .spacing(8),
     );
-    content = content.push(Space::new().height(4));
-    content = content.push(
-        text("Restart required to enable/disable")
-            .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
-    );
-
     content = content.push(Space::new().height(24));
     content = content.push(text("About").size(13));
     content = content.push(Space::new().height(8));

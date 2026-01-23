@@ -61,10 +61,6 @@ impl Write for ResilientFileWriter {
 }
 
 pub fn init_logging(debug_enabled: bool) {
-    if !debug_enabled {
-        return;
-    }
-
     let paths = AppPaths::new();
     let _ = paths.ensure_dirs();
     let log_path = paths.log_file();
@@ -101,5 +97,17 @@ pub fn init_logging(debug_enabled: bool) {
         }
     }
 
-    log::info!("Debug logging initialized, log file: {:?}", log_path);
+    set_logging_enabled(debug_enabled);
+
+    if debug_enabled {
+        log::info!("Debug logging initialized, log file: {:?}", log_path);
+    }
+}
+
+pub fn set_logging_enabled(enabled: bool) {
+    if enabled {
+        log::set_max_level(log::LevelFilter::Debug);
+    } else {
+        log::set_max_level(log::LevelFilter::Off);
+    }
 }
