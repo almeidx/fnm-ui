@@ -446,7 +446,9 @@ fn settings_modal_view<'a>(
         .spacing(8),
     );
 
-    scrollable(content).height(Length::Shrink).into()
+    scrollable(content.padding(iced::Padding::default().right(12)))
+        .height(Length::Shrink)
+        .into()
 }
 
 fn confirm_uninstall_view<'a>(version: &'a str) -> Element<'a, Message> {
