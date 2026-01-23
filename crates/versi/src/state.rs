@@ -315,6 +315,7 @@ pub enum Modal {
 pub struct SettingsModalState {
     pub shell_statuses: Vec<ShellSetupStatus>,
     pub checking_shells: bool,
+    pub log_file_size: Option<u64>,
 }
 
 impl SettingsModalState {
@@ -322,6 +323,7 @@ impl SettingsModalState {
         Self {
             shell_statuses: Vec::new(),
             checking_shells: false,
+            log_file_size: None,
         }
     }
 }

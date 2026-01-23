@@ -399,6 +399,13 @@ fn settings_modal_view<'a>(
         let paths = versi_platform::AppPaths::new();
         paths.log_file().to_string_lossy().to_string()
     };
+    let log_size_text = match modal_state.log_file_size {
+        Some(0) => "empty".to_string(),
+        Some(size) if size < 1024 => format!("{} B", size),
+        Some(size) if size < 1024 * 1024 => format!("{:.1} KB", size as f64 / 1024.0),
+        Some(size) => format!("{:.1} MB", size as f64 / (1024.0 * 1024.0)),
+        None => "not found".to_string(),
+    };
     content = content.push(
         row![
             text("Log file: ")
@@ -408,9 +415,27 @@ fn settings_modal_view<'a>(
                 .on_press(Message::CopyToClipboard(log_path))
                 .style(styles::link_button)
                 .padding(0),
+            text(format!(" ({})", log_size_text))
+                .size(11)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
         ]
         .align_y(Alignment::Center),
     );
+    content = content.push(Space::new().height(8));
+    content = content.push(
+        row![
+            button(text("Show in Folder").size(11))
+                .on_press(Message::RevealLogFile)
+                .style(styles::secondary_button)
+                .padding([4, 10]),
+            button(text("Clear Log").size(11))
+                .on_press(Message::ClearLogFile)
+                .style(styles::secondary_button)
+                .padding([4, 10]),
+        ]
+        .spacing(8),
+    );
+    content = content.push(Space::new().height(4));
     content = content.push(
         text("Restart required to enable/disable")
             .size(11)

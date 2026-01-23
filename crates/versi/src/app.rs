@@ -150,7 +150,15 @@ impl FnmUi {
                     settings_state.checking_shells = true;
                     state.modal = Some(Modal::Settings(settings_state));
                 }
-                self.handle_check_shell_setup()
+                let shell_task = self.handle_check_shell_setup();
+                let log_stats_task = Task::perform(
+                    async {
+                        let log_path = versi_platform::AppPaths::new().log_file();
+                        std::fs::metadata(&log_path).ok().map(|m| m.len())
+                    },
+                    Message::LogFileStatsLoaded,
+                );
+                Task::batch([shell_task, log_stats_task])
             }
             Message::CloseSettings => {
                 self.handle_close_modal();
@@ -183,6 +191,40 @@ impl FnmUi {
                 Task::none()
             }
             Message::CopyToClipboard(text) => iced::clipboard::write(text),
+            Message::ClearLogFile => {
+                let log_path = versi_platform::AppPaths::new().log_file();
+                Task::perform(
+                    async move {
+                        if log_path.exists() {
+                            let _ = std::fs::write(&log_path, "");
+                        }
+                    },
+                    |_| Message::LogFileCleared,
+                )
+            }
+            Message::LogFileCleared => {
+                if let AppState::Main(state) = &mut self.state {
+                    if let Some(Modal::Settings(settings_state)) = &mut state.modal {
+                        settings_state.log_file_size = Some(0);
+                    }
+                }
+                Task::none()
+            }
+            Message::RevealLogFile => {
+                let log_path = versi_platform::AppPaths::new().log_file();
+                Task::perform(
+                    async move { reveal_in_file_manager(&log_path) },
+                    |_| Message::NoOp,
+                )
+            }
+            Message::LogFileStatsLoaded(size) => {
+                if let AppState::Main(state) = &mut self.state {
+                    if let Some(Modal::Settings(settings_state)) = &mut state.modal {
+                        settings_state.log_file_size = size;
+                    }
+                }
+                Task::none()
+            }
             Message::ShellFlagsUpdated(_) => Task::none(),
             Message::CheckShellSetup => self.handle_check_shell_setup(),
             Message::ShellSetupChecked(results) => {
@@ -1335,6 +1377,31 @@ fn create_backend_for_environment(env_id: &EnvironmentId) -> Box<dyn VersionMana
         }
         EnvironmentId::Wsl { distro, fnm_path } => {
             Box::new(FnmBackend::with_wsl(distro.clone(), fnm_path.clone()))
+        }
+    }
+}
+
+fn reveal_in_file_manager(path: &std::path::Path) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open")
+            .args(["-R", &path.to_string_lossy()])
+            .spawn();
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("explorer")
+            .args(["/select,", &path.to_string_lossy()])
+            .spawn();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(parent) = path.parent() {
+            let _ = std::process::Command::new("xdg-open")
+                .arg(parent)
+                .spawn();
         }
     }
 }
