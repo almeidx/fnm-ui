@@ -16,7 +16,7 @@ versi-platform = { path = "../versi-platform" }
 iced = { version = "0.14.0", features = ["tokio", "image"] }
 
 tray-icon = "0.21.3"
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25.9", default-features = false, features = ["png"] }
 dark-light = "2.0"
 
 tokio.workspace = true
