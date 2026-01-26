@@ -1,5 +1,5 @@
 use iced::theme::Palette;
-use iced::{color, Theme};
+use iced::{Theme, color};
 
 pub fn light_theme() -> Theme {
     Theme::custom(

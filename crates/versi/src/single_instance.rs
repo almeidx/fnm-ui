@@ -1,7 +1,7 @@
 #[cfg(windows)]
 mod windows_impl {
     use std::ptr;
-    use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE};
+    use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE};
     use windows_sys::Win32::System::Threading::CreateMutexA;
 
     const MUTEX_NAME: &[u8] = b"Global\\VersiAppMutex\0";
@@ -40,7 +40,7 @@ mod windows_impl {
 
     pub fn bring_existing_window_to_front() {
         use windows_sys::Win32::UI::WindowsAndMessaging::{
-            FindWindowA, SetForegroundWindow, ShowWindow, SW_RESTORE,
+            FindWindowA, SW_RESTORE, SetForegroundWindow, ShowWindow,
         };
 
         unsafe {
@@ -67,6 +67,6 @@ mod other_impl {
 }
 
 #[cfg(not(windows))]
-pub use other_impl::{bring_existing_window_to_front, SingleInstance};
+pub use other_impl::{SingleInstance, bring_existing_window_to_front};
 #[cfg(windows)]
-pub use windows_impl::{bring_existing_window_to_front, SingleInstance};
+pub use windows_impl::{SingleInstance, bring_existing_window_to_front};

@@ -10,7 +10,7 @@ members = [
 
 [workspace.package]
 version = "0.1.2-alpha.18"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 repository = "https://github.com/almeidx/versi"
 

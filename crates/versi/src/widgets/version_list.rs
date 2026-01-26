@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use iced::widget::{button, column, container, row, scrollable, text, Space};
+use iced::widget::{Space, button, column, container, row, scrollable, text};
 use iced::{Alignment, Element, Length};
 
 use versi_core::{InstalledVersion, NodeVersion, ReleaseSchedule, RemoteVersion, VersionGroup};

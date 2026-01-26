@@ -10,11 +10,11 @@ pub mod commands;
 pub use commands::HideWindow;
 
 pub use backend::{Environment, FnmBackend};
-pub use detection::{detect_fnm, detect_fnm_dir, install_fnm, FnmDetection};
+pub use detection::{FnmDetection, detect_fnm, detect_fnm_dir, install_fnm};
 pub use error::FnmError;
 pub use progress::parse_progress_line;
-pub use schedule::{fetch_release_schedule, ReleaseSchedule};
-pub use update::{check_for_fnm_update, check_for_update, AppUpdate, FnmUpdate};
+pub use schedule::{ReleaseSchedule, fetch_release_schedule};
+pub use update::{AppUpdate, FnmUpdate, check_for_fnm_update, check_for_update};
 pub use version::{parse_installed_versions, parse_remote_versions};
 
 pub use versi_backend::{

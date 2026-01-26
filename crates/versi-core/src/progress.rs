@@ -59,11 +59,10 @@ pub fn parse_progress_line(line: &str) -> Option<InstallProgress> {
 
 fn extract_percentage(line: &str) -> Option<f32> {
     for part in line.split_whitespace() {
-        if part.ends_with('%') {
-            if let Ok(percent) = part.trim_end_matches('%').parse::<f32>() {
+        if part.ends_with('%')
+            && let Ok(percent) = part.trim_end_matches('%').parse::<f32>() {
                 return Some(percent);
             }
-        }
     }
     None
 }
