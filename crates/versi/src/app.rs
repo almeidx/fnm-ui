@@ -276,7 +276,7 @@ impl FnmUi {
                     && tray::is_tray_active()
                 {
                     if let Some(id) = self.window_id {
-                        iced::window::minimize(id, true)
+                        iced::window::set_mode(id, iced::window::Mode::Hidden)
                     } else {
                         Task::none()
                     }
