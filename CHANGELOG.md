@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.20] - 2026-01-26
+
+- fix: hide to tray instead of exiting when close button clicked
+- fix: hide window instead of minimize when tray is always running
+
+
 ## [0.1.2-alpha.19] - 2026-01-26
 
 - fix(ci): checkout merge commit for release tag
