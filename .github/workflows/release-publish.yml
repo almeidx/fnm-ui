@@ -44,7 +44,8 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: macos-universal
+          shared-key: macos-universal
+          cache-on-failure: true
 
       - name: Build ARM64
         run: cargo build --release --target aarch64-apple-darwin
@@ -103,7 +104,8 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: linux-x64
+          shared-key: linux-x64
+          cache-on-failure: true
 
       - name: Build
         run: cargo build --release --target x86_64-unknown-linux-gnu
@@ -141,7 +143,8 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: linux-arm64
+          shared-key: linux-arm64
+          cache-on-failure: true
 
       - name: Build
         run: cargo build --release --target aarch64-unknown-linux-gnu
@@ -176,7 +179,8 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: windows-x64
+          shared-key: windows-x64
+          cache-on-failure: true
 
       - name: Build
         run: cargo build --release --target x86_64-pc-windows-msvc

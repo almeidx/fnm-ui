@@ -28,6 +28,9 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: linux-x64
+          cache-on-failure: true
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -43,10 +46,13 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            cache-key: linux-x64
           - os: macos-latest
             target: aarch64-apple-darwin
+            cache-key: macos-universal
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            cache-key: windows-x64
     steps:
       - uses: actions/checkout@v6
 
@@ -63,6 +69,9 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ matrix.cache-key }}
+          cache-on-failure: true
 
       - name: Run tests
         run: cargo test --all
