@@ -37,9 +37,7 @@ pub enum Message {
     RemoteVersionsFetched(Result<Vec<RemoteVersion>, String>),
     ReleaseScheduleFetched(Result<ReleaseSchedule, String>),
 
-    OpenInstallModal,
     CloseModal,
-    InstallModalSearchChanged(String),
     OpenChangelog(String),
     StartInstall(String),
     InstallProgress {

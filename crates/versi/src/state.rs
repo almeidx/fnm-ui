@@ -369,7 +369,6 @@ pub enum UndoAction {
 
 #[derive(Debug, Clone)]
 pub enum Modal {
-    Install(InstallModalState),
     Settings(SettingsModalState),
     ConfirmUninstall { version: String },
     ConfirmBulkUpdateMajors { versions: Vec<(String, String)> },
@@ -411,23 +410,4 @@ pub enum ShellVerificationStatus {
     NoConfigFile,
     FunctionalButNotInConfig,
     Error(String),
-}
-
-#[derive(Debug, Clone)]
-pub struct InstallModalState {
-    pub search_query: String,
-    pub filtered_versions: Vec<RemoteVersion>,
-    pub loading: bool,
-    pub schedule: Option<ReleaseSchedule>,
-}
-
-impl InstallModalState {
-    pub fn new() -> Self {
-        Self {
-            search_query: String::new(),
-            filtered_versions: Vec::new(),
-            loading: false,
-            schedule: None,
-        }
-    }
 }

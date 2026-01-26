@@ -16,9 +16,9 @@ use versi_shell::detect_shells;
 use crate::message::{InitResult, Message};
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{
-    AppState, EnvironmentState, InstallModalState, MainState, Modal, OnboardingState,
-    OnboardingStep, Operation, OperationRequest, QueuedOperation, SettingsModalState,
-    ShellConfigStatus, ShellSetupStatus, ShellVerificationStatus, Toast, UndoAction,
+    AppState, EnvironmentState, MainState, Modal, OnboardingState, OnboardingStep, Operation,
+    OperationRequest, QueuedOperation, SettingsModalState, ShellConfigStatus, ShellSetupStatus,
+    ShellVerificationStatus, Toast, UndoAction,
 };
 use crate::theme::{dark_theme, get_system_theme, light_theme};
 use crate::tray::{self, TrayMenuData, TrayMessage};
@@ -88,18 +88,8 @@ impl FnmUi {
                 self.handle_release_schedule_fetched(result);
                 Task::none()
             }
-            Message::OpenInstallModal => {
-                self.handle_open_install_modal();
-                let fetch_versions = self.handle_fetch_remote_versions();
-                let fetch_schedule = self.handle_fetch_release_schedule();
-                Task::batch([fetch_versions, fetch_schedule])
-            }
             Message::CloseModal => {
                 self.handle_close_modal();
-                Task::none()
-            }
-            Message::InstallModalSearchChanged(query) => {
-                self.handle_install_modal_search_changed(query);
                 Task::none()
             }
             Message::OpenChangelog(version) => {
@@ -677,14 +667,9 @@ impl FnmUi {
             state.available_versions.loading = false;
             match result {
                 Ok(versions) => {
-                    state.available_versions.versions = versions.clone();
+                    state.available_versions.versions = versions;
                     state.available_versions.fetched_at = Some(Instant::now());
                     state.available_versions.error = None;
-
-                    if let Some(Modal::Install(modal_state)) = &mut state.modal {
-                        modal_state.filtered_versions = versions;
-                        modal_state.loading = false;
-                    }
                 }
                 Err(error) => {
                     state.available_versions.error = Some(error);
@@ -713,66 +698,14 @@ impl FnmUi {
     ) {
         if let AppState::Main(state) = &mut self.state {
             if let Ok(schedule) = result {
-                state.available_versions.schedule = Some(schedule.clone());
-
-                if let Some(Modal::Install(modal_state)) = &mut state.modal {
-                    modal_state.schedule = Some(schedule);
-                }
+                state.available_versions.schedule = Some(schedule);
             }
-        }
-    }
-
-    fn handle_open_install_modal(&mut self) {
-        if let AppState::Main(state) = &mut self.state {
-            let mut modal_state = InstallModalState::new();
-            modal_state.loading = true;
-            modal_state.filtered_versions = state.available_versions.versions.clone();
-            modal_state.schedule = state.available_versions.schedule.clone();
-            state.modal = Some(Modal::Install(modal_state));
         }
     }
 
     fn handle_close_modal(&mut self) {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
-        }
-    }
-
-    fn handle_install_modal_search_changed(&mut self, query: String) {
-        if let AppState::Main(state) = &mut self.state {
-            if let Some(Modal::Install(modal_state)) = &mut state.modal {
-                modal_state.search_query = query.clone();
-
-                let query_lower = query.to_lowercase();
-                let schedule = &state.available_versions.schedule;
-
-                modal_state.filtered_versions = state
-                    .available_versions
-                    .versions
-                    .iter()
-                    .filter(|v| {
-                        let major = v.version.major;
-
-                        if query_lower == "lts" {
-                            return schedule
-                                .as_ref()
-                                .map(|s| s.is_lts(major))
-                                .unwrap_or(v.lts_codename.is_some());
-                        }
-                        if query_lower == "latest" {
-                            return v.is_latest;
-                        }
-
-                        let version_str = v.version.to_string();
-                        version_str.contains(&query)
-                            || v.lts_codename
-                                .as_ref()
-                                .map(|c| c.to_lowercase().contains(&query_lower))
-                                .unwrap_or(false)
-                    })
-                    .cloned()
-                    .collect();
-            }
         }
     }
 

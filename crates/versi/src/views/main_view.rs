@@ -9,7 +9,7 @@ use crate::state::{
     MainState, Modal, Operation, QueuedOperation, SettingsModalState, ShellVerificationStatus,
 };
 use crate::theme::{is_system_dark, styles};
-use crate::widgets::{install_modal, toast_container, version_list};
+use crate::widgets::{toast_container, version_list};
 
 pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, Message> {
     let header = header_view(state);
@@ -75,10 +75,6 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         column![text("Node Versions").size(28), text(subtitle).size(13),].spacing(2);
 
     let mut button_row = row![
-        button(text("Install").size(13))
-            .on_press(Message::OpenInstallModal)
-            .style(styles::primary_button)
-            .padding([8, 16]),
         button(text("Refresh").size(13))
             .on_press(Message::RefreshEnvironment)
             .style(styles::secondary_button)
@@ -129,12 +125,15 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
 }
 
 fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> {
-    text_input("Search versions...", &state.search_query)
-        .on_input(Message::SearchChanged)
-        .padding(14)
-        .size(14)
-        .style(styles::search_input)
-        .into()
+    text_input(
+        "Search or install versions (e.g., '22', 'lts')...",
+        &state.search_query,
+    )
+    .on_input(Message::SearchChanged)
+    .padding(14)
+    .size(14)
+    .style(styles::search_input)
+    .into()
 }
 
 fn environment_tabs_view<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
@@ -242,7 +241,6 @@ fn modal_overlay<'a>(
     settings: &'a AppSettings,
 ) -> Element<'a, Message> {
     let modal_content: Element<Message> = match modal {
-        Modal::Install(install_state) => install_modal::view(install_state, state),
         Modal::Settings(settings_state) => settings_modal_view(settings_state, settings, state),
         Modal::ConfirmUninstall { version } => confirm_uninstall_view(version),
         Modal::ConfirmBulkUpdateMajors { versions } => confirm_bulk_update_view(versions),

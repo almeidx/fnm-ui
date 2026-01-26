@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use iced::widget::{button, column, container, row, scrollable, text, Space};
 use iced::{Alignment, Element, Length};
@@ -27,14 +27,63 @@ fn compute_latest_by_major(remote_versions: &[RemoteVersion]) -> HashMap<u32, No
     latest
 }
 
+fn filter_available_versions<'a>(
+    versions: &'a [RemoteVersion],
+    query: &str,
+    installed: &HashSet<String>,
+) -> Vec<&'a RemoteVersion> {
+    let query_lower = query.to_lowercase();
+
+    let mut filtered: Vec<&RemoteVersion> = versions
+        .iter()
+        .filter(|v| {
+            let version_str = v.version.to_string();
+            if installed.contains(&version_str) {
+                return false;
+            }
+
+            if query_lower == "lts" {
+                return v.lts_codename.is_some();
+            }
+
+            version_str.contains(query)
+                || v.lts_codename
+                    .as_ref()
+                    .map(|c| c.to_lowercase().contains(&query_lower))
+                    .unwrap_or(false)
+        })
+        .collect();
+
+    filtered.sort_by(|a, b| b.version.cmp(&a.version));
+
+    let mut latest_by_minor: HashMap<(u32, u32), &RemoteVersion> = HashMap::new();
+    for v in &filtered {
+        let key = (v.version.major, v.version.minor);
+        latest_by_minor
+            .entry(key)
+            .and_modify(|existing| {
+                if v.version.patch > existing.version.patch {
+                    *existing = v;
+                }
+            })
+            .or_insert(v);
+    }
+
+    let mut result: Vec<&RemoteVersion> = latest_by_minor.into_values().collect();
+    result.sort_by(|a, b| b.version.cmp(&a.version));
+    result.truncate(20);
+    result
+}
+
 pub fn view<'a>(
     env: &'a EnvironmentState,
     search_query: &'a str,
-    remote_versions: &[RemoteVersion],
-    schedule: Option<&ReleaseSchedule>,
+    remote_versions: &'a [RemoteVersion],
+    schedule: Option<&'a ReleaseSchedule>,
     operation_queue: &'a OperationQueue,
 ) -> Element<'a, Message> {
     let latest_by_major = compute_latest_by_major(remote_versions);
+
     if env.loading {
         return container(
             column![text("Loading versions...").size(16),]
@@ -67,18 +116,88 @@ pub fn view<'a>(
         .into();
     }
 
+    let installed_set: HashSet<String> = env
+        .installed_versions
+        .iter()
+        .map(|v| v.version.to_string())
+        .collect();
+
     let filtered_groups: Vec<&VersionGroup> = env
         .version_groups
         .iter()
         .filter(|group| filter_group(group, search_query))
         .collect();
 
-    if filtered_groups.is_empty() {
+    let default_version = &env.default_version;
+
+    let mut content_items: Vec<Element<Message>> = Vec::new();
+
+    if !filtered_groups.is_empty() {
+        if !search_query.is_empty() {
+            content_items.push(
+                text("Installed")
+                    .size(12)
+                    .color(iced::Color::from_rgb8(142, 142, 147))
+                    .into(),
+            );
+            content_items.push(Space::new().height(8).into());
+        }
+
+        for group in &filtered_groups {
+            let installed_latest = group.versions.iter().map(|v| &v.version).max();
+            let update_available = latest_by_major.get(&group.major).and_then(|latest| {
+                installed_latest.and_then(|installed| {
+                    if latest > installed {
+                        Some(latest.to_string())
+                    } else {
+                        None
+                    }
+                })
+            });
+            content_items.push(version_group_view(
+                group,
+                default_version,
+                search_query,
+                update_available,
+                schedule,
+                operation_queue,
+            ));
+        }
+    }
+
+    if !search_query.is_empty() {
+        let available = filter_available_versions(remote_versions, search_query, &installed_set);
+
+        if !available.is_empty() {
+            content_items.push(Space::new().height(16).into());
+            content_items.push(
+                text("Available to Install")
+                    .size(12)
+                    .color(iced::Color::from_rgb8(142, 142, 147))
+                    .into(),
+            );
+            content_items.push(Space::new().height(8).into());
+
+            let available_rows: Vec<Element<Message>> = available
+                .iter()
+                .map(|v| available_version_row(v, schedule, operation_queue))
+                .collect();
+
+            content_items.push(
+                container(column(available_rows).spacing(4))
+                    .style(styles::card_container)
+                    .padding(8)
+                    .into(),
+            );
+        }
+    }
+
+    if content_items.is_empty() {
         return container(
             column![
                 text("No versions found").size(16),
                 if search_query.is_empty() {
-                    text("Install your first Node.js version to get started.").size(14)
+                    text("Install your first Node.js version by searching above.").size(14)
                 } else {
                     text(format!("No versions match '{}'", search_query)).size(14)
                 },
@@ -92,33 +211,7 @@ pub fn view<'a>(
         .into();
     }
 
-    let default_version = &env.default_version;
-
-    let groups: Vec<Element<Message>> = filtered_groups
-        .iter()
-        .map(|group| {
-            let installed_latest = group.versions.iter().map(|v| &v.version).max();
-            let update_available = latest_by_major.get(&group.major).and_then(|latest| {
-                installed_latest.and_then(|installed| {
-                    if latest > installed {
-                        Some(latest.to_string())
-                    } else {
-                        None
-                    }
-                })
-            });
-            version_group_view(
-                group,
-                default_version,
-                search_query,
-                update_available,
-                schedule,
-                operation_queue,
-            )
-        })
-        .collect();
-
-    scrollable(column(groups).spacing(12).padding([0, 4]))
+    scrollable(column(content_items).spacing(12).padding([0, 4]))
         .height(Length::Fill)
         .into()
 }
@@ -357,6 +450,61 @@ fn version_item_view<'a>(
             .padding([4, 8]),
         set_default_button,
         uninstall_button,
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center)
+    .padding([4, 8])
+    .into()
+}
+
+fn available_version_row<'a>(
+    version: &'a RemoteVersion,
+    schedule: Option<&ReleaseSchedule>,
+    operation_queue: &'a OperationQueue,
+) -> Element<'a, Message> {
+    let version_str = version.version.to_string();
+    let is_eol = schedule
+        .map(|s| !s.is_active(version.version.major))
+        .unwrap_or(false);
+    let version_display = version_str.clone();
+    let version_for_changelog = version_str.clone();
+
+    let is_busy = operation_queue.is_current_version(&version_str)
+        || operation_queue.has_pending_for_version(&version_str);
+
+    let install_button = if is_busy {
+        button(text("Installing...").size(12))
+            .style(styles::primary_button)
+            .padding([6, 12])
+    } else {
+        button(text("Install").size(12))
+            .on_press(Message::StartInstall(version_str))
+            .style(styles::primary_button)
+            .padding([6, 12])
+    };
+
+    row![
+        text(version_display).size(14).width(Length::Fixed(120.0)),
+        if let Some(lts) = &version.lts_codename {
+            container(text(format!("LTS: {}", lts)).size(11))
+                .padding([2, 6])
+                .style(styles::badge_lts)
+        } else {
+            container(Space::new())
+        },
+        if is_eol {
+            container(text("EOL").size(11))
+                .padding([2, 6])
+                .style(styles::badge_eol)
+        } else {
+            container(Space::new())
+        },
+        Space::new().width(Length::Fill),
+        button(text("Changelog").size(11))
+            .on_press(Message::OpenChangelog(version_for_changelog))
+            .style(styles::ghost_button)
+            .padding([4, 8]),
+        install_button,
     ]
     .spacing(8)
     .align_y(Alignment::Center)
