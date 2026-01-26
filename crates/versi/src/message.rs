@@ -112,6 +112,7 @@ pub enum Message {
     Tick,
     WindowEvent(iced::window::Event),
     CloseWindow,
+    HideDockIcon,
 
     TrayEvent(TrayMessage),
     TrayBehaviorChanged(TrayBehavior),

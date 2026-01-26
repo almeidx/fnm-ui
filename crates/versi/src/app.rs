@@ -4,6 +4,26 @@ use std::time::Instant;
 
 use iced::{Element, Subscription, Task, Theme};
 
+#[cfg(target_os = "macos")]
+pub fn set_dock_visible(visible: bool) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
+
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    let policy = if visible {
+        NSApplicationActivationPolicy::Regular
+    } else {
+        NSApplicationActivationPolicy::Accessory
+    };
+    app.setActivationPolicy(policy);
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn set_dock_visible(_visible: bool) {}
+
 #[cfg(windows)]
 use versi_core::HideWindow;
 use versi_core::{
@@ -34,6 +54,9 @@ impl FnmUi {
     pub fn new() -> (Self, Task<Message>) {
         let settings = AppSettings::load();
 
+        let hide_dock =
+            settings.start_minimized && settings.tray_behavior != TrayBehavior::Disabled;
+
         let app = Self {
             state: AppState::Loading,
             settings,
@@ -42,7 +65,13 @@ impl FnmUi {
 
         let init_task = Task::perform(initialize(), Message::Initialized);
 
-        (app, init_task)
+        let dock_task = if hide_dock {
+            Task::done(Message::HideDockIcon)
+        } else {
+            Task::none()
+        };
+
+        (app, Task::batch([init_task, dock_task]))
     }
 
     pub fn title(&self) -> String {
@@ -276,6 +305,7 @@ impl FnmUi {
                     && tray::is_tray_active()
                 {
                     if let Some(id) = self.window_id {
+                        set_dock_visible(false);
                         iced::window::set_mode(id, iced::window::Mode::Hidden)
                     } else {
                         Task::none()
@@ -288,7 +318,14 @@ impl FnmUi {
                 self.window_id = Some(id);
                 Task::none()
             }
-            Message::WindowEvent(_) => Task::none(),
+            Message::HideDockIcon => {
+                set_dock_visible(false);
+                Task::none()
+            }
+            Message::WindowEvent(event) => {
+                debug!("Window event received: {:?}", event);
+                Task::none()
+            }
             Message::CheckForAppUpdate => self.handle_check_for_app_update(),
             Message::AppUpdateChecked(update) => {
                 self.handle_app_update_checked(update);
@@ -1573,6 +1610,7 @@ impl FnmUi {
         match msg {
             TrayMessage::ShowWindow => {
                 if let Some(id) = self.window_id {
+                    set_dock_visible(true);
                     Task::batch([
                         iced::window::set_mode(id, iced::window::Mode::Windowed),
                         iced::window::minimize(id, false),

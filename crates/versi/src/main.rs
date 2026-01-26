@@ -33,8 +33,8 @@ fn main() -> iced::Result {
 
     let icon = window::icon::from_file_data(include_bytes!("../../../assets/logo.png"), None).ok();
 
-    let visible =
-        !settings.start_minimized || settings.tray_behavior == settings::TrayBehavior::Disabled;
+    let start_in_tray =
+        settings.start_minimized && settings.tray_behavior != settings::TrayBehavior::Disabled;
 
     iced::application(app::FnmUi::new, app::FnmUi::update, app::FnmUi::view)
         .title(|state: &app::FnmUi| state.title())
@@ -44,7 +44,8 @@ fn main() -> iced::Result {
             size: iced::Size::new(800.0, 600.0),
             min_size: Some(iced::Size::new(600.0, 400.0)),
             icon,
-            visible,
+            visible: !start_in_tray,
+            exit_on_close_request: false,
             ..Default::default()
         })
         .run()
