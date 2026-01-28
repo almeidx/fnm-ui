@@ -173,11 +173,26 @@ pub fn detect_native_shells() -> Vec<ShellInfo> {
 
     #[cfg(target_os = "windows")]
     {
-        if which("pwsh").is_ok() || which("powershell").is_ok() {
+        let powershell_path = which("pwsh")
+            .ok()
+            .or_else(|| which("powershell").ok())
+            .or_else(|| {
+                let system_root =
+                    std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+                let legacy_path = PathBuf::from(&system_root)
+                    .join("System32\\WindowsPowerShell\\v1.0\\powershell.exe");
+                if legacy_path.exists() {
+                    Some(legacy_path)
+                } else {
+                    None
+                }
+            });
+
+        if powershell_path.is_some() {
             let config_file = find_existing_config(&ShellType::PowerShell);
             shells.push(ShellInfo {
                 shell_type: ShellType::PowerShell,
-                path: which("pwsh").ok().or_else(|| which("powershell").ok()),
+                path: powershell_path,
                 config_file,
                 is_configured: false,
             });
@@ -196,6 +211,7 @@ pub fn detect_native_shells() -> Vec<ShellInfo> {
 
 #[cfg(target_os = "windows")]
 pub fn detect_wsl_shells(distro: &str) -> Vec<ShellInfo> {
+    use log::{debug, warn};
     use std::process::Command;
 
     const CREATE_NO_WINDOW: u32 = 0x08000000;
@@ -211,38 +227,53 @@ pub fn detect_wsl_shells(distro: &str) -> Vec<ShellInfo> {
         done
     "#;
 
+    debug!("Detecting shells in WSL distro: {}", distro);
+
     let output = Command::new("wsl.exe")
         .args(["-d", distro, "--", "sh", "-c", check_shells_script])
         .creation_flags(CREATE_NO_WINDOW)
         .output();
 
-    if let Ok(output) = output {
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                let parts: Vec<&str> = line.split(':').collect();
-                if parts.len() >= 2 {
-                    let shell_name = parts[0].trim();
-                    let shell_path = parts[1].trim();
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                debug!("WSL shell detection output: {}", stdout);
+                for line in stdout.lines() {
+                    let parts: Vec<&str> = line.split(':').collect();
+                    if parts.len() >= 2 {
+                        let shell_name = parts[0].trim();
+                        let shell_path = parts[1].trim();
 
-                    let shell_type = match shell_name {
-                        "bash" => ShellType::Bash,
-                        "zsh" => ShellType::Zsh,
-                        "fish" => ShellType::Fish,
-                        _ => continue,
-                    };
+                        let shell_type = match shell_name {
+                            "bash" => ShellType::Bash,
+                            "zsh" => ShellType::Zsh,
+                            "fish" => ShellType::Fish,
+                            _ => continue,
+                        };
 
-                    shells.push(ShellInfo {
-                        shell_type,
-                        path: Some(PathBuf::from(shell_path)),
-                        config_file: None,
-                        is_configured: false,
-                    });
+                        shells.push(ShellInfo {
+                            shell_type,
+                            path: Some(PathBuf::from(shell_path)),
+                            config_file: None,
+                            is_configured: false,
+                        });
+                    }
                 }
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                warn!(
+                    "WSL shell detection failed for {}: status={:?}, stderr={}",
+                    distro, output.status, stderr
+                );
             }
+        }
+        Err(e) => {
+            warn!("Failed to run WSL shell detection for {}: {}", distro, e);
         }
     }
 
+    debug!("Detected {} shells in WSL distro {}", shells.len(), distro);
     shells
 }
 
