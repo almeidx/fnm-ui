@@ -1,5 +1,5 @@
 use log::{debug, error, info, trace};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use iced::{Element, Subscription, Task, Theme};
@@ -49,6 +49,8 @@ pub struct FnmUi {
     settings: AppSettings,
     window_id: Option<iced::window::Id>,
     pending_minimize: bool,
+    fnm_path: PathBuf,
+    fnm_dir: Option<PathBuf>,
 }
 
 impl FnmUi {
@@ -63,6 +65,8 @@ impl FnmUi {
             settings,
             window_id: None,
             pending_minimize: should_minimize,
+            fnm_path: PathBuf::from("fnm"),
+            fnm_dir: None,
         };
 
         let init_task = Task::perform(initialize(), Message::Initialized);
@@ -511,6 +515,9 @@ impl FnmUi {
         let fnm_path = result.fnm_path.unwrap_or_else(|| PathBuf::from("fnm"));
         let fnm_dir = result.fnm_dir;
 
+        self.fnm_path = fnm_path.clone();
+        self.fnm_dir = fnm_dir.clone();
+
         let backend = FnmBackend::new(
             fnm_path.clone(),
             result.fnm_version.clone(),
@@ -555,7 +562,7 @@ impl FnmUi {
             }
 
             let env_id = env_info.id.clone();
-            let backend = create_backend_for_environment(&env_id);
+            let backend = create_backend_for_environment(&env_id, &fnm_path, &fnm_dir);
 
             load_tasks.push(Task::perform(
                 async move {
@@ -657,7 +664,8 @@ impl FnmUi {
                 env.loading || (env.installed_versions.is_empty() && env.error.is_none());
             debug!("Environment needs loading: {}", needs_load);
 
-            let new_backend = create_backend_for_environment(&env_id);
+            let new_backend =
+                create_backend_for_environment(&env_id, &self.fnm_path, &self.fnm_dir);
             state.backend = new_backend;
 
             state.fnm_update = None;
@@ -1865,7 +1873,8 @@ impl FnmUi {
                     state.active_environment_idx = env_index;
                     let env = &state.environments[env_index];
                     let env_id = env.id.clone();
-                    state.backend = create_backend_for_environment(&env_id);
+                    state.backend =
+                        create_backend_for_environment(&env_id, &self.fnm_path, &self.fnm_dir);
                 }
                 self.handle_set_default(version)
             }
@@ -2018,14 +2027,20 @@ async fn get_wsl_fnm_version(distro: &str, fnm_path: &str) -> Option<String> {
     }
 }
 
-fn create_backend_for_environment(env_id: &EnvironmentId) -> Box<dyn VersionManager> {
+fn create_backend_for_environment(
+    env_id: &EnvironmentId,
+    detected_fnm_path: &Path,
+    detected_fnm_dir: &Option<PathBuf>,
+) -> Box<dyn VersionManager> {
     match env_id {
         EnvironmentId::Native => {
-            let fnm_path = PathBuf::from("fnm");
-            let fnm_dir = versi_core::detect_fnm_dir();
-            let backend = FnmBackend::new(fnm_path, None, fnm_dir.clone());
-            let backend = if let Some(dir) = fnm_dir {
-                backend.with_fnm_dir(dir)
+            let backend = FnmBackend::new(
+                detected_fnm_path.to_path_buf(),
+                None,
+                detected_fnm_dir.clone(),
+            );
+            let backend = if let Some(dir) = detected_fnm_dir {
+                backend.with_fnm_dir(dir.clone())
             } else {
                 backend
             };
