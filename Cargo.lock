@@ -5416,6 +5416,7 @@ name = "versi-shell"
 version = "0.2.0"
 dependencies = [
  "dirs",
+ "log",
  "serde",
  "thiserror 2.0.18",
  "tokio",
