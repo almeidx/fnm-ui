@@ -84,7 +84,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let latest_by_major = compute_latest_by_major(remote_versions);
 
-    if env.loading {
+    if env.loading && env.installed_versions.is_empty() {
         return container(
             column![text("Loading versions...").size(16),]
                 .spacing(8)
