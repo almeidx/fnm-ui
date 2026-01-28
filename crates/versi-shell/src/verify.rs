@@ -109,3 +109,105 @@ pub fn get_or_create_config_path(shell_type: &ShellType) -> Option<PathBuf> {
 
     shell_type.config_files().into_iter().next()
 }
+
+#[cfg(target_os = "windows")]
+pub async fn verify_wsl_shell_config(shell_type: &ShellType, distro: &str) -> VerificationResult {
+    use crate::detect::FnmShellOptions;
+    use log::{debug, warn};
+
+    let config_path = match shell_type {
+        ShellType::Bash => "~/.bashrc",
+        ShellType::Zsh => "~/.zshrc",
+        ShellType::Fish => "~/.config/fish/config.fish",
+        _ => return VerificationResult::Error("Shell not supported in WSL".to_string()),
+    };
+
+    debug!(
+        "Verifying {} config in WSL distro {}: {}",
+        shell_type.name(),
+        distro,
+        config_path
+    );
+
+    let output = Command::new("wsl.exe")
+        .args(["-d", distro, "--", "cat", config_path])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .await;
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let content = String::from_utf8_lossy(&output.stdout);
+                if content.contains("fnm env") {
+                    let options = FnmShellOptions {
+                        use_on_cd: content.contains("--use-on-cd"),
+                        resolve_engines: content.contains("--resolve-engines"),
+                        corepack_enabled: content.contains("--corepack-enabled"),
+                    };
+                    debug!("WSL shell {} is configured with fnm", shell_type.name());
+                    VerificationResult::Configured(Some(options))
+                } else if wsl_functional_test(shell_type, distro).await {
+                    debug!(
+                        "WSL shell {} is functional but not in config",
+                        shell_type.name()
+                    );
+                    VerificationResult::FunctionalButNotInConfig
+                } else {
+                    debug!("WSL shell {} is not configured", shell_type.name());
+                    VerificationResult::NotConfigured
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if stderr.contains("No such file") || stderr.contains("cannot access") {
+                    debug!("WSL config file not found: {}", config_path);
+                    VerificationResult::ConfigFileNotFound
+                } else {
+                    warn!("WSL cat failed: {}", stderr);
+                    VerificationResult::Error(stderr.to_string())
+                }
+            }
+        }
+        Err(e) => {
+            warn!("Failed to read WSL config: {}", e);
+            VerificationResult::Error(e.to_string())
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn wsl_functional_test(shell_type: &ShellType, distro: &str) -> bool {
+    use log::debug;
+
+    let (shell_cmd, args) = match shell_type {
+        ShellType::Bash => ("bash", vec!["-i", "-c", "fnm --version"]),
+        ShellType::Zsh => ("zsh", vec!["-i", "-c", "fnm --version"]),
+        ShellType::Fish => ("fish", vec!["-c", "fnm --version"]),
+        _ => return false,
+    };
+
+    debug!(
+        "Running WSL functional test for {} in {}",
+        shell_type.name(),
+        distro
+    );
+
+    let mut cmd_args = vec!["-d", distro, "--", shell_cmd];
+    cmd_args.extend(args);
+
+    Command::new("wsl.exe")
+        .args(&cmd_args)
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .await
+        .map(|o| {
+            debug!("WSL functional test result: {}", o.status.success());
+            o.status.success()
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(not(target_os = "windows"))]
+pub async fn verify_wsl_shell_config(_shell_type: &ShellType, _distro: &str) -> VerificationResult {
+    VerificationResult::Error("WSL is only available on Windows".to_string())
+}

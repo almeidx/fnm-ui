@@ -1502,9 +1502,9 @@ impl FnmUi {
     }
 
     fn handle_check_shell_setup(&mut self) -> Task<Message> {
-        #[cfg(target_os = "windows")]
-        use versi_shell::detect_wsl_shells;
         use versi_shell::{detect_native_shells, verify_shell_config};
+        #[cfg(target_os = "windows")]
+        use versi_shell::{detect_wsl_shells, verify_wsl_shell_config};
 
         #[allow(unused_variables)]
         let env_id = if let AppState::Main(state) = &self.state {
@@ -1516,17 +1516,29 @@ impl FnmUi {
         Task::perform(
             async move {
                 #[cfg(target_os = "windows")]
-                let shells = match env_id {
-                    Some(EnvironmentId::Wsl { distro, .. }) => detect_wsl_shells(&distro),
-                    _ => detect_native_shells(),
+                let (shells, wsl_distro) = match &env_id {
+                    Some(EnvironmentId::Wsl { distro, .. }) => {
+                        (detect_wsl_shells(distro), Some(distro.clone()))
+                    }
+                    _ => (detect_native_shells(), None),
                 };
                 #[cfg(not(target_os = "windows"))]
-                let shells = detect_native_shells();
+                let (shells, wsl_distro): (Vec<_>, Option<String>) = (detect_native_shells(), None);
 
                 let mut results = Vec::new();
 
                 for shell in shells {
-                    let result = verify_shell_config(&shell.shell_type).await;
+                    #[cfg(target_os = "windows")]
+                    let result = if let Some(ref distro) = wsl_distro {
+                        verify_wsl_shell_config(&shell.shell_type, distro).await
+                    } else {
+                        verify_shell_config(&shell.shell_type).await
+                    };
+                    #[cfg(not(target_os = "windows"))]
+                    let result = {
+                        let _ = &wsl_distro;
+                        verify_shell_config(&shell.shell_type).await
+                    };
                     results.push((shell.shell_type, result));
                 }
 
