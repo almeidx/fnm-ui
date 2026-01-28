@@ -133,17 +133,7 @@ pub fn view<'a>(
 
     let mut content_items: Vec<Element<Message>> = Vec::new();
 
-    if !filtered_groups.is_empty() {
-        if !search_query.is_empty() {
-            content_items.push(
-                text("Installed")
-                    .size(12)
-                    .color(iced::Color::from_rgb8(142, 142, 147))
-                    .into(),
-            );
-            content_items.push(Space::new().height(8).into());
-        }
-
+    if !filtered_groups.is_empty() && search_query.is_empty() {
         for group in &filtered_groups {
             let installed_latest = group.versions.iter().map(|v| &v.version).max();
             let update_available = latest_by_major.get(&group.major).and_then(|latest| {
@@ -449,14 +439,14 @@ fn version_item_view<'a>(
 
     if show_actions {
         row_content = row_content.push(
-            button(text("Changelog").size(11))
+            button(text("Changelog \u{2197}").size(11))
                 .on_press(Message::OpenChangelog(version_for_changelog))
                 .style(action_style)
                 .padding([4, 8]),
         );
     } else {
         row_content = row_content.push(
-            button(text("Changelog").size(11))
+            button(text("Changelog \u{2197}").size(11))
                 .style(action_style)
                 .padding([4, 8]),
         );
@@ -555,7 +545,7 @@ fn available_version_row<'a>(
             container(Space::new())
         },
         Space::new().width(Length::Fill),
-        button(text("Changelog").size(11))
+        button(text("Changelog \u{2197}").size(11))
             .on_press(Message::OpenChangelog(version_for_changelog))
             .style(styles::ghost_button)
             .padding([4, 8]),
