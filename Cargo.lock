@@ -2096,9 +2096,9 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.64"
+version = "0.1.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33e57f83510bb73707521ebaffa789ec8caf86f9657cad665b092b581d40e9fb"
+checksum = "e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
@@ -4241,7 +4241,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5348,7 +5348,7 @@ checksum = "7ba6f5989077681266825251a52748b8c1d8a4ad098cc37e440103d0ea717fc0"
 
 [[package]]
 name = "versi"
-version = "0.1.2-alpha.20"
+version = "0.1.2-alpha.21"
 dependencies = [
  "async-stream",
  "chrono",
@@ -5374,7 +5374,7 @@ dependencies = [
 
 [[package]]
 name = "versi-backend"
-version = "0.1.2-alpha.20"
+version = "0.1.2-alpha.21"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5385,7 +5385,7 @@ dependencies = [
 
 [[package]]
 name = "versi-core"
-version = "0.1.2-alpha.20"
+version = "0.1.2-alpha.21"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5402,7 +5402,7 @@ dependencies = [
 
 [[package]]
 name = "versi-platform"
-version = "0.1.2-alpha.20"
+version = "0.1.2-alpha.21"
 dependencies = [
  "dirs",
  "log",
@@ -5413,7 +5413,7 @@ dependencies = [
 
 [[package]]
 name = "versi-shell"
-version = "0.1.2-alpha.20"
+version = "0.1.2-alpha.21"
 dependencies = [
  "dirs",
  "serde",
@@ -6123,6 +6123,15 @@ dependencies = [
 
 [[package]]
 name = "windows-sys"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
+dependencies = [
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-sys"
 version = "0.60.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2f500e4d28234f72040990ec9d39e3a6b950f9f22d3dba18416c35882612bcb"
@@ -6676,18 +6685,18 @@ checksum = "6df3dc4292935e51816d896edcd52aa30bc297907c26167fec31e2b0c6a32524"
 
 [[package]]
 name = "zerocopy"
-version = "0.8.34"
+version = "0.8.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71ddd76bcebeed25db614f82bf31a9f4222d3fbba300e6fb6c00afa26cbd4d9d"
+checksum = "fdea86ddd5568519879b8187e1cf04e24fce28f7fe046ceecbce472ff19a2572"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.34"
+version = "0.8.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8187381b52e32220d50b255276aa16a084ec0a9017a0ca2152a1f55c539758d"
+checksum = "0c15e1b46eff7c6c91195752e0eeed8ef040e391cdece7c25376957d5f15df22"
 dependencies = [
  "proc-macro2",
  "quote",

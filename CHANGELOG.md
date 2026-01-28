@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2-alpha.21] - 2026-01-28
+
+- docs: update documentation for WSL and bulk operations
+- feat: add "Keep Latest" button to uninstall all versions except latest in major
+- fix(windows): show Linux shells in settings when WSL environment is active
+- fix(macos): ensure versions load when starting minimized to tray
+- fix(windows): allow window to show after starting minimized to tray
+- fix(windows): show unavailable WSL distros as disabled instead of hiding them
+- deps: Update patch/minor dependencies (#35)
+
+
 ## [0.1.2-alpha.20] - 2026-01-26
 
 - fix: hide to tray instead of exiting when close button clicked
