@@ -65,9 +65,15 @@ pub enum Message {
     RequestBulkUninstallMajor {
         major: u32,
     },
+    RequestBulkUninstallMajorExceptLatest {
+        major: u32,
+    },
     ConfirmBulkUpdateMajors,
     ConfirmBulkUninstallEOL,
     ConfirmBulkUninstallMajor {
+        major: u32,
+    },
+    ConfirmBulkUninstallMajorExceptLatest {
         major: u32,
     },
     CancelBulkOperation,

@@ -387,10 +387,24 @@ pub enum UndoAction {
 #[derive(Debug, Clone)]
 pub enum Modal {
     Settings(SettingsModalState),
-    ConfirmUninstall { version: String },
-    ConfirmBulkUpdateMajors { versions: Vec<(String, String)> },
-    ConfirmBulkUninstallEOL { versions: Vec<String> },
-    ConfirmBulkUninstallMajor { major: u32, versions: Vec<String> },
+    ConfirmUninstall {
+        version: String,
+    },
+    ConfirmBulkUpdateMajors {
+        versions: Vec<(String, String)>,
+    },
+    ConfirmBulkUninstallEOL {
+        versions: Vec<String>,
+    },
+    ConfirmBulkUninstallMajor {
+        major: u32,
+        versions: Vec<String>,
+    },
+    ConfirmBulkUninstallMajorExceptLatest {
+        major: u32,
+        versions: Vec<String>,
+        keeping: String,
+    },
 }
 
 #[derive(Debug, Clone)]

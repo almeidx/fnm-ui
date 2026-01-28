@@ -307,6 +307,12 @@ fn version_group_view<'a>(
 
     if group.is_expanded && group.versions.len() > 1 {
         header_actions = header_actions.push(
+            button(text("Keep Latest").size(10))
+                .on_press(Message::RequestBulkUninstallMajorExceptLatest { major: group.major })
+                .style(styles::ghost_button)
+                .padding([4, 8]),
+        );
+        header_actions = header_actions.push(
             button(text("Uninstall All").size(10))
                 .on_press(Message::RequestBulkUninstallMajor { major: group.major })
                 .style(styles::ghost_button)

@@ -156,6 +156,12 @@ impl FnmUi {
             Message::ConfirmBulkUninstallMajor { major } => {
                 self.handle_confirm_bulk_uninstall_major(major)
             }
+            Message::RequestBulkUninstallMajorExceptLatest { major } => {
+                self.handle_request_bulk_uninstall_major_except_latest(major)
+            }
+            Message::ConfirmBulkUninstallMajorExceptLatest { major } => {
+                self.handle_confirm_bulk_uninstall_major_except_latest(major)
+            }
             Message::CancelBulkOperation => {
                 self.handle_close_modal();
                 Task::none()
@@ -1231,6 +1237,65 @@ impl FnmUi {
         if let AppState::Main(state) = &mut self.state
             && let Some(Modal::ConfirmBulkUninstallMajor { major: m, versions }) =
                 state.modal.take()
+            && m == major
+        {
+            for version in versions {
+                let id = state.operation_queue.next_id();
+                state.operation_queue.pending.push_back(QueuedOperation {
+                    id,
+                    request: OperationRequest::Uninstall { version },
+                    queued_at: Instant::now(),
+                });
+            }
+            return self.process_next_operation();
+        }
+        Task::none()
+    }
+
+    fn handle_request_bulk_uninstall_major_except_latest(&mut self, major: u32) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            let env = state.active_environment();
+
+            let mut versions_in_major: Vec<&versi_core::InstalledVersion> = env
+                .installed_versions
+                .iter()
+                .filter(|v| v.version.major == major)
+                .collect();
+
+            versions_in_major.sort_by(|a, b| b.version.cmp(&a.version));
+
+            if versions_in_major.len() <= 1 {
+                let toast_id = state.next_toast_id();
+                state.add_toast(Toast::success(
+                    toast_id,
+                    format!("Only one Node {}.x version installed", major),
+                ));
+                return Task::none();
+            }
+
+            let latest = versions_in_major.first().unwrap();
+            let keeping = latest.version.to_string();
+
+            let versions: Vec<String> = versions_in_major
+                .iter()
+                .skip(1)
+                .map(|v| v.version.to_string())
+                .collect();
+
+            state.modal = Some(Modal::ConfirmBulkUninstallMajorExceptLatest {
+                major,
+                versions,
+                keeping,
+            });
+        }
+        Task::none()
+    }
+
+    fn handle_confirm_bulk_uninstall_major_except_latest(&mut self, major: u32) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state
+            && let Some(Modal::ConfirmBulkUninstallMajorExceptLatest {
+                major: m, versions, ..
+            }) = state.modal.take()
             && m == major
         {
             for version in versions {
