@@ -48,16 +48,21 @@ pub struct FnmUi {
     state: AppState,
     settings: AppSettings,
     window_id: Option<iced::window::Id>,
+    pending_minimize: bool,
 }
 
 impl FnmUi {
     pub fn new() -> (Self, Task<Message>) {
         let settings = AppSettings::load();
 
+        let should_minimize =
+            settings.start_minimized && settings.tray_behavior != TrayBehavior::Disabled;
+
         let app = Self {
             state: AppState::Loading,
             settings,
             window_id: None,
+            pending_minimize: should_minimize,
         };
 
         let init_task = Task::perform(initialize(), Message::Initialized);
@@ -313,16 +318,7 @@ impl FnmUi {
             }
             Message::WindowOpened(id) => {
                 self.window_id = Some(id);
-                if self.settings.start_minimized
-                    && self.settings.tray_behavior != TrayBehavior::Disabled
-                {
-                    Task::batch([
-                        Task::done(Message::HideDockIcon),
-                        iced::window::set_mode(id, iced::window::Mode::Hidden),
-                    ])
-                } else {
-                    Task::none()
-                }
+                Task::none()
             }
             Message::HideDockIcon => {
                 set_dock_visible(false);
@@ -591,6 +587,17 @@ impl FnmUi {
             env.update_versions(versions);
         }
         self.update_tray_menu();
+
+        if self.pending_minimize {
+            self.pending_minimize = false;
+            if let Some(id) = self.window_id {
+                return Task::batch([
+                    Task::done(Message::HideDockIcon),
+                    iced::window::set_mode(id, iced::window::Mode::Hidden),
+                ]);
+            }
+        }
+
         Task::none()
     }
 
