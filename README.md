@@ -144,7 +144,7 @@ The application uses [Iced](https://iced.rs/) with the Elm architecture:
 - **Update**: Logic to handle messages and produce side effects
 - **View**: Pure functions rendering state to UI
 
-See [CLAUDE.md](CLAUDE.md) for detailed development documentation.
+See [AGENTS.md](AGENTS.md) for detailed development documentation.
 
 ## Requirements
 
@@ -153,7 +153,7 @@ See [CLAUDE.md](CLAUDE.md) for detailed development documentation.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE.md](LICENSE.md) for details.
 
 ## Contributing
 

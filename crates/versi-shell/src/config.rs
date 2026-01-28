@@ -176,3 +176,207 @@ impl ShellConfigEdit {
         preview
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_config(content: &str) -> ShellConfig {
+        ShellConfig {
+            shell_type: ShellType::Bash,
+            config_path: PathBuf::from("/test/.bashrc"),
+            content: content.to_string(),
+        }
+    }
+
+    #[test]
+    fn test_has_fnm_init_true() {
+        let config = create_test_config(r#"eval "$(fnm env --shell bash)""#);
+        assert!(config.has_fnm_init());
+    }
+
+    #[test]
+    fn test_has_fnm_init_false() {
+        let config = create_test_config("export PATH=$PATH:/usr/bin");
+        assert!(!config.has_fnm_init());
+    }
+
+    #[test]
+    fn test_has_fnm_init_empty() {
+        let config = create_test_config("");
+        assert!(!config.has_fnm_init());
+    }
+
+    #[test]
+    fn test_detect_fnm_options_all_flags() {
+        let config = create_test_config(
+            r#"eval "$(fnm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""#,
+        );
+        let options = config.detect_fnm_options().unwrap();
+        assert!(options.use_on_cd);
+        assert!(options.resolve_engines);
+        assert!(options.corepack_enabled);
+    }
+
+    #[test]
+    fn test_detect_fnm_options_no_flags() {
+        let config = create_test_config(r#"eval "$(fnm env --shell bash)""#);
+        let options = config.detect_fnm_options().unwrap();
+        assert!(!options.use_on_cd);
+        assert!(!options.resolve_engines);
+        assert!(!options.corepack_enabled);
+    }
+
+    #[test]
+    fn test_detect_fnm_options_partial_flags() {
+        let config = create_test_config(r#"eval "$(fnm env --use-on-cd --shell bash)""#);
+        let options = config.detect_fnm_options().unwrap();
+        assert!(options.use_on_cd);
+        assert!(!options.resolve_engines);
+        assert!(!options.corepack_enabled);
+    }
+
+    #[test]
+    fn test_detect_fnm_options_no_fnm() {
+        let config = create_test_config("export PATH=$PATH");
+        assert!(config.detect_fnm_options().is_none());
+    }
+
+    #[test]
+    fn test_add_fnm_init() {
+        let mut config = create_test_config("# My bashrc\nexport PATH=$PATH");
+        let options = FnmShellOptions::default();
+        let edit = config.add_fnm_init(&options);
+
+        assert!(edit.has_changes());
+        assert!(edit.modified.contains("fnm env"));
+        assert!(edit.modified.contains("# fnm (Fast Node Manager)"));
+    }
+
+    #[test]
+    fn test_add_fnm_init_with_flags() {
+        let mut config = create_test_config("");
+        let options = FnmShellOptions {
+            use_on_cd: true,
+            resolve_engines: false,
+            corepack_enabled: false,
+        };
+        let edit = config.add_fnm_init(&options);
+
+        assert!(edit.modified.contains("--use-on-cd"));
+    }
+
+    #[test]
+    fn test_add_flag_to_fnm_env() {
+        let content = r#"eval "$(fnm env --shell bash)""#;
+        let result = ShellConfig::add_flag_to_fnm_env(content, "--use-on-cd");
+        assert!(result.contains("fnm env --use-on-cd"));
+    }
+
+    #[test]
+    fn test_add_flag_preserves_existing() {
+        let content = r#"eval "$(fnm env --use-on-cd --shell bash)""#;
+        let result = ShellConfig::add_flag_to_fnm_env(content, "--resolve-engines");
+        assert!(result.contains("--use-on-cd"));
+        assert!(result.contains("--resolve-engines"));
+    }
+
+    #[test]
+    fn test_remove_flag_from_fnm_env() {
+        let content = r#"eval "$(fnm env --use-on-cd --shell bash)""#;
+        let result = ShellConfig::remove_flag_from_fnm_env(content, "--use-on-cd");
+        assert!(!result.contains("--use-on-cd"));
+        assert!(result.contains("fnm env"));
+    }
+
+    #[test]
+    fn test_remove_flag_preserves_others() {
+        let content = r#"eval "$(fnm env --use-on-cd --resolve-engines --shell bash)""#;
+        let result = ShellConfig::remove_flag_from_fnm_env(content, "--use-on-cd");
+        assert!(!result.contains("--use-on-cd"));
+        assert!(result.contains("--resolve-engines"));
+    }
+
+    #[test]
+    fn test_update_fnm_flags_add() {
+        let mut config = create_test_config(r#"eval "$(fnm env --shell bash)""#);
+        let options = FnmShellOptions {
+            use_on_cd: true,
+            resolve_engines: false,
+            corepack_enabled: false,
+        };
+        let edit = config.update_fnm_flags(&options);
+
+        assert!(edit.has_changes());
+        assert!(edit.modified.contains("--use-on-cd"));
+    }
+
+    #[test]
+    fn test_update_fnm_flags_remove() {
+        let mut config = create_test_config(r#"eval "$(fnm env --use-on-cd --shell bash)""#);
+        let options = FnmShellOptions {
+            use_on_cd: false,
+            resolve_engines: false,
+            corepack_enabled: false,
+        };
+        let edit = config.update_fnm_flags(&options);
+
+        assert!(edit.has_changes());
+        assert!(!edit.modified.contains("--use-on-cd"));
+    }
+
+    #[test]
+    fn test_update_fnm_flags_no_change() {
+        let mut config = create_test_config(r#"eval "$(fnm env --use-on-cd --shell bash)""#);
+        let options = FnmShellOptions {
+            use_on_cd: true,
+            resolve_engines: false,
+            corepack_enabled: false,
+        };
+        let edit = config.update_fnm_flags(&options);
+
+        assert!(!edit.has_changes());
+    }
+
+    #[test]
+    fn test_shell_config_edit_has_changes() {
+        let edit = ShellConfigEdit {
+            original: "".to_string(),
+            modified: "new".to_string(),
+            changes: vec!["Added something".to_string()],
+        };
+        assert!(edit.has_changes());
+    }
+
+    #[test]
+    fn test_shell_config_edit_no_changes() {
+        let edit = ShellConfigEdit {
+            original: "same".to_string(),
+            modified: "same".to_string(),
+            changes: vec![],
+        };
+        assert!(!edit.has_changes());
+    }
+
+    #[test]
+    fn test_diff_preview_with_changes() {
+        let edit = ShellConfigEdit {
+            original: "".to_string(),
+            modified: "new".to_string(),
+            changes: vec!["Added fnm".to_string()],
+        };
+        let preview = edit.diff_preview();
+        assert!(preview.contains("+ Added fnm"));
+    }
+
+    #[test]
+    fn test_diff_preview_no_changes() {
+        let edit = ShellConfigEdit {
+            original: "".to_string(),
+            modified: "".to_string(),
+            changes: vec![],
+        };
+        let preview = edit.diff_preview();
+        assert_eq!(preview, "No changes needed.");
+    }
+}

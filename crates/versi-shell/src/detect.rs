@@ -285,3 +285,140 @@ pub fn detect_wsl_shells(_distro: &str) -> Vec<ShellInfo> {
 fn find_existing_config(shell: &ShellType) -> Option<PathBuf> {
     shell.config_files().into_iter().find(|path| path.exists())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shell_type_name() {
+        assert_eq!(ShellType::Bash.name(), "Bash");
+        assert_eq!(ShellType::Zsh.name(), "Zsh");
+        assert_eq!(ShellType::Fish.name(), "Fish");
+        assert_eq!(ShellType::PowerShell.name(), "PowerShell");
+        assert_eq!(ShellType::Cmd.name(), "Command Prompt");
+    }
+
+    #[test]
+    fn test_shell_type_fnm_shell_arg() {
+        assert_eq!(ShellType::Bash.fnm_shell_arg(), "bash");
+        assert_eq!(ShellType::Zsh.fnm_shell_arg(), "zsh");
+        assert_eq!(ShellType::Fish.fnm_shell_arg(), "fish");
+        assert_eq!(ShellType::PowerShell.fnm_shell_arg(), "powershell");
+        assert_eq!(ShellType::Cmd.fnm_shell_arg(), "cmd");
+    }
+
+    #[test]
+    fn test_config_files_bash() {
+        let files = ShellType::Bash.config_files();
+        assert!(!files.is_empty());
+        assert!(files.iter().any(|p| p.ends_with(".bashrc")));
+    }
+
+    #[test]
+    fn test_config_files_zsh() {
+        let files = ShellType::Zsh.config_files();
+        assert!(!files.is_empty());
+        assert!(files.iter().any(|p| p.ends_with(".zshrc")));
+    }
+
+    #[test]
+    fn test_config_files_fish() {
+        let files = ShellType::Fish.config_files();
+        assert!(!files.is_empty());
+        assert!(files.iter().any(|p| p.to_string_lossy().contains("fish")));
+    }
+
+    #[test]
+    fn test_config_files_cmd() {
+        let files = ShellType::Cmd.config_files();
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn test_fnm_init_command_bash_no_flags() {
+        let options = FnmShellOptions::default();
+        let cmd = ShellType::Bash.fnm_init_command(&options);
+        assert!(cmd.contains("fnm env"));
+        assert!(cmd.contains("--shell bash"));
+        assert!(cmd.contains("eval"));
+    }
+
+    #[test]
+    fn test_fnm_init_command_bash_with_flags() {
+        let options = FnmShellOptions {
+            use_on_cd: true,
+            resolve_engines: true,
+            corepack_enabled: false,
+        };
+        let cmd = ShellType::Bash.fnm_init_command(&options);
+        assert!(cmd.contains("--use-on-cd"));
+        assert!(cmd.contains("--resolve-engines"));
+        assert!(!cmd.contains("--corepack-enabled"));
+    }
+
+    #[test]
+    fn test_fnm_init_command_zsh() {
+        let options = FnmShellOptions::default();
+        let cmd = ShellType::Zsh.fnm_init_command(&options);
+        assert!(cmd.contains("--shell zsh"));
+    }
+
+    #[test]
+    fn test_fnm_init_command_fish() {
+        let options = FnmShellOptions::default();
+        let cmd = ShellType::Fish.fnm_init_command(&options);
+        assert!(cmd.contains("--shell fish"));
+        assert!(cmd.contains("| source"));
+        assert!(!cmd.contains("eval"));
+    }
+
+    #[test]
+    fn test_fnm_init_command_powershell() {
+        let options = FnmShellOptions::default();
+        let cmd = ShellType::PowerShell.fnm_init_command(&options);
+        assert!(cmd.contains("--shell powershell"));
+        assert!(cmd.contains("Invoke-Expression"));
+    }
+
+    #[test]
+    fn test_fnm_init_command_cmd() {
+        let options = FnmShellOptions::default();
+        let cmd = ShellType::Cmd.fnm_init_command(&options);
+        assert!(cmd.is_empty());
+    }
+
+    #[test]
+    fn test_fnm_init_command_all_flags() {
+        let options = FnmShellOptions {
+            use_on_cd: true,
+            resolve_engines: true,
+            corepack_enabled: true,
+        };
+        let cmd = ShellType::Bash.fnm_init_command(&options);
+        assert!(cmd.contains("--use-on-cd"));
+        assert!(cmd.contains("--resolve-engines"));
+        assert!(cmd.contains("--corepack-enabled"));
+    }
+
+    #[test]
+    fn test_fnm_shell_options_default() {
+        let options = FnmShellOptions::default();
+        assert!(!options.use_on_cd);
+        assert!(!options.resolve_engines);
+        assert!(!options.corepack_enabled);
+    }
+
+    #[test]
+    fn test_shell_type_equality() {
+        assert_eq!(ShellType::Bash, ShellType::Bash);
+        assert_ne!(ShellType::Bash, ShellType::Zsh);
+    }
+
+    #[test]
+    fn test_shell_type_clone() {
+        let shell = ShellType::Bash;
+        let cloned = shell.clone();
+        assert_eq!(shell, cloned);
+    }
+}

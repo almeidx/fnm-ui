@@ -162,7 +162,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_version() {
+    fn test_parse_version_with_v_prefix() {
         let v: NodeVersion = "v20.11.0".parse().unwrap();
         assert_eq!(v.major, 20);
         assert_eq!(v.minor, 11);
@@ -170,9 +170,149 @@ mod tests {
     }
 
     #[test]
-    fn test_version_ordering() {
+    fn test_parse_version_without_v_prefix() {
+        let v: NodeVersion = "20.11.0".parse().unwrap();
+        assert_eq!(v.major, 20);
+        assert_eq!(v.minor, 11);
+        assert_eq!(v.patch, 0);
+    }
+
+    #[test]
+    fn test_parse_version_with_whitespace() {
+        let v: NodeVersion = "  v20.11.0  ".parse().unwrap();
+        assert_eq!(v.major, 20);
+    }
+
+    #[test]
+    fn test_parse_version_invalid_format() {
+        let result: Result<NodeVersion, _> = "v20.11".parse();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_version_invalid_major() {
+        let result: Result<NodeVersion, _> = "vXX.11.0".parse();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_version_display() {
+        let v = NodeVersion::new(20, 11, 0);
+        assert_eq!(v.to_string(), "v20.11.0");
+    }
+
+    #[test]
+    fn test_version_ordering_by_major() {
         let v1: NodeVersion = "v18.0.0".parse().unwrap();
         let v2: NodeVersion = "v20.0.0".parse().unwrap();
         assert!(v2 > v1);
+    }
+
+    #[test]
+    fn test_version_ordering_by_minor() {
+        let v1: NodeVersion = "v20.10.0".parse().unwrap();
+        let v2: NodeVersion = "v20.11.0".parse().unwrap();
+        assert!(v2 > v1);
+    }
+
+    #[test]
+    fn test_version_ordering_by_patch() {
+        let v1: NodeVersion = "v20.11.0".parse().unwrap();
+        let v2: NodeVersion = "v20.11.1".parse().unwrap();
+        assert!(v2 > v1);
+    }
+
+    #[test]
+    fn test_version_equality() {
+        let v1: NodeVersion = "v20.11.0".parse().unwrap();
+        let v2: NodeVersion = "v20.11.0".parse().unwrap();
+        assert_eq!(v1, v2);
+    }
+
+    #[test]
+    fn test_version_major_group() {
+        let v = NodeVersion::new(20, 11, 0);
+        assert_eq!(v.major_group(), 20);
+    }
+
+    #[test]
+    fn test_version_group_from_versions() {
+        let versions = vec![
+            InstalledVersion {
+                version: NodeVersion::new(20, 11, 0),
+                is_default: true,
+                lts_codename: None,
+                install_date: None,
+                disk_size: None,
+            },
+            InstalledVersion {
+                version: NodeVersion::new(20, 10, 0),
+                is_default: false,
+                lts_codename: None,
+                install_date: None,
+                disk_size: None,
+            },
+            InstalledVersion {
+                version: NodeVersion::new(18, 19, 0),
+                is_default: false,
+                lts_codename: None,
+                install_date: None,
+                disk_size: None,
+            },
+        ];
+
+        let groups = VersionGroup::from_versions(versions);
+
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].major, 20);
+        assert_eq!(groups[1].major, 18);
+        assert_eq!(groups[0].versions.len(), 2);
+        assert_eq!(groups[1].versions.len(), 1);
+    }
+
+    #[test]
+    fn test_version_group_sorted_descending() {
+        let versions = vec![
+            InstalledVersion {
+                version: NodeVersion::new(20, 10, 0),
+                is_default: false,
+                lts_codename: None,
+                install_date: None,
+                disk_size: None,
+            },
+            InstalledVersion {
+                version: NodeVersion::new(20, 11, 0),
+                is_default: false,
+                lts_codename: None,
+                install_date: None,
+                disk_size: None,
+            },
+        ];
+
+        let groups = VersionGroup::from_versions(versions);
+
+        assert_eq!(groups[0].versions[0].version.minor, 11);
+        assert_eq!(groups[0].versions[1].version.minor, 10);
+    }
+
+    #[test]
+    fn test_version_group_empty() {
+        let versions: Vec<InstalledVersion> = vec![];
+        let groups = VersionGroup::from_versions(versions);
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn test_version_group_is_expanded_default() {
+        let versions = vec![InstalledVersion {
+            version: NodeVersion::new(20, 11, 0),
+            is_default: false,
+            lts_codename: None,
+            install_date: None,
+            disk_size: None,
+        }];
+
+        let groups = VersionGroup::from_versions(versions);
+        assert!(groups[0].is_expanded);
     }
 }

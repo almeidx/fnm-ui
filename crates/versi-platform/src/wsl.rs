@@ -268,6 +268,121 @@ fn parse_wsl_list(output: &str, running_distros: &[String]) -> Vec<WslDistro> {
         .collect()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decode_wsl_output_utf8() {
+        let input = b"Ubuntu Running 2";
+        let result = decode_wsl_output(input);
+        assert!(result.contains("Ubuntu"));
+    }
+
+    #[test]
+    fn test_decode_wsl_output_utf16le() {
+        let input: Vec<u8> = "Ubuntu"
+            .encode_utf16()
+            .flat_map(|c| c.to_le_bytes())
+            .collect();
+        let result = decode_wsl_output(&input);
+        assert!(result.contains("Ubuntu"));
+    }
+
+    #[test]
+    fn test_parse_wsl_list_basic() {
+        let output = "  NAME      STATE           VERSION\n* Ubuntu    Running         2\n  Debian    Stopped         2";
+        let running = vec!["Ubuntu".to_string()];
+        let distros = parse_wsl_list(output, &running);
+
+        assert_eq!(distros.len(), 2);
+        assert_eq!(distros[0].name, "Ubuntu");
+        assert!(distros[0].is_default);
+        assert!(distros[0].is_running);
+        assert_eq!(distros[0].version, 2);
+
+        assert_eq!(distros[1].name, "Debian");
+        assert!(!distros[1].is_default);
+        assert!(!distros[1].is_running);
+    }
+
+    #[test]
+    fn test_parse_wsl_list_empty() {
+        let output = "  NAME      STATE           VERSION\n";
+        let running: Vec<String> = vec![];
+        let distros = parse_wsl_list(output, &running);
+        assert!(distros.is_empty());
+    }
+
+    #[test]
+    fn test_parse_wsl_list_skips_header() {
+        let output = "  NAME      STATE           VERSION\nUbuntu    Running         2";
+        let running = vec!["Ubuntu".to_string()];
+        let distros = parse_wsl_list(output, &running);
+
+        assert_eq!(distros.len(), 1);
+        assert_eq!(distros[0].name, "Ubuntu");
+    }
+
+    #[test]
+    fn test_parse_wsl_list_version_parsing() {
+        let output = "  NAME      STATE           VERSION\nUbuntu    Running         1";
+        let running = vec!["Ubuntu".to_string()];
+        let distros = parse_wsl_list(output, &running);
+
+        assert_eq!(distros[0].version, 1);
+    }
+
+    #[test]
+    fn test_parse_wsl_list_default_marker() {
+        let output = "  NAME      STATE           VERSION\n* Ubuntu    Running         2\n  Debian    Stopped         2";
+        let running: Vec<String> = vec![];
+        let distros = parse_wsl_list(output, &running);
+
+        assert!(distros[0].is_default);
+        assert!(!distros[1].is_default);
+    }
+
+    #[test]
+    fn test_parse_wsl_list_running_detection() {
+        let output = "  NAME      STATE           VERSION\nUbuntu    Running         2\nDebian    Stopped         2";
+        let running = vec!["Ubuntu".to_string()];
+        let distros = parse_wsl_list(output, &running);
+
+        assert!(distros[0].is_running);
+        assert!(!distros[1].is_running);
+    }
+
+    #[test]
+    fn test_parse_wsl_list_with_null_chars() {
+        let output = "  NAME      STATE           VERSION\nUbuntu\0    Running         2";
+        let running = vec!["Ubuntu".to_string()];
+        let distros = parse_wsl_list(output, &running);
+
+        assert_eq!(distros[0].name, "Ubuntu");
+    }
+
+    #[test]
+    fn test_parse_wsl_list_minimal_format() {
+        let output = "  NAME      STATE           VERSION\nUbuntu";
+        let running: Vec<String> = vec![];
+        let distros = parse_wsl_list(output, &running);
+
+        assert_eq!(distros.len(), 1);
+        assert_eq!(distros[0].name, "Ubuntu");
+        assert_eq!(distros[0].version, 2);
+    }
+
+    #[test]
+    fn test_wsl_distro_fnm_path_default() {
+        let output = "  NAME      STATE           VERSION\nUbuntu    Running         2";
+        let running: Vec<String> = vec![];
+        let distros = parse_wsl_list(output, &running);
+
+        assert!(distros[0].fnm_path.is_none());
+    }
+}
+
 pub async fn execute_in_wsl(distro: &str, command: &str) -> Result<String, WslError> {
     debug!(
         "Executing in WSL {}: wsl.exe -d {} -- bash -c \"{}\"",

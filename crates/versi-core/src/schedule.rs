@@ -85,3 +85,118 @@ pub async fn fetch_release_schedule() -> Result<ReleaseSchedule, String> {
 
     Ok(ReleaseSchedule { versions })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_schedule() -> ReleaseSchedule {
+        let mut versions = HashMap::new();
+
+        versions.insert(
+            20,
+            VersionSchedule {
+                start: "2023-04-18".to_string(),
+                lts: Some("2023-10-24".to_string()),
+                maintenance: Some("2024-10-22".to_string()),
+                end: "2026-04-30".to_string(),
+                codename: Some("Iron".to_string()),
+            },
+        );
+
+        versions.insert(
+            18,
+            VersionSchedule {
+                start: "2022-04-19".to_string(),
+                lts: Some("2022-10-25".to_string()),
+                maintenance: Some("2023-10-18".to_string()),
+                end: "2025-04-30".to_string(),
+                codename: Some("Hydrogen".to_string()),
+            },
+        );
+
+        versions.insert(
+            16,
+            VersionSchedule {
+                start: "2021-04-20".to_string(),
+                lts: Some("2021-10-26".to_string()),
+                maintenance: Some("2022-10-18".to_string()),
+                end: "2023-09-11".to_string(),
+                codename: Some("Gallium".to_string()),
+            },
+        );
+
+        versions.insert(
+            23,
+            VersionSchedule {
+                start: "2024-04-23".to_string(),
+                lts: None,
+                maintenance: None,
+                end: "2025-06-01".to_string(),
+                codename: None,
+            },
+        );
+
+        ReleaseSchedule { versions }
+    }
+
+    #[test]
+    fn test_is_lts_with_codename() {
+        let schedule = create_test_schedule();
+        assert!(schedule.is_lts(20));
+        assert!(schedule.is_lts(18));
+    }
+
+    #[test]
+    fn test_is_lts_without_codename() {
+        let schedule = create_test_schedule();
+        assert!(!schedule.is_lts(23));
+    }
+
+    #[test]
+    fn test_is_lts_unknown_version() {
+        let schedule = create_test_schedule();
+        assert!(!schedule.is_lts(99));
+    }
+
+    #[test]
+    fn test_codename() {
+        let schedule = create_test_schedule();
+        assert_eq!(schedule.codename(20), Some("Iron"));
+        assert_eq!(schedule.codename(18), Some("Hydrogen"));
+        assert_eq!(schedule.codename(23), None);
+    }
+
+    #[test]
+    fn test_codename_unknown_version() {
+        let schedule = create_test_schedule();
+        assert_eq!(schedule.codename(99), None);
+    }
+
+    #[test]
+    fn test_is_active_unknown_version_high() {
+        let schedule = create_test_schedule();
+        assert!(schedule.is_active(99));
+    }
+
+    #[test]
+    fn test_is_active_unknown_version_low() {
+        let schedule = create_test_schedule();
+        assert!(!schedule.is_active(10));
+    }
+
+    #[test]
+    fn test_is_active_eol_version() {
+        let schedule = create_test_schedule();
+        assert!(!schedule.is_active(16));
+    }
+
+    #[test]
+    fn test_active_lts_versions() {
+        let schedule = create_test_schedule();
+        let active_lts = schedule.active_lts_versions();
+        assert!(active_lts.contains(&20));
+        assert!(!active_lts.contains(&23));
+        assert!(!active_lts.contains(&16));
+    }
+}
