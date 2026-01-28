@@ -316,7 +316,16 @@ impl FnmUi {
             }
             Message::WindowOpened(id) => {
                 self.window_id = Some(id);
-                Task::none()
+                if self.settings.start_minimized
+                    && self.settings.tray_behavior != TrayBehavior::Disabled
+                {
+                    Task::batch([
+                        Task::done(Message::HideDockIcon),
+                        iced::window::set_mode(id, iced::window::Mode::Hidden),
+                    ])
+                } else {
+                    Task::none()
+                }
             }
             Message::HideDockIcon => {
                 set_dock_visible(false);
