@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.2.1] - 2026-01-28
+
+- fix: check for fnm updates when switching environments
+- feat: warn user when uninstalling default version
+- fix: reduce debug log noise
+- fix: keep showing versions during refresh instead of loading screen
+- fix(windows): verify shell config inside WSL instead of on Windows host
+- fix(windows): improve PowerShell detection and add WSL shell logging
+- fix(macos): delay minimize until after first environment loads
+- fix(macos): auto-refresh versions when showing window from tray
+
+
 ## [0.2.0] - 2026-01-28
 
 - fix(ci): use cargo update --workspace to avoid updating external deps
