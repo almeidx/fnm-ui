@@ -211,19 +211,21 @@ fn find_fnm_path(distro: &str) -> Option<String> {
 }
 
 fn decode_wsl_output(bytes: &[u8]) -> String {
-    // Try UTF-16LE first (Windows wsl.exe output)
-    if bytes.len() >= 2 {
+    let looks_utf16le = bytes.len() >= 2
+        && bytes.len() % 2 == 0
+        && bytes.iter().skip(1).step_by(2).any(|&b| b == 0);
+
+    if looks_utf16le {
         let u16_iter = bytes
             .chunks_exact(2)
             .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]));
         let decoded: String = char::decode_utf16(u16_iter)
             .filter_map(|r| r.ok())
             .collect();
-        if !decoded.is_empty() && decoded.chars().any(|c| c.is_alphabetic()) {
+        if !decoded.is_empty() {
             return decoded;
         }
     }
-    // Fallback to UTF-8
     String::from_utf8_lossy(bytes).to_string()
 }
 
