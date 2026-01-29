@@ -80,11 +80,9 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
 fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     let env = state.active_environment();
 
-    let subtitle = match (&env.default_version, &env.fnm_version) {
-        (Some(v), Some(fnm_v)) => format!("Default: {} \u{00b7} fnm {}", v, fnm_v),
-        (Some(v), None) => format!("Default: {}", v),
-        (None, Some(fnm_v)) => format!("fnm {}", fnm_v),
-        (None, None) => "No default set".to_string(),
+    let subtitle = match &env.fnm_version {
+        Some(fnm_v) => format!("fnm {}", fnm_v),
+        None => String::new(),
     };
 
     let title_section =
