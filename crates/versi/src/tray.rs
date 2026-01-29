@@ -16,6 +16,7 @@ thread_local! {
 pub enum TrayMessage {
     ShowWindow,
     OpenSettings,
+    OpenAbout,
     Quit,
     SetDefault { env_index: usize, version: String },
 }
@@ -146,6 +147,12 @@ fn build_menu(data: &TrayMenuData) -> Menu {
         true,
         None,
     ));
+    let _ = menu.append(&MenuItem::with_id(
+        MenuId::new("open_about"),
+        "About",
+        true,
+        None,
+    ));
     let _ = menu.append(&PredefinedMenuItem::separator());
     let _ = menu.append(&MenuItem::with_id(MenuId::new("quit"), "Quit", true, None));
 
@@ -165,6 +172,7 @@ fn parse_menu_event(id: &str) -> Option<TrayMessage> {
     match id {
         "show_window" => Some(TrayMessage::ShowWindow),
         "open_settings" => Some(TrayMessage::OpenSettings),
+        "open_about" => Some(TrayMessage::OpenAbout),
         "quit" => Some(TrayMessage::Quit),
         s if s.starts_with("set:") => {
             let parts: Vec<&str> = s.splitn(3, ':').collect();

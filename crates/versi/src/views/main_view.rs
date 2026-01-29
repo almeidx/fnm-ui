@@ -134,6 +134,15 @@ fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         tooltip::Position::Bottom,
     ));
 
+    icon_row = icon_row.push(tooltip(
+        button(text("\u{24d8}").size(16))
+            .on_press(Message::NavigateToAbout)
+            .style(styles::ghost_button)
+            .padding([6, 8]),
+        text("About").size(12),
+        tooltip::Position::Bottom,
+    ));
+
     row![title_section, Space::new().width(Length::Fill), icon_row,]
         .align_y(Alignment::Center)
         .into()

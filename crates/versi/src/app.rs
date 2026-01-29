@@ -121,7 +121,9 @@ impl FnmUi {
                 if let AppState::Main(state) = &mut self.state {
                     if state.modal.is_some() {
                         state.modal = None;
-                    } else if state.view == MainViewKind::Settings {
+                    } else if state.view == MainViewKind::About
+                        || state.view == MainViewKind::Settings
+                    {
                         state.view = MainViewKind::Versions;
                     }
                 }
@@ -209,6 +211,12 @@ impl FnmUi {
                     Message::LogFileStatsLoaded,
                 );
                 Task::batch([shell_task, log_stats_task])
+            }
+            Message::NavigateToAbout => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.view = MainViewKind::About;
+                }
+                Task::none()
             }
             Message::NavigateToVersions => {
                 if let AppState::Main(state) = &mut self.state {
@@ -421,6 +429,7 @@ impl FnmUi {
                 MainViewKind::Settings => {
                     views::settings_view::view(&state.settings_state, &self.settings, state)
                 }
+                MainViewKind::About => views::about_view::view(),
             },
         }
     }
@@ -1866,6 +1875,21 @@ impl FnmUi {
                     Message::LogFileStatsLoaded,
                 );
                 Task::batch([show_task, shell_task, log_stats_task])
+            }
+            TrayMessage::OpenAbout => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.view = MainViewKind::About;
+                }
+                if let Some(id) = self.window_id {
+                    set_dock_visible(true);
+                    Task::batch([
+                        iced::window::set_mode(id, iced::window::Mode::Windowed),
+                        iced::window::minimize(id, false),
+                        iced::window::gain_focus(id),
+                    ])
+                } else {
+                    Task::none()
+                }
             }
             TrayMessage::Quit => iced::exit(),
             TrayMessage::SetDefault { env_index, version } => {

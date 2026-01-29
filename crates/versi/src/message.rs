@@ -91,6 +91,7 @@ pub enum Message {
 
     NavigateToVersions,
     NavigateToSettings,
+    NavigateToAbout,
     VersionRowHovered(Option<String>),
     ThemeChanged(crate::settings::ThemeSetting),
     ShellOptionUseOnCdToggled(bool),

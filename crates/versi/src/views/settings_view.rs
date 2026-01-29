@@ -257,35 +257,6 @@ pub fn view<'a>(
         ]
         .spacing(8),
     );
-    content = content.push(Space::new().height(28));
-    content = content.push(text("About").size(14));
-    content = content.push(Space::new().height(8));
-    content = content.push(text(format!("Versi v{}", env!("CARGO_PKG_VERSION"))).size(14));
-    content = content.push(Space::new().height(4));
-    content = content.push(
-        text("A native GUI for fnm (Fast Node Manager)")
-            .size(12)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
-    );
-    content = content.push(Space::new().height(12));
-    content = content.push(
-        row![
-            button(text("GitHub \u{2197}").size(12))
-                .on_press(Message::OpenLink(
-                    "https://github.com/almeidx/versi".to_string()
-                ))
-                .style(styles::secondary_button)
-                .padding([6, 12]),
-            button(text("fnm \u{2197}").size(12))
-                .on_press(Message::OpenLink(
-                    "https://github.com/Schniz/fnm".to_string()
-                ))
-                .style(styles::secondary_button)
-                .padding([6, 12]),
-        ]
-        .spacing(8),
-    );
-
     column![
         header,
         Space::new().height(24),

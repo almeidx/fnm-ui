@@ -13,6 +13,7 @@ pub enum MainViewKind {
     #[default]
     Versions,
     Settings,
+    About,
 }
 
 #[derive(Debug)]
