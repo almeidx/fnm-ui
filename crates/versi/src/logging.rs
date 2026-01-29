@@ -65,6 +65,20 @@ pub fn init_logging(debug_enabled: bool) {
     let _ = paths.ensure_dirs();
     let log_path = paths.log_file();
 
+    const MAX_LOG_SIZE: u64 = 5 * 1024 * 1024;
+    if let Ok(metadata) = std::fs::metadata(&log_path)
+        && metadata.len() > MAX_LOG_SIZE
+        && let Ok(contents) = std::fs::read(&log_path)
+    {
+        let half = contents.len() / 2;
+        let keep_from = contents[half..]
+            .iter()
+            .position(|&b| b == b'\n')
+            .map(|p| half + p + 1)
+            .unwrap_or(half);
+        let _ = std::fs::write(&log_path, &contents[keep_from..]);
+    }
+
     let config = ConfigBuilder::new()
         .set_time_format_rfc3339()
         .add_filter_allow_str("versi")
