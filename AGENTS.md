@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Versi is a native GUI application for [fnm](https://github.com/Schniz/fnm) (Fast Node Manager). It provides a graphical interface to manage Node.js versions on your system.
+Versi is a native GUI application for managing Node.js versions. It currently uses [fnm](https://github.com/Schniz/fnm) (Fast Node Manager) as its backend, but the architecture is backend-agnostic — adding a new backend (e.g., nvm, volta) requires only implementing the `BackendProvider` and `VersionManager` traits.
 
 ## Technology Stack
 
@@ -20,7 +20,16 @@ versi/
 │   ├── versi/                    # Main GUI application
 │   │   └── src/
 │   │       ├── main.rs           # Entry point
-│   │       ├── app.rs            # Iced Application implementation
+│   │       ├── app/              # Iced Application implementation (mod.rs + handler modules)
+│   │       │   ├── mod.rs        # Main update loop, Versi struct, message dispatch
+│   │       │   ├── init.rs       # Initialization and backend detection
+│   │       │   ├── environment.rs # Environment switching and loading
+│   │       │   ├── onboarding.rs # Onboarding flow handlers
+│   │       │   ├── operations.rs # Install/uninstall/set-default operations
+│   │       │   ├── shell.rs      # Shell configuration handlers
+│   │       │   ├── versions.rs   # Remote version fetching and update checks
+│   │       │   ├── tray_handlers.rs # System tray event handlers
+│   │       │   └── platform.rs   # Platform-specific helpers
 │   │       ├── message.rs        # Message enum (Elm-style)
 │   │       ├── state.rs          # Application state structs
 │   │       ├── theme.rs          # Light/dark themes and styles
@@ -28,22 +37,31 @@ versi/
 │   │       ├── logging.rs        # Debug log file management
 │   │       ├── tray.rs           # System tray integration
 │   │       ├── single_instance.rs # Single-instance enforcement
-│   │       ├── views/            # UI views (main_view, settings_view, onboarding, loading)
+│   │       ├── views/            # UI views (main_view, settings_view, onboarding, loading, about)
 │   │       └── widgets/          # Custom widgets (version_list, toast_container)
-│   ├── versi-core/               # fnm CLI wrapper library
+│   ├── versi-backend/            # Abstract backend traits and types
 │   │   └── src/
-│   │       ├── client.rs         # FnmClient - command execution
-│   │       ├── version.rs        # NodeVersion types & parsing
+│   │       ├── traits.rs         # BackendProvider, VersionManager, BackendDetection, BackendUpdate
+│   │       ├── types.rs          # Shared types (NodeVersion, InstalledVersion, RemoteVersion, etc.)
+│   │       ├── error.rs          # BackendError type
+│   │       └── lib.rs            # Re-exports
+│   ├── versi-core/               # fnm backend implementation
+│   │   └── src/
+│   │       ├── provider.rs       # FnmProvider - implements BackendProvider
+│   │       ├── backend.rs        # FnmBackend - implements VersionManager
+│   │       ├── client.rs         # FnmClient - CLI command execution
+│   │       ├── version.rs        # Version parsing
 │   │       ├── progress.rs       # Install progress tracking
-│   │       ├── detection.rs      # fnm binary detection
+│   │       ├── detection.rs      # fnm binary detection (pub(crate))
+│   │       ├── update.rs         # fnm update checking
 │   │       ├── schedule.rs       # Node.js release schedule fetching
 │   │       └── error.rs          # Error types
-│   ├── versi-shell/              # Shell detection & configuration
+│   ├── versi-shell/              # Shell detection & configuration (backend-agnostic)
 │   │   └── src/
 │   │       ├── detect.rs         # Shell detection
-│   │       ├── config.rs         # Config file editing
+│   │       ├── config.rs         # Config file editing (parameterized on marker/label)
 │   │       ├── shells/           # Shell-specific implementations
-│   │       └── verify.rs         # Configuration verification
+│   │       └── verify.rs         # Configuration verification (parameterized on marker/backend_binary)
 │   └── versi-platform/           # Platform abstractions
 │       └── src/
 │           ├── paths.rs          # Platform-native paths
@@ -69,6 +87,7 @@ The application follows Iced's Elm-style architecture:
 - **Theming**: Dynamic light/dark themes based on system preference
 - **Operation Queue**: Installs run concurrently (`active_installs: Vec<Operation>`), while uninstall and set-default are exclusive (`exclusive_op: Option<Operation>`). Pending operations are queued and drained when capacity is available.
 - **System Tray**: Optional background tray icon with version switching support
+- **Backend Abstraction**: The `Versi` struct holds an `Arc<dyn BackendProvider>` which provides all backend-specific behavior. The GUI, shell, and platform crates have no direct dependency on any concrete backend.
 
 ## Development Commands
 
@@ -106,10 +125,11 @@ cargo clippy
 
 ## Key Files to Understand
 
-1. `crates/versi/src/app.rs` - Main application logic and message handling
+1. `crates/versi/src/app/mod.rs` - Main application logic and message dispatch
 2. `crates/versi/src/state.rs` - All state types and their relationships
 3. `crates/versi/src/message.rs` - All possible application events
-4. `crates/versi-core/src/client.rs` - fnm CLI interaction
+4. `crates/versi-backend/src/traits.rs` - `BackendProvider` and `VersionManager` trait definitions
+5. `crates/versi-core/src/provider.rs` - `FnmProvider` (concrete backend implementation)
 
 ## Common Tasks
 
@@ -120,11 +140,19 @@ cargo clippy
 3. Handle message in `app.rs` update function
 4. Update view in appropriate `views/` file
 
-### Adding a New fnm Command
+### Adding a New Backend
+
+1. Create a new crate (e.g., `versi-nvm`)
+2. Implement `BackendProvider` trait (detection, installation, update checking)
+3. Implement `VersionManager` trait (list installed/remote, install, uninstall, set default)
+4. Wire the new provider into `Versi::new()` in `app/mod.rs`
+
+### Adding a New Command to the fnm Backend
 
 1. Add method to `FnmClient` in `versi-core/src/client.rs`
-2. Add any new types to `version.rs` if needed
-3. Create corresponding message and handler in versi
+2. Add any new types to `versi-backend/src/types.rs` if they're shared, or `versi-core/src/version.rs` if fnm-specific
+3. Expose via the `VersionManager` trait if applicable
+4. Create corresponding message and handler in versi
 
 ### Modifying Styles
 
@@ -136,7 +164,7 @@ cargo clippy
 
 - Unit tests should be in the same file as the code
 - Integration tests in `tests/` directory
-- Test fnm interactions with mock or real fnm installation
+- Test backend interactions with mock or real backend installation
 
 ## Dependencies
 
@@ -160,15 +188,15 @@ Key external crates:
 - Available Node versions list (fetched from nodejs.org)
 - Node.js release schedule (from GitHub)
 
-## fnm Interaction
+## Backend Interaction
 
-- All fnm operations execute CLI commands as subprocesses via `FnmClient`
+The GUI interacts with backends exclusively through the `BackendProvider` and `VersionManager` traits defined in `versi-backend`. The current backend (fnm) executes CLI commands as subprocesses via `FnmClient`.
+
+- All operations run as async tasks, keeping the UI responsive via Iced's `Task` system
 - Parse stdout/stderr for status and results
-- Long-running operations (install/download) run in async tasks
 - Multiple installs can run concurrently; uninstall and set-default wait for all installs to finish
-- UI remains responsive during operations via Iced's `Task` system
 
-**Key fnm commands used:**
+**Key fnm commands used (in versi-core):**
 - `fnm list` - Get installed versions
 - `fnm list-remote` - Get available versions
 - `fnm install <version>` - Install a version
@@ -192,10 +220,10 @@ Key external crates:
 - Accessed via Windows app's multi-environment support
 - Lists all WSL distros via `wsl.exe --list --verbose`
 - Separately checks which distros are running via `wsl.exe --list --running --quiet`
-- Only checks for fnm in running distros (avoids booting non-running distros)
-- Detects fnm binary path by checking common locations (`~/.local/share/fnm/fnm`, `~/.cargo/bin/fnm`, etc.)
-- Shows all distros as tabs; non-running or fnm-less distros appear disabled with reason
-- Commands executed directly via `wsl.exe -d <distro> /path/to/fnm ...` (no shell needed)
+- Only checks for the backend in running distros (avoids booting non-running distros)
+- Detects backend binary path by checking common locations (`~/.local/share/fnm/fnm`, `~/.cargo/bin/fnm`, etc.)
+- Shows all distros as tabs; non-running or backend-less distros appear disabled with reason
+- Commands executed directly via `wsl.exe -d <distro> /path/to/backend ...` (no shell needed)
 - Shell detection in settings is environment-aware: shows Linux shells (bash/zsh/fish) for WSL environments
 
 ### Linux

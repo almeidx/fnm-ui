@@ -22,7 +22,7 @@ impl ShellType {
         }
     }
 
-    pub fn fnm_shell_arg(&self) -> &'static str {
+    pub fn shell_arg(&self) -> &'static str {
         match self {
             ShellType::Bash => "bash",
             ShellType::Zsh => "zsh",
@@ -63,64 +63,6 @@ impl ShellType {
             ShellType::Cmd => vec![],
         }
     }
-
-    pub fn fnm_init_command(&self, options: &FnmShellOptions) -> String {
-        let mut flags = Vec::new();
-
-        if options.use_on_cd {
-            flags.push("--use-on-cd");
-        }
-        if options.resolve_engines {
-            flags.push("--resolve-engines");
-        }
-        if options.corepack_enabled {
-            flags.push("--corepack-enabled");
-        }
-
-        let flags_str = flags.join(" ");
-
-        match self {
-            ShellType::Bash => {
-                if flags_str.is_empty() {
-                    r#"eval "$(fnm env --shell bash)""#.to_string()
-                } else {
-                    format!(r#"eval "$(fnm env {} --shell bash)""#, flags_str)
-                }
-            }
-            ShellType::Zsh => {
-                if flags_str.is_empty() {
-                    r#"eval "$(fnm env --shell zsh)""#.to_string()
-                } else {
-                    format!(r#"eval "$(fnm env {} --shell zsh)""#, flags_str)
-                }
-            }
-            ShellType::Fish => {
-                if flags_str.is_empty() {
-                    "fnm env --shell fish | source".to_string()
-                } else {
-                    format!("fnm env {} --shell fish | source", flags_str)
-                }
-            }
-            ShellType::PowerShell => {
-                if flags_str.is_empty() {
-                    "fnm env --shell powershell | Out-String | Invoke-Expression".to_string()
-                } else {
-                    format!(
-                        "fnm env {} --shell powershell | Out-String | Invoke-Expression",
-                        flags_str
-                    )
-                }
-            }
-            ShellType::Cmd => String::new(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct FnmShellOptions {
-    pub use_on_cd: bool,
-    pub resolve_engines: bool,
-    pub corepack_enabled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -300,12 +242,12 @@ mod tests {
     }
 
     #[test]
-    fn test_shell_type_fnm_shell_arg() {
-        assert_eq!(ShellType::Bash.fnm_shell_arg(), "bash");
-        assert_eq!(ShellType::Zsh.fnm_shell_arg(), "zsh");
-        assert_eq!(ShellType::Fish.fnm_shell_arg(), "fish");
-        assert_eq!(ShellType::PowerShell.fnm_shell_arg(), "powershell");
-        assert_eq!(ShellType::Cmd.fnm_shell_arg(), "cmd");
+    fn test_shell_type_shell_arg() {
+        assert_eq!(ShellType::Bash.shell_arg(), "bash");
+        assert_eq!(ShellType::Zsh.shell_arg(), "zsh");
+        assert_eq!(ShellType::Fish.shell_arg(), "fish");
+        assert_eq!(ShellType::PowerShell.shell_arg(), "powershell");
+        assert_eq!(ShellType::Cmd.shell_arg(), "cmd");
     }
 
     #[test]
@@ -333,80 +275,6 @@ mod tests {
     fn test_config_files_cmd() {
         let files = ShellType::Cmd.config_files();
         assert!(files.is_empty());
-    }
-
-    #[test]
-    fn test_fnm_init_command_bash_no_flags() {
-        let options = FnmShellOptions::default();
-        let cmd = ShellType::Bash.fnm_init_command(&options);
-        assert!(cmd.contains("fnm env"));
-        assert!(cmd.contains("--shell bash"));
-        assert!(cmd.contains("eval"));
-    }
-
-    #[test]
-    fn test_fnm_init_command_bash_with_flags() {
-        let options = FnmShellOptions {
-            use_on_cd: true,
-            resolve_engines: true,
-            corepack_enabled: false,
-        };
-        let cmd = ShellType::Bash.fnm_init_command(&options);
-        assert!(cmd.contains("--use-on-cd"));
-        assert!(cmd.contains("--resolve-engines"));
-        assert!(!cmd.contains("--corepack-enabled"));
-    }
-
-    #[test]
-    fn test_fnm_init_command_zsh() {
-        let options = FnmShellOptions::default();
-        let cmd = ShellType::Zsh.fnm_init_command(&options);
-        assert!(cmd.contains("--shell zsh"));
-    }
-
-    #[test]
-    fn test_fnm_init_command_fish() {
-        let options = FnmShellOptions::default();
-        let cmd = ShellType::Fish.fnm_init_command(&options);
-        assert!(cmd.contains("--shell fish"));
-        assert!(cmd.contains("| source"));
-        assert!(!cmd.contains("eval"));
-    }
-
-    #[test]
-    fn test_fnm_init_command_powershell() {
-        let options = FnmShellOptions::default();
-        let cmd = ShellType::PowerShell.fnm_init_command(&options);
-        assert!(cmd.contains("--shell powershell"));
-        assert!(cmd.contains("Invoke-Expression"));
-    }
-
-    #[test]
-    fn test_fnm_init_command_cmd() {
-        let options = FnmShellOptions::default();
-        let cmd = ShellType::Cmd.fnm_init_command(&options);
-        assert!(cmd.is_empty());
-    }
-
-    #[test]
-    fn test_fnm_init_command_all_flags() {
-        let options = FnmShellOptions {
-            use_on_cd: true,
-            resolve_engines: true,
-            corepack_enabled: true,
-        };
-        let cmd = ShellType::Bash.fnm_init_command(&options);
-        assert!(cmd.contains("--use-on-cd"));
-        assert!(cmd.contains("--resolve-engines"));
-        assert!(cmd.contains("--corepack-enabled"));
-    }
-
-    #[test]
-    fn test_fnm_shell_options_default() {
-        let options = FnmShellOptions::default();
-        assert!(!options.use_on_cd);
-        assert!(!options.resolve_engines);
-        assert!(!options.corepack_enabled);
     }
 
     #[test]

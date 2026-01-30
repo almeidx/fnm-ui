@@ -5,7 +5,7 @@ use versi_shell::ShellType;
 #[derive(Debug)]
 pub struct OnboardingState {
     pub step: OnboardingStep,
-    pub fnm_installing: bool,
+    pub backend_installing: bool,
     pub install_error: Option<String>,
     pub detected_shells: Vec<ShellConfigStatus>,
 }
@@ -14,7 +14,7 @@ impl OnboardingState {
     pub fn new() -> Self {
         Self {
             step: OnboardingStep::Welcome,
-            fnm_installing: false,
+            backend_installing: false,
             install_error: None,
             detected_shells: Vec::new(),
         }
@@ -24,7 +24,7 @@ impl OnboardingState {
 #[derive(Debug, Clone, PartialEq)]
 pub enum OnboardingStep {
     Welcome,
-    InstallFnm,
+    InstallBackend,
     ConfigureShell,
 }
 

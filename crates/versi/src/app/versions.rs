@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use iced::Task;
 
-use versi_core::{check_for_fnm_update, check_for_update, fetch_release_schedule};
+use versi_core::{check_for_update, fetch_release_schedule};
 
 use crate::message::Message;
 use crate::state::AppState;
@@ -159,28 +159,29 @@ impl Versi {
         }
     }
 
-    pub(super) fn handle_check_for_fnm_update(&mut self) -> Task<Message> {
+    pub(super) fn handle_check_for_backend_update(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &self.state
-            && let Some(version) = &state.active_environment().fnm_version
+            && let Some(version) = &state.active_environment().backend_version
         {
             let version = version.clone();
             let client = self.http_client.clone();
+            let provider = self.provider.clone();
             return Task::perform(
-                async move { check_for_fnm_update(&client, &version).await },
-                Message::FnmUpdateChecked,
+                async move { provider.check_for_update(&client, &version).await },
+                Message::BackendUpdateChecked,
             );
         }
         Task::none()
     }
 
-    pub(super) fn handle_fnm_update_checked(
+    pub(super) fn handle_backend_update_checked(
         &mut self,
-        result: Result<Option<versi_core::FnmUpdate>, String>,
+        result: Result<Option<versi_core::BackendUpdate>, String>,
     ) {
         if let AppState::Main(state) = &mut self.state {
             match result {
-                Ok(update) => state.fnm_update = update,
-                Err(e) => debug!("fnm update check failed: {}", e),
+                Ok(update) => state.backend_update = update,
+                Err(e) => debug!("Backend update check failed: {}", e),
             }
         }
     }

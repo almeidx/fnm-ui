@@ -5,11 +5,11 @@ use crate::message::Message;
 use crate::state::{OnboardingState, OnboardingStep};
 use crate::theme::styles;
 
-pub fn view<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
+pub fn view<'a>(state: &'a OnboardingState, backend_name: &'a str) -> Element<'a, Message> {
     let content = match state.step {
-        OnboardingStep::Welcome => welcome_step(),
-        OnboardingStep::InstallFnm => install_fnm_step(state),
-        OnboardingStep::ConfigureShell => configure_shell_step(state),
+        OnboardingStep::Welcome => welcome_step(backend_name),
+        OnboardingStep::InstallBackend => install_backend_step(state, backend_name),
+        OnboardingStep::ConfigureShell => configure_shell_step(state, backend_name),
     };
 
     let progress = step_indicator(state);
@@ -35,7 +35,7 @@ pub fn view<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
 fn step_indicator<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     let steps = [
         ("Welcome", OnboardingStep::Welcome),
-        ("Install fnm", OnboardingStep::InstallFnm),
+        ("Install", OnboardingStep::InstallBackend),
         ("Configure Shell", OnboardingStep::ConfigureShell),
     ];
 
@@ -79,36 +79,45 @@ fn step_indicator<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
 fn step_index(step: &OnboardingStep) -> usize {
     match step {
         OnboardingStep::Welcome => 0,
-        OnboardingStep::InstallFnm => 1,
+        OnboardingStep::InstallBackend => 1,
         OnboardingStep::ConfigureShell => 2,
     }
 }
 
-fn welcome_step() -> Element<'static, Message> {
+fn welcome_step(backend_name: &str) -> Element<'_, Message> {
     column![
         text("Welcome to Versi").size(32),
         Space::new().height(16),
         text("Versi helps you manage Node.js versions with a simple graphical interface.").size(16),
         Space::new().height(8),
-        text("We'll help you set up fnm (Fast Node Manager) to get started.").size(16),
-        Space::new().height(24),
-        text("fnm is a fast and simple Node.js version manager, built in Rust.").size(14),
+        text(format!(
+            "We'll help you set up {} to get started.",
+            backend_name
+        ))
+        .size(16),
     ]
     .spacing(8)
     .into()
 }
 
-fn install_fnm_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
+fn install_backend_step<'a>(
+    state: &'a OnboardingState,
+    backend_name: &str,
+) -> Element<'a, Message> {
     let mut content = column![
-        text("Install fnm").size(28),
+        text(format!("Install {}", backend_name)).size(28),
         Space::new().height(16),
-        text("fnm (Fast Node Manager) needs to be installed on your system.").size(16),
+        text(format!(
+            "{} needs to be installed on your system.",
+            backend_name
+        ))
+        .size(16),
     ]
     .spacing(8);
 
-    if state.fnm_installing {
+    if state.backend_installing {
         content = content.push(
-            row![text("Installing fnm...").size(16),]
+            row![text(format!("Installing {}...", backend_name)).size(16),]
                 .spacing(8)
                 .align_y(Alignment::Center),
         );
@@ -119,7 +128,7 @@ fn install_fnm_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
                 text(error).size(14),
                 Space::new().height(16),
                 button(text("Retry"))
-                    .on_press(Message::OnboardingInstallFnm)
+                    .on_press(Message::OnboardingInstallBackend)
                     .style(styles::primary_button),
             ]
             .spacing(8),
@@ -128,8 +137,8 @@ fn install_fnm_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
         content = content.push(
             column![
                 Space::new().height(24),
-                button(text("Install fnm").size(16))
-                    .on_press(Message::OnboardingInstallFnm)
+                button(text(format!("Install {}", backend_name)).size(16))
+                    .on_press(Message::OnboardingInstallBackend)
                     .style(styles::primary_button)
                     .padding([12, 24]),
             ]
@@ -140,11 +149,18 @@ fn install_fnm_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     content.into()
 }
 
-fn configure_shell_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
+fn configure_shell_step<'a>(
+    state: &'a OnboardingState,
+    backend_name: &str,
+) -> Element<'a, Message> {
     let mut content = column![
         text("Configure Shell").size(28),
         Space::new().height(16),
-        text("fnm needs to be added to your shell configuration.").size(16),
+        text(format!(
+            "{} needs to be added to your shell configuration.",
+            backend_name
+        ))
+        .size(16),
         Space::new().height(24),
     ]
     .spacing(8);
@@ -203,7 +219,7 @@ fn navigation_buttons<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     };
 
     let can_proceed = match state.step {
-        OnboardingStep::InstallFnm => !state.fnm_installing,
+        OnboardingStep::InstallBackend => !state.backend_installing,
         OnboardingStep::ConfigureShell => state.detected_shells.iter().any(|s| s.configured),
         _ => true,
     };

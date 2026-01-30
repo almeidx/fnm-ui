@@ -1,7 +1,8 @@
-use crate::detect::{FnmShellOptions, ShellType};
+use crate::detect::ShellType;
 use std::fs;
 use std::path::PathBuf;
 use thiserror::Error;
+use versi_backend::ShellInitOptions;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -36,53 +37,40 @@ impl ShellConfig {
         })
     }
 
-    pub fn has_fnm_init(&self) -> bool {
-        self.content.contains("fnm env")
+    pub fn has_init(&self, marker: &str) -> bool {
+        self.content.contains(marker)
     }
 
-    pub fn detect_fnm_options(&self) -> Option<FnmShellOptions> {
-        if !self.has_fnm_init() {
+    pub fn detect_options(&self, marker: &str) -> Option<ShellInitOptions> {
+        if !self.has_init(marker) {
             return None;
         }
 
-        Some(FnmShellOptions {
+        Some(ShellInitOptions {
             use_on_cd: self.content.contains("--use-on-cd"),
             resolve_engines: self.content.contains("--resolve-engines"),
             corepack_enabled: self.content.contains("--corepack-enabled"),
         })
     }
 
-    pub fn add_fnm_init(&mut self, options: &FnmShellOptions) -> ShellConfigEdit {
-        let init_command = self.shell_type.fnm_init_command(options);
-
-        if self.has_fnm_init() {
-            return self.update_fnm_flags(options);
-        }
-
-        let addition = format!("\n# fnm (Fast Node Manager)\n{}\n", init_command);
+    pub fn add_init(&mut self, init_command: &str, label: &str) -> ShellConfigEdit {
+        let addition = format!("\n# {}\n{}\n", label, init_command);
         let modified = format!("{}{}", self.content, addition);
 
         ShellConfigEdit {
             original: self.content.clone(),
             modified,
-            changes: vec![format!("Add fnm initialization: {}", init_command)],
+            changes: vec![format!("Add initialization: {}", init_command)],
         }
     }
 
-    pub fn apply_edit(&mut self, edit: &ShellConfigEdit) -> Result<(), ConfigError> {
-        if let Some(parent) = self.config_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        fs::write(&self.config_path, &edit.modified)?;
-        self.content = edit.modified.clone();
-
-        Ok(())
-    }
-
-    pub fn update_fnm_flags(&mut self, options: &FnmShellOptions) -> ShellConfigEdit {
-        if !self.has_fnm_init() {
-            return self.add_fnm_init(options);
+    pub fn update_flags(&mut self, marker: &str, options: &ShellInitOptions) -> ShellConfigEdit {
+        if !self.has_init(marker) {
+            return ShellConfigEdit {
+                original: self.content.clone(),
+                modified: self.content.clone(),
+                changes: vec![],
+            };
         }
 
         let mut modified = self.content.clone();
@@ -98,10 +86,10 @@ impl ShellConfig {
             let has_flag = modified.contains(flag);
 
             if enabled && !has_flag {
-                modified = Self::add_flag_to_fnm_env(&modified, flag);
+                modified = Self::add_flag_to_init(&modified, marker, flag);
                 changes.push(format!("Added {}", flag));
             } else if !enabled && has_flag {
-                modified = Self::remove_flag_from_fnm_env(&modified, flag);
+                modified = Self::remove_flag_from_init(&modified, marker, flag);
                 changes.push(format!("Removed {}", flag));
             }
         }
@@ -113,11 +101,22 @@ impl ShellConfig {
         }
     }
 
-    fn add_flag_to_fnm_env(content: &str, flag: &str) -> String {
+    pub fn apply_edit(&mut self, edit: &ShellConfigEdit) -> Result<(), ConfigError> {
+        if let Some(parent) = self.config_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::write(&self.config_path, &edit.modified)?;
+        self.content = edit.modified.clone();
+
+        Ok(())
+    }
+
+    fn add_flag_to_init(content: &str, marker: &str, flag: &str) -> String {
         let mut result = String::new();
         for line in content.lines() {
-            if line.contains("fnm env") && !line.contains(flag) {
-                let modified_line = line.replacen("fnm env", &format!("fnm env {}", flag), 1);
+            if line.contains(marker) && !line.contains(flag) {
+                let modified_line = line.replacen(marker, &format!("{} {}", marker, flag), 1);
                 result.push_str(&modified_line);
             } else {
                 result.push_str(line);
@@ -130,10 +129,10 @@ impl ShellConfig {
         result
     }
 
-    fn remove_flag_from_fnm_env(content: &str, flag: &str) -> String {
+    fn remove_flag_from_init(content: &str, marker: &str, flag: &str) -> String {
         let mut result = String::new();
         for line in content.lines() {
-            if line.contains("fnm env") && line.contains(flag) {
+            if line.contains(marker) && line.contains(flag) {
                 let modified_line = line
                     .replace(&format!("{} ", flag), "")
                     .replace(&format!(" {}", flag), "")
@@ -190,63 +189,65 @@ mod tests {
     }
 
     #[test]
-    fn test_has_fnm_init_true() {
+    fn test_has_init_true() {
         let config = create_test_config(r#"eval "$(fnm env --shell bash)""#);
-        assert!(config.has_fnm_init());
+        assert!(config.has_init("fnm env"));
     }
 
     #[test]
-    fn test_has_fnm_init_false() {
+    fn test_has_init_false() {
         let config = create_test_config("export PATH=$PATH:/usr/bin");
-        assert!(!config.has_fnm_init());
+        assert!(!config.has_init("fnm env"));
     }
 
     #[test]
-    fn test_has_fnm_init_empty() {
+    fn test_has_init_empty() {
         let config = create_test_config("");
-        assert!(!config.has_fnm_init());
+        assert!(!config.has_init("fnm env"));
     }
 
     #[test]
-    fn test_detect_fnm_options_all_flags() {
+    fn test_detect_options_all_flags() {
         let config = create_test_config(
             r#"eval "$(fnm env --use-on-cd --resolve-engines --corepack-enabled --shell bash)""#,
         );
-        let options = config.detect_fnm_options().unwrap();
+        let options = config.detect_options("fnm env").unwrap();
         assert!(options.use_on_cd);
         assert!(options.resolve_engines);
         assert!(options.corepack_enabled);
     }
 
     #[test]
-    fn test_detect_fnm_options_no_flags() {
+    fn test_detect_options_no_flags() {
         let config = create_test_config(r#"eval "$(fnm env --shell bash)""#);
-        let options = config.detect_fnm_options().unwrap();
+        let options = config.detect_options("fnm env").unwrap();
         assert!(!options.use_on_cd);
         assert!(!options.resolve_engines);
         assert!(!options.corepack_enabled);
     }
 
     #[test]
-    fn test_detect_fnm_options_partial_flags() {
+    fn test_detect_options_partial_flags() {
         let config = create_test_config(r#"eval "$(fnm env --use-on-cd --shell bash)""#);
-        let options = config.detect_fnm_options().unwrap();
+        let options = config.detect_options("fnm env").unwrap();
         assert!(options.use_on_cd);
         assert!(!options.resolve_engines);
         assert!(!options.corepack_enabled);
     }
 
     #[test]
-    fn test_detect_fnm_options_no_fnm() {
+    fn test_detect_options_no_marker() {
         let config = create_test_config("export PATH=$PATH");
-        assert!(config.detect_fnm_options().is_none());
+        assert!(config.detect_options("fnm env").is_none());
     }
 
     #[test]
-    fn test_add_fnm_init() {
+    fn test_add_init() {
         let mut config = create_test_config("# My bashrc\nexport PATH=$PATH");
-        let options = FnmShellOptions::default();
-        let edit = config.add_fnm_init(&options);
+        let edit = config.add_init(
+            r#"eval "$(fnm env --shell bash)""#,
+            "fnm (Fast Node Manager)",
+        );
 
         assert!(edit.has_changes());
         assert!(edit.modified.contains("fnm env"));
@@ -254,37 +255,24 @@ mod tests {
     }
 
     #[test]
-    fn test_add_fnm_init_with_flags() {
-        let mut config = create_test_config("");
-        let options = FnmShellOptions {
-            use_on_cd: true,
-            resolve_engines: false,
-            corepack_enabled: false,
-        };
-        let edit = config.add_fnm_init(&options);
-
-        assert!(edit.modified.contains("--use-on-cd"));
-    }
-
-    #[test]
-    fn test_add_flag_to_fnm_env() {
+    fn test_add_flag_to_init() {
         let content = r#"eval "$(fnm env --shell bash)""#;
-        let result = ShellConfig::add_flag_to_fnm_env(content, "--use-on-cd");
+        let result = ShellConfig::add_flag_to_init(content, "fnm env", "--use-on-cd");
         assert!(result.contains("fnm env --use-on-cd"));
     }
 
     #[test]
     fn test_add_flag_preserves_existing() {
         let content = r#"eval "$(fnm env --use-on-cd --shell bash)""#;
-        let result = ShellConfig::add_flag_to_fnm_env(content, "--resolve-engines");
+        let result = ShellConfig::add_flag_to_init(content, "fnm env", "--resolve-engines");
         assert!(result.contains("--use-on-cd"));
         assert!(result.contains("--resolve-engines"));
     }
 
     #[test]
-    fn test_remove_flag_from_fnm_env() {
+    fn test_remove_flag_from_init() {
         let content = r#"eval "$(fnm env --use-on-cd --shell bash)""#;
-        let result = ShellConfig::remove_flag_from_fnm_env(content, "--use-on-cd");
+        let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
         assert!(!result.contains("--use-on-cd"));
         assert!(result.contains("fnm env"));
     }
@@ -292,48 +280,48 @@ mod tests {
     #[test]
     fn test_remove_flag_preserves_others() {
         let content = r#"eval "$(fnm env --use-on-cd --resolve-engines --shell bash)""#;
-        let result = ShellConfig::remove_flag_from_fnm_env(content, "--use-on-cd");
+        let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
         assert!(!result.contains("--use-on-cd"));
         assert!(result.contains("--resolve-engines"));
     }
 
     #[test]
-    fn test_update_fnm_flags_add() {
+    fn test_update_flags_add() {
         let mut config = create_test_config(r#"eval "$(fnm env --shell bash)""#);
-        let options = FnmShellOptions {
+        let options = ShellInitOptions {
             use_on_cd: true,
             resolve_engines: false,
             corepack_enabled: false,
         };
-        let edit = config.update_fnm_flags(&options);
+        let edit = config.update_flags("fnm env", &options);
 
         assert!(edit.has_changes());
         assert!(edit.modified.contains("--use-on-cd"));
     }
 
     #[test]
-    fn test_update_fnm_flags_remove() {
+    fn test_update_flags_remove() {
         let mut config = create_test_config(r#"eval "$(fnm env --use-on-cd --shell bash)""#);
-        let options = FnmShellOptions {
+        let options = ShellInitOptions {
             use_on_cd: false,
             resolve_engines: false,
             corepack_enabled: false,
         };
-        let edit = config.update_fnm_flags(&options);
+        let edit = config.update_flags("fnm env", &options);
 
         assert!(edit.has_changes());
         assert!(!edit.modified.contains("--use-on-cd"));
     }
 
     #[test]
-    fn test_update_fnm_flags_no_change() {
+    fn test_update_flags_no_change() {
         let mut config = create_test_config(r#"eval "$(fnm env --use-on-cd --shell bash)""#);
-        let options = FnmShellOptions {
+        let options = ShellInitOptions {
             use_on_cd: true,
             resolve_engines: false,
             corepack_enabled: false,
         };
-        let edit = config.update_fnm_flags(&options);
+        let edit = config.update_flags("fnm env", &options);
 
         assert!(!edit.has_changes());
     }

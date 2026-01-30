@@ -9,6 +9,7 @@ build = "build.rs"
 winresource = "0.1.30"
 
 [dependencies]
+versi-backend = { path = "../versi-backend" }
 versi-core = { path = "../versi-core" }
 versi-shell = { path = "../versi-shell" }
 versi-platform = { path = "../versi-platform" }

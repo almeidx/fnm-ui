@@ -5,6 +5,43 @@ use tokio::sync::mpsc;
 use crate::error::BackendError;
 use crate::types::{InstallProgress, InstalledVersion, NodeVersion, RemoteVersion};
 
+#[derive(Debug, Clone)]
+pub struct BackendDetection {
+    pub found: bool,
+    pub path: Option<PathBuf>,
+    pub version: Option<String>,
+    pub in_path: bool,
+    pub data_dir: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BackendUpdate {
+    pub current_version: String,
+    pub latest_version: String,
+    pub release_url: String,
+}
+
+#[async_trait]
+pub trait BackendProvider: Send + Sync {
+    fn name(&self) -> &'static str;
+    fn display_name(&self) -> &'static str;
+    fn shell_config_marker(&self) -> &str;
+    fn shell_config_label(&self) -> &str;
+    async fn detect(&self) -> BackendDetection;
+    async fn install_backend(&self) -> Result<(), BackendError>;
+    async fn check_for_update(
+        &self,
+        client: &reqwest::Client,
+        current_version: &str,
+    ) -> Result<Option<BackendUpdate>, String>;
+    fn create_manager(&self, detection: &BackendDetection) -> Box<dyn VersionManager>;
+    fn create_manager_for_wsl(
+        &self,
+        distro: String,
+        backend_path: String,
+    ) -> Box<dyn VersionManager>;
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ManagerCapabilities {
     pub supports_progress: bool,

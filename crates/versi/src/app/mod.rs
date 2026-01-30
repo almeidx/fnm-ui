@@ -9,8 +9,11 @@ mod versions;
 
 use log::info;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use iced::{Element, Subscription, Task, Theme};
+
+use versi_backend::BackendProvider;
 
 use crate::message::Message;
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
@@ -29,6 +32,7 @@ pub struct Versi {
     pub(crate) window_size: Option<iced::Size>,
     pub(crate) window_position: Option<iced::Point>,
     pub(crate) http_client: reqwest::Client,
+    pub(crate) provider: Arc<dyn BackendProvider>,
 }
 
 impl Versi {
@@ -44,19 +48,22 @@ impl Versi {
             .build()
             .unwrap_or_default();
 
+        let provider: Arc<dyn BackendProvider> = Arc::new(versi_core::FnmProvider::new());
+
         let app = Self {
             state: AppState::Loading,
             settings,
             window_id: None,
             pending_minimize: should_minimize,
-            backend_path: PathBuf::from("fnm"),
+            backend_path: PathBuf::from(provider.name()),
             backend_dir: None,
             window_size: None,
             window_position: None,
             http_client,
+            provider: provider.clone(),
         };
 
-        let init_task = Task::perform(init::initialize(), Message::Initialized);
+        let init_task = Task::perform(init::initialize(provider), Message::Initialized);
 
         (app, init_task)
     }
@@ -282,9 +289,9 @@ impl Versi {
                 self.handle_onboarding_back();
                 Task::none()
             }
-            Message::OnboardingInstallFnm => self.handle_onboarding_install_fnm(),
-            Message::OnboardingFnmInstallResult(result) => {
-                self.handle_onboarding_fnm_install_result(result)
+            Message::OnboardingInstallBackend => self.handle_onboarding_install_backend(),
+            Message::OnboardingBackendInstallResult(result) => {
+                self.handle_onboarding_backend_install_result(result)
             }
             Message::OnboardingConfigureShell(shell_type) => {
                 self.handle_onboarding_configure_shell(shell_type)
@@ -367,15 +374,15 @@ impl Versi {
                 }
                 Task::none()
             }
-            Message::CheckForFnmUpdate => self.handle_check_for_fnm_update(),
-            Message::FnmUpdateChecked(result) => {
-                self.handle_fnm_update_checked(result);
+            Message::CheckForBackendUpdate => self.handle_check_for_backend_update(),
+            Message::BackendUpdateChecked(result) => {
+                self.handle_backend_update_checked(result);
                 Task::none()
             }
             Message::FetchReleaseSchedule => self.handle_fetch_release_schedule(),
-            Message::OpenFnmUpdate => {
+            Message::OpenBackendUpdate => {
                 if let AppState::Main(state) = &self.state
-                    && let Some(update) = &state.fnm_update
+                    && let Some(update) = &state.backend_update
                 {
                     let url = update.release_url.clone();
                     return Task::perform(
@@ -409,7 +416,7 @@ impl Versi {
     pub fn view(&self) -> Element<'_, Message> {
         match &self.state {
             AppState::Loading => views::loading::view(),
-            AppState::Onboarding(state) => views::onboarding::view(state),
+            AppState::Onboarding(state) => views::onboarding::view(state, self.provider.name()),
             AppState::Main(state) => match state.view {
                 MainViewKind::Versions => views::main_view::view(state, &self.settings),
                 MainViewKind::Settings => {

@@ -9,8 +9,8 @@ use crate::theme::styles;
 pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     let env = state.active_environment();
 
-    let subtitle = match &env.fnm_version {
-        Some(fnm_v) => format!("fnm {}", fnm_v),
+    let subtitle = match &env.backend_version {
+        Some(v) => format!("{} {}", state.backend_name, v),
         None => String::new(),
     };
 
@@ -38,12 +38,16 @@ pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
         );
     }
 
-    if let Some(update) = &state.fnm_update {
+    if let Some(update) = &state.backend_update {
         icon_row = icon_row.push(
             button(
                 container(
                     row![
-                        text(format!("fnm {} available", update.latest_version)).size(11),
+                        text(format!(
+                            "{} {} available",
+                            state.backend_name, update.latest_version
+                        ))
+                        .size(11),
                         icon::arrow_up_right(11.0),
                     ]
                     .spacing(2)
@@ -51,7 +55,7 @@ pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
                 )
                 .padding([2, 8]),
             )
-            .on_press(Message::OpenFnmUpdate)
+            .on_press(Message::OpenBackendUpdate)
             .style(styles::app_update_button)
             .padding(0),
         );

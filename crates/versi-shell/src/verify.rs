@@ -1,7 +1,8 @@
 use crate::config::ShellConfig;
-use crate::detect::{FnmShellOptions, ShellType};
+use crate::detect::ShellType;
 use std::path::PathBuf;
 use tokio::process::Command;
+use versi_backend::ShellInitOptions;
 
 #[cfg(windows)]
 #[allow(unused_imports)]
@@ -28,24 +29,28 @@ impl HideWindow for Command {
 
 #[derive(Debug, Clone)]
 pub enum VerificationResult {
-    Configured(Option<FnmShellOptions>),
+    Configured(Option<ShellInitOptions>),
     NotConfigured,
     ConfigFileNotFound,
     FunctionalButNotInConfig,
     Error(String),
 }
 
-pub async fn verify_shell_config(shell_type: &ShellType) -> VerificationResult {
+pub async fn verify_shell_config(
+    shell_type: &ShellType,
+    marker: &str,
+    backend_binary: &str,
+) -> VerificationResult {
     let config_files = shell_type.config_files();
     let existing_config = config_files.iter().find(|p| p.exists());
 
     match existing_config {
         Some(config_path) => match ShellConfig::load(shell_type.clone(), config_path.clone()) {
             Ok(config) => {
-                if config.has_fnm_init() {
-                    let options = config.detect_fnm_options();
+                if config.has_init(marker) {
+                    let options = config.detect_options(marker);
                     VerificationResult::Configured(options)
-                } else if functional_test(shell_type).await {
+                } else if functional_test(shell_type, backend_binary).await {
                     VerificationResult::FunctionalButNotInConfig
                 } else {
                     VerificationResult::NotConfigured
@@ -57,24 +62,25 @@ pub async fn verify_shell_config(shell_type: &ShellType) -> VerificationResult {
     }
 }
 
-async fn functional_test(shell_type: &ShellType) -> bool {
+async fn functional_test(shell_type: &ShellType, backend_binary: &str) -> bool {
+    let version_cmd = format!("{} --version", backend_binary);
     match shell_type {
         ShellType::Bash => Command::new("bash")
-            .args(["-i", "-c", "fnm --version"])
+            .args(["-i", "-c", &version_cmd])
             .hide_window()
             .output()
             .await
             .map(|o| o.status.success())
             .unwrap_or(false),
         ShellType::Zsh => Command::new("zsh")
-            .args(["-i", "-c", "fnm --version"])
+            .args(["-i", "-c", &version_cmd])
             .hide_window()
             .output()
             .await
             .map(|o| o.status.success())
             .unwrap_or(false),
         ShellType::Fish => Command::new("fish")
-            .args(["-c", "fnm --version"])
+            .args(["-c", &version_cmd])
             .hide_window()
             .output()
             .await
@@ -87,7 +93,7 @@ async fn functional_test(shell_type: &ShellType) -> bool {
                 "powershell"
             };
             Command::new(shell)
-                .args(["-Command", "fnm --version"])
+                .args(["-Command", &version_cmd])
                 .hide_window()
                 .output()
                 .await
@@ -111,8 +117,12 @@ pub fn get_or_create_config_path(shell_type: &ShellType) -> Option<PathBuf> {
 }
 
 #[cfg(target_os = "windows")]
-pub async fn verify_wsl_shell_config(shell_type: &ShellType, distro: &str) -> VerificationResult {
-    use crate::detect::FnmShellOptions;
+pub async fn verify_wsl_shell_config(
+    shell_type: &ShellType,
+    distro: &str,
+    marker: &str,
+    backend_binary: &str,
+) -> VerificationResult {
     use log::{debug, warn};
 
     let config_path = match shell_type {
@@ -139,15 +149,15 @@ pub async fn verify_wsl_shell_config(shell_type: &ShellType, distro: &str) -> Ve
         Ok(output) => {
             if output.status.success() {
                 let content = String::from_utf8_lossy(&output.stdout);
-                if content.contains("fnm env") {
-                    let options = FnmShellOptions {
+                if content.contains(marker) {
+                    let options = ShellInitOptions {
                         use_on_cd: content.contains("--use-on-cd"),
                         resolve_engines: content.contains("--resolve-engines"),
                         corepack_enabled: content.contains("--corepack-enabled"),
                     };
-                    debug!("WSL shell {} is configured with fnm", shell_type.name());
+                    debug!("WSL shell {} is configured", shell_type.name());
                     VerificationResult::Configured(Some(options))
-                } else if wsl_functional_test(shell_type, distro).await {
+                } else if wsl_functional_test(shell_type, distro, backend_binary).await {
                     debug!(
                         "WSL shell {} is functional but not in config",
                         shell_type.name()
@@ -176,13 +186,14 @@ pub async fn verify_wsl_shell_config(shell_type: &ShellType, distro: &str) -> Ve
 }
 
 #[cfg(target_os = "windows")]
-async fn wsl_functional_test(shell_type: &ShellType, distro: &str) -> bool {
+async fn wsl_functional_test(shell_type: &ShellType, distro: &str, backend_binary: &str) -> bool {
     use log::debug;
 
+    let version_cmd = format!("{} --version", backend_binary);
     let (shell_cmd, args) = match shell_type {
-        ShellType::Bash => ("bash", vec!["-i", "-c", "fnm --version"]),
-        ShellType::Zsh => ("zsh", vec!["-i", "-c", "fnm --version"]),
-        ShellType::Fish => ("fish", vec!["-c", "fnm --version"]),
+        ShellType::Bash => ("bash", vec!["-i", "-c", &version_cmd]),
+        ShellType::Zsh => ("zsh", vec!["-i", "-c", &version_cmd]),
+        ShellType::Fish => ("fish", vec!["-c", &version_cmd]),
         _ => return false,
     };
 
@@ -208,6 +219,11 @@ async fn wsl_functional_test(shell_type: &ShellType, distro: &str) -> bool {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub async fn verify_wsl_shell_config(_shell_type: &ShellType, _distro: &str) -> VerificationResult {
+pub async fn verify_wsl_shell_config(
+    _shell_type: &ShellType,
+    _distro: &str,
+    _marker: &str,
+    _backend_binary: &str,
+) -> VerificationResult {
     VerificationResult::Error("WSL is only available on Windows".to_string())
 }

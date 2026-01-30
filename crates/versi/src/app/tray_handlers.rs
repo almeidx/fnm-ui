@@ -92,6 +92,7 @@ impl Versi {
                         &env_id,
                         &self.backend_path,
                         &self.backend_dir,
+                        &self.provider,
                     );
                 }
                 self.handle_set_default(version)

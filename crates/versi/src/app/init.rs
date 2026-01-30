@@ -1,11 +1,10 @@
 use log::{debug, info, trace};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use iced::Task;
 
-#[cfg(windows)]
-use versi_core::HideWindow;
-use versi_core::{FnmBackend, VersionManager, detect_fnm};
+use versi_backend::{BackendProvider, VersionManager};
 use versi_platform::EnvironmentId;
 use versi_shell::detect_shells;
 
@@ -17,13 +16,13 @@ use super::Versi;
 impl Versi {
     pub(super) fn handle_initialized(&mut self, result: InitResult) -> Task<Message> {
         info!(
-            "Handling initialization result: fnm_found={}, environments={}",
-            result.fnm_found,
+            "Handling initialization result: backend_found={}, environments={}",
+            result.backend_found,
             result.environments.len()
         );
 
-        if !result.fnm_found {
-            info!("fnm not found, entering onboarding flow");
+        if !result.backend_found {
+            info!("Backend not found, entering onboarding flow");
             let shells = detect_shells();
             debug!("Detected {} shells for configuration", shells.len());
 
@@ -45,30 +44,29 @@ impl Versi {
             return Task::none();
         }
 
-        let fnm_path = result.fnm_path.unwrap_or_else(|| PathBuf::from("fnm"));
-        let fnm_dir = result.fnm_dir;
+        let backend_path = result
+            .backend_path
+            .unwrap_or_else(|| PathBuf::from(self.provider.name()));
+        let backend_dir = result.backend_dir;
 
-        self.backend_path = fnm_path.clone();
-        self.backend_dir = fnm_dir.clone();
+        self.backend_path = backend_path.clone();
+        self.backend_dir = backend_dir.clone();
 
-        let backend = FnmBackend::new(
-            fnm_path.clone(),
-            result.fnm_version.clone(),
-            fnm_dir.clone(),
-        );
-        let backend = if let Some(dir) = fnm_dir.clone() {
-            backend.with_fnm_dir(dir)
-        } else {
-            backend
+        let detection = versi_backend::BackendDetection {
+            found: true,
+            path: Some(backend_path.clone()),
+            version: result.backend_version.clone(),
+            in_path: true,
+            data_dir: backend_dir.clone(),
         };
-        let backend: Box<dyn VersionManager> = Box::new(backend.clone());
+        let backend = self.provider.create_manager(&detection);
 
         let environments: Vec<EnvironmentState> = result
             .environments
             .iter()
             .map(|env_info| {
                 if env_info.available {
-                    EnvironmentState::new(env_info.id.clone(), env_info.fnm_version.clone())
+                    EnvironmentState::new(env_info.id.clone(), env_info.backend_version.clone())
                 } else {
                     EnvironmentState::unavailable(
                         env_info.id.clone(),
@@ -81,7 +79,8 @@ impl Versi {
             })
             .collect();
 
-        let mut main_state = MainState::new_with_environments(backend, environments);
+        let mut main_state =
+            MainState::new_with_environments(backend, environments, self.provider.name());
 
         if let Some(disk_cache) = crate::cache::DiskCache::load() {
             debug!(
@@ -113,7 +112,12 @@ impl Versi {
             }
 
             let env_id = env_info.id.clone();
-            let backend = create_backend_for_environment(&env_id, &fnm_path, &fnm_dir);
+            let backend = create_backend_for_environment(
+                &env_id,
+                &backend_path,
+                &backend_dir,
+                &self.provider,
+            );
 
             load_tasks.push(Task::perform(
                 async move {
@@ -127,33 +131,33 @@ impl Versi {
         let fetch_remote = self.handle_fetch_remote_versions();
         let fetch_schedule = self.handle_fetch_release_schedule();
         let check_app_update = self.handle_check_for_app_update();
-        let check_fnm_update = self.handle_check_for_fnm_update();
+        let check_backend_update = self.handle_check_for_backend_update();
 
         load_tasks.extend([
             fetch_remote,
             fetch_schedule,
             check_app_update,
-            check_fnm_update,
+            check_backend_update,
         ]);
 
         Task::batch(load_tasks)
     }
 }
 
-pub(super) async fn initialize() -> InitResult {
+pub(super) async fn initialize(provider: Arc<dyn BackendProvider>) -> InitResult {
     info!("Initializing application...");
 
-    debug!("Detecting fnm installation...");
-    let detection = detect_fnm().await;
+    debug!("Detecting backend installation...");
+    let detection = provider.detect().await;
     info!(
-        "fnm detection result: found={}, path={:?}, version={:?}",
+        "Backend detection result: found={}, path={:?}, version={:?}",
         detection.found, detection.path, detection.version
     );
 
     #[allow(unused_mut)]
     let mut environments = vec![EnvironmentInfo {
         id: EnvironmentId::Native,
-        fnm_version: detection.version.clone(),
+        backend_version: detection.version.clone(),
         available: true,
         unavailable_reason: None,
     }];
@@ -179,38 +183,39 @@ pub(super) async fn initialize() -> InitResult {
                         distro: distro.name,
                         fnm_path: String::new(),
                     },
-                    fnm_version: None,
+                    backend_version: None,
                     available: false,
                     unavailable_reason: Some("Not running".to_string()),
                 });
-            } else if let Some(fnm_path) = distro.fnm_path {
+            } else if let Some(backend_path) = distro.fnm_path {
                 info!(
-                    "Adding WSL environment: {} (fnm at {})",
-                    distro.name, fnm_path
+                    "Adding WSL environment: {} (backend at {})",
+                    distro.name, backend_path
                 );
-                let fnm_version = get_wsl_fnm_version(&distro.name, &fnm_path).await;
+                let backend_version = get_wsl_backend_version(&distro.name, &backend_path).await;
                 environments.push(EnvironmentInfo {
                     id: EnvironmentId::Wsl {
                         distro: distro.name,
-                        fnm_path,
+                        fnm_path: backend_path,
                     },
-                    fnm_version,
+                    backend_version,
                     available: true,
                     unavailable_reason: None,
                 });
             } else {
+                let backend_name = provider.name();
                 info!(
-                    "Adding unavailable WSL environment: {} (fnm not found)",
-                    distro.name
+                    "Adding unavailable WSL environment: {} ({} not found)",
+                    distro.name, backend_name
                 );
                 environments.push(EnvironmentInfo {
                     id: EnvironmentId::Wsl {
                         distro: distro.name,
                         fnm_path: String::new(),
                     },
-                    fnm_version: None,
+                    backend_version: None,
                     available: false,
-                    unavailable_reason: Some("fnm not installed".to_string()),
+                    unavailable_reason: Some(format!("{} not installed", backend_name)),
                 });
             }
         }
@@ -225,20 +230,21 @@ pub(super) async fn initialize() -> InitResult {
     }
 
     InitResult {
-        fnm_found: detection.found,
-        fnm_path: detection.path,
-        fnm_dir: detection.fnm_dir,
-        fnm_version: detection.version,
+        backend_found: detection.found,
+        backend_path: detection.path,
+        backend_dir: detection.data_dir,
+        backend_version: detection.version,
         environments,
     }
 }
 
 #[cfg(windows)]
-async fn get_wsl_fnm_version(distro: &str, fnm_path: &str) -> Option<String> {
+async fn get_wsl_backend_version(distro: &str, backend_path: &str) -> Option<String> {
     use tokio::process::Command;
+    use versi_core::HideWindow;
 
     let output = Command::new("wsl.exe")
-        .args(["-d", distro, "--", fnm_path, "--version"])
+        .args(["-d", distro, "--", backend_path, "--version"])
         .hide_window()
         .output()
         .await
@@ -251,7 +257,7 @@ async fn get_wsl_fnm_version(distro: &str, fnm_path: &str) -> Option<String> {
             .strip_prefix("fnm ")
             .unwrap_or(version_str.trim())
             .to_string();
-        debug!("WSL {} fnm version: {}", distro, version);
+        debug!("WSL {} backend version: {}", distro, version);
         Some(version)
     } else {
         None
@@ -260,25 +266,23 @@ async fn get_wsl_fnm_version(distro: &str, fnm_path: &str) -> Option<String> {
 
 pub(super) fn create_backend_for_environment(
     env_id: &EnvironmentId,
-    detected_fnm_path: &Path,
-    detected_fnm_dir: &Option<PathBuf>,
+    detected_path: &Path,
+    detected_dir: &Option<PathBuf>,
+    provider: &Arc<dyn BackendProvider>,
 ) -> Box<dyn VersionManager> {
     match env_id {
         EnvironmentId::Native => {
-            let backend = FnmBackend::new(
-                detected_fnm_path.to_path_buf(),
-                None,
-                detected_fnm_dir.clone(),
-            );
-            let backend = if let Some(dir) = detected_fnm_dir {
-                backend.with_fnm_dir(dir.clone())
-            } else {
-                backend
+            let detection = versi_backend::BackendDetection {
+                found: true,
+                path: Some(detected_path.to_path_buf()),
+                version: None,
+                in_path: true,
+                data_dir: detected_dir.clone(),
             };
-            Box::new(backend)
+            provider.create_manager(&detection)
         }
         EnvironmentId::Wsl { distro, fnm_path } => {
-            Box::new(FnmBackend::with_wsl(distro.clone(), fnm_path.clone()))
+            provider.create_manager_for_wsl(distro.clone(), fnm_path.clone())
         }
     }
 }

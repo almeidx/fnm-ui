@@ -8,14 +8,14 @@ pub struct EnvironmentState {
     pub installed_versions: Vec<InstalledVersion>,
     pub version_groups: Vec<VersionGroup>,
     pub default_version: Option<NodeVersion>,
-    pub fnm_version: Option<String>,
+    pub backend_version: Option<String>,
     pub loading: bool,
     pub error: Option<String>,
     pub available: bool,
 }
 
 impl EnvironmentState {
-    pub fn new(id: EnvironmentId, fnm_version: Option<String>) -> Self {
+    pub fn new(id: EnvironmentId, backend_version: Option<String>) -> Self {
         let name = id.display_name();
         Self {
             id,
@@ -23,7 +23,7 @@ impl EnvironmentState {
             installed_versions: Vec::new(),
             version_groups: Vec::new(),
             default_version: None,
-            fnm_version,
+            backend_version,
             loading: true,
             error: None,
             available: true,
@@ -38,7 +38,7 @@ impl EnvironmentState {
             installed_versions: Vec::new(),
             version_groups: Vec::new(),
             default_version: None,
-            fnm_version: None,
+            backend_version: None,
             loading: false,
             error: Some(reason.to_string()),
             available: false,

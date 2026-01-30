@@ -85,11 +85,15 @@ impl Versi {
                 env.loading || (env.installed_versions.is_empty() && env.error.is_none());
             debug!("Environment needs loading: {}", needs_load);
 
-            let new_backend =
-                create_backend_for_environment(&env_id, &self.backend_path, &self.backend_dir);
+            let new_backend = create_backend_for_environment(
+                &env_id,
+                &self.backend_path,
+                &self.backend_dir,
+                &self.provider,
+            );
             state.backend = new_backend;
 
-            state.fnm_update = None;
+            state.backend_update = None;
 
             let load_task = if needs_load {
                 info!("Loading versions for environment: {:?}", env_id);
@@ -115,8 +119,8 @@ impl Versi {
                 Task::none()
             };
 
-            let fnm_update_task = self.handle_check_for_fnm_update();
-            return Task::batch([load_task, fnm_update_task]);
+            let backend_update_task = self.handle_check_for_backend_update();
+            return Task::batch([load_task, backend_update_task]);
         }
         Task::none()
     }

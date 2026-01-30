@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use versi_core::{
-    AppUpdate, FnmUpdate, InstallProgress, InstalledVersion, ReleaseSchedule, RemoteVersion,
+    AppUpdate, BackendUpdate, InstallProgress, InstalledVersion, ReleaseSchedule, RemoteVersion,
 };
 use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
@@ -103,8 +103,8 @@ pub enum Message {
 
     OnboardingNext,
     OnboardingBack,
-    OnboardingInstallFnm,
-    OnboardingFnmInstallResult(Result<(), String>),
+    OnboardingInstallBackend,
+    OnboardingBackendInstallResult(Result<(), String>),
     OnboardingConfigureShell(ShellType),
     OnboardingShellConfigResult(Result<(), String>),
     OnboardingComplete,
@@ -124,9 +124,9 @@ pub enum Message {
     OpenAppUpdate,
     DismissAppUpdate,
 
-    CheckForFnmUpdate,
-    FnmUpdateChecked(Result<Option<FnmUpdate>, String>),
-    OpenFnmUpdate,
+    CheckForBackendUpdate,
+    BackendUpdateChecked(Result<Option<BackendUpdate>, String>),
+    OpenBackendUpdate,
 
     FetchReleaseSchedule,
 
@@ -136,17 +136,17 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub struct InitResult {
-    pub fnm_found: bool,
-    pub fnm_path: Option<PathBuf>,
-    pub fnm_dir: Option<PathBuf>,
-    pub fnm_version: Option<String>,
+    pub backend_found: bool,
+    pub backend_path: Option<PathBuf>,
+    pub backend_dir: Option<PathBuf>,
+    pub backend_version: Option<String>,
     pub environments: Vec<EnvironmentInfo>,
 }
 
 #[derive(Debug, Clone)]
 pub struct EnvironmentInfo {
     pub id: EnvironmentId,
-    pub fnm_version: Option<String>,
+    pub backend_version: Option<String>,
     pub available: bool,
     pub unavailable_reason: Option<String>,
 }

@@ -1,7 +1,6 @@
 use std::time::Instant;
 
-use versi_core::{AppUpdate, FnmUpdate, ReleaseSchedule, RemoteVersion, VersionManager};
-use versi_platform::EnvironmentId;
+use versi_core::{AppUpdate, BackendUpdate, ReleaseSchedule, RemoteVersion, VersionManager};
 
 use super::{EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast};
 
@@ -15,10 +14,11 @@ pub struct MainState {
     pub search_query: String,
     pub backend: Box<dyn VersionManager>,
     pub app_update: Option<AppUpdate>,
-    pub fnm_update: Option<FnmUpdate>,
+    pub backend_update: Option<BackendUpdate>,
     pub view: MainViewKind,
     pub settings_state: SettingsModalState,
     pub hovered_version: Option<String>,
+    pub backend_name: &'static str,
 }
 
 impl std::fmt::Debug for MainState {
@@ -33,7 +33,7 @@ impl std::fmt::Debug for MainState {
             .field("search_query", &self.search_query)
             .field("backend", &self.backend.name())
             .field("app_update", &self.app_update)
-            .field("fnm_update", &self.fnm_update)
+            .field("backend_update", &self.backend_update)
             .field("view", &self.view)
             .field("hovered_version", &self.hovered_version)
             .finish()
@@ -41,27 +41,10 @@ impl std::fmt::Debug for MainState {
 }
 
 impl MainState {
-    pub fn new(backend: Box<dyn VersionManager>, fnm_version: Option<String>) -> Self {
-        Self {
-            environments: vec![EnvironmentState::new(EnvironmentId::Native, fnm_version)],
-            active_environment_idx: 0,
-            available_versions: VersionCache::new(),
-            operation_queue: OperationQueue::new(),
-            toasts: Vec::new(),
-            modal: None,
-            search_query: String::new(),
-            backend,
-            app_update: None,
-            fnm_update: None,
-            view: MainViewKind::default(),
-            settings_state: SettingsModalState::new(),
-            hovered_version: None,
-        }
-    }
-
     pub fn new_with_environments(
         backend: Box<dyn VersionManager>,
         environments: Vec<EnvironmentState>,
+        backend_name: &'static str,
     ) -> Self {
         Self {
             environments,
@@ -73,10 +56,11 @@ impl MainState {
             search_query: String::new(),
             backend,
             app_update: None,
-            fnm_update: None,
+            backend_update: None,
             view: MainViewKind::default(),
             settings_state: SettingsModalState::new(),
             hovered_version: None,
+            backend_name,
         }
     }
 

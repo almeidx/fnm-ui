@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+versi-backend = { path = "../versi-backend" }
 tokio.workspace = true
 serde.workspace = true
 thiserror.workspace = true

@@ -24,7 +24,7 @@ pub fn view<'a>() -> Element<'a, Message> {
     let content = column![
         text(format!("Versi v{}", env!("CARGO_PKG_VERSION"))).size(14),
         Space::new().height(4),
-        text("A native GUI for fnm (Fast Node Manager)")
+        text("A native GUI for managing Node.js versions")
             .size(12)
             .color(iced::Color::from_rgb8(142, 142, 147)),
         Space::new().height(12),

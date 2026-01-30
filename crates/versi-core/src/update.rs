@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use versi_backend::BackendUpdate;
 
 const GITHUB_REPO: &str = "almeidx/versi";
 const FNM_GITHUB_REPO: &str = "Schniz/fnm";
@@ -9,13 +10,6 @@ pub struct AppUpdate {
     pub latest_version: String,
     pub release_url: String,
     pub release_notes: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct FnmUpdate {
-    pub current_version: String,
-    pub latest_version: String,
-    pub release_url: String,
 }
 
 #[derive(Deserialize)]
@@ -71,7 +65,7 @@ pub async fn check_for_update(
 pub async fn check_for_fnm_update(
     client: &reqwest::Client,
     current_version: &str,
-) -> Result<Option<FnmUpdate>, String> {
+) -> Result<Option<BackendUpdate>, String> {
     let url = format!(
         "https://api.github.com/repos/{}/releases/latest",
         FNM_GITHUB_REPO
@@ -100,7 +94,7 @@ pub async fn check_for_fnm_update(
     let current = current_version.strip_prefix('v').unwrap_or(current_version);
 
     if is_newer_version(latest, current) {
-        Ok(Some(FnmUpdate {
+        Ok(Some(BackendUpdate {
             current_version: current.to_string(),
             latest_version: latest.to_string(),
             release_url: release.html_url,

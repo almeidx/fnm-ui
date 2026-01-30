@@ -13,7 +13,7 @@ pub struct FnmDetection {
     pub fnm_dir: Option<PathBuf>,
 }
 
-pub async fn detect_fnm() -> FnmDetection {
+pub(crate) async fn detect_fnm() -> FnmDetection {
     let fnm_dir = detect_fnm_dir();
 
     if let Ok(path) = which("fnm") {
@@ -51,7 +51,7 @@ pub async fn detect_fnm() -> FnmDetection {
     }
 }
 
-pub fn detect_fnm_dir() -> Option<PathBuf> {
+pub(crate) fn detect_fnm_dir() -> Option<PathBuf> {
     if let Ok(dir) = std::env::var("FNM_DIR") {
         let path = PathBuf::from(dir);
         if path.exists() {
@@ -139,7 +139,7 @@ async fn get_fnm_version(path: &PathBuf) -> Option<String> {
     Some(version)
 }
 
-pub async fn install_fnm() -> Result<(), crate::FnmError> {
+pub(crate) async fn install_fnm() -> Result<(), crate::FnmError> {
     #[cfg(unix)]
     let status = Command::new("bash")
         .args(["-c", "curl -fsSL https://fnm.vercel.app/install | bash"])

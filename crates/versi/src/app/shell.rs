@@ -1,6 +1,6 @@
 use iced::Task;
 
-use versi_shell::detect_shells;
+use versi_shell::{ShellInitOptions, detect_shells};
 
 use crate::message::Message;
 use crate::state::{AppState, ShellSetupStatus, ShellVerificationStatus};
@@ -20,6 +20,9 @@ impl Versi {
             None
         };
 
+        let marker = self.provider.shell_config_marker().to_string();
+        let backend_name = self.provider.name().to_string();
+
         Task::perform(
             async move {
                 #[cfg(target_os = "windows")]
@@ -37,14 +40,15 @@ impl Versi {
                 for shell in shells {
                     #[cfg(target_os = "windows")]
                     let result = if let Some(ref distro) = wsl_distro {
-                        verify_wsl_shell_config(&shell.shell_type, distro).await
+                        verify_wsl_shell_config(&shell.shell_type, distro, &marker, &backend_name)
+                            .await
                     } else {
-                        verify_shell_config(&shell.shell_type).await
+                        verify_shell_config(&shell.shell_type, &marker, &backend_name).await
                     };
                     #[cfg(not(target_os = "windows"))]
                     let result = {
                         let _ = &wsl_distro;
-                        verify_shell_config(&shell.shell_type).await
+                        verify_shell_config(&shell.shell_type, &marker, &backend_name).await
                     };
                     results.push((shell.shell_type, result));
                 }
@@ -59,7 +63,7 @@ impl Versi {
         &mut self,
         results: Vec<(versi_shell::ShellType, versi_shell::VerificationResult)>,
     ) {
-        let mut first_detected_options: Option<versi_shell::FnmShellOptions> = None;
+        let mut first_detected_options: Option<ShellInitOptions> = None;
 
         if let AppState::Main(state) = &mut self.state {
             state.settings_state.checking_shells = false;
@@ -117,11 +121,15 @@ impl Versi {
             shell.configuring = true;
         }
 
-        let shell_options = versi_shell::FnmShellOptions {
+        let options = ShellInitOptions {
             use_on_cd: self.settings.shell_options.use_on_cd,
             resolve_engines: self.settings.shell_options.resolve_engines,
             corepack_enabled: self.settings.shell_options.corepack_enabled,
         };
+
+        let provider = self.provider.clone();
+        let marker = provider.shell_config_marker().to_string();
+        let label = provider.shell_config_label().to_string();
 
         let shell_type_for_callback = shell_type.clone();
         Task::perform(
@@ -134,9 +142,27 @@ impl Versi {
                 let mut config = ShellConfig::load(shell_type.clone(), config_path)
                     .map_err(|e| e.to_string())?;
 
-                let edit = config.add_fnm_init(&shell_options);
-                if edit.has_changes() {
-                    config.apply_edit(&edit).map_err(|e| e.to_string())?;
+                if config.has_init(&marker) {
+                    let edit = config.update_flags(&marker, &options);
+                    if edit.has_changes() {
+                        config.apply_edit(&edit).map_err(|e| e.to_string())?;
+                    }
+                } else {
+                    let init_command = provider
+                        .create_manager(&versi_backend::BackendDetection {
+                            found: true,
+                            path: None,
+                            version: None,
+                            in_path: true,
+                            data_dir: None,
+                        })
+                        .shell_init_command(shell_type.shell_arg(), &options)
+                        .ok_or_else(|| "Shell not supported".to_string())?;
+
+                    let edit = config.add_init(&init_command, &label);
+                    if edit.has_changes() {
+                        config.apply_edit(&edit).map_err(|e| e.to_string())?;
+                    }
                 }
 
                 Ok::<_, String>(())
@@ -166,11 +192,13 @@ impl Versi {
     }
 
     pub(super) fn update_shell_flags(&self) -> Task<Message> {
-        let shell_options = versi_shell::FnmShellOptions {
+        let options = ShellInitOptions {
             use_on_cd: self.settings.shell_options.use_on_cd,
             resolve_engines: self.settings.shell_options.resolve_engines,
             corepack_enabled: self.settings.shell_options.corepack_enabled,
         };
+
+        let marker = self.provider.shell_config_marker().to_string();
 
         Task::perform(
             async move {
@@ -183,9 +211,9 @@ impl Versi {
                     if let Some(config_path) = shell.config_file
                         && let Ok(mut config) =
                             ShellConfig::load(shell.shell_type.clone(), config_path)
-                        && config.has_fnm_init()
+                        && config.has_init(&marker)
                     {
-                        let edit = config.update_fnm_flags(&shell_options);
+                        let edit = config.update_flags(&marker, &options);
                         if edit.has_changes() {
                             config.apply_edit(&edit).map_err(|e| e.to_string())?;
                             updated_count += 1;
