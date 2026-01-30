@@ -24,6 +24,22 @@
             </Directory>
         </StandardDirectory>
 
+        <StandardDirectory Id="AppDataFolder">
+            <Directory Id="VersiAppDataDir" Name="versi">
+                <Component Id="CleanupAppData" Guid="*">
+                    <RegistryValue
+                        Root="HKCU"
+                        Key="Software\Versi"
+                        Name="CleanupData"
+                        Type="integer"
+                        Value="1"
+                        KeyPath="yes"/>
+                    <RemoveFile Id="RemoveAppDataFiles" Name="*" On="uninstall"/>
+                    <RemoveFolder Id="RemoveAppDataFolder" On="uninstall"/>
+                </Component>
+            </Directory>
+        </StandardDirectory>
+
         <StandardDirectory Id="ProgramMenuFolder">
             <Directory Id="ApplicationProgramsFolder" Name="Versi">
                 <Component Id="StartMenuShortcut" Guid="*">
@@ -49,6 +65,7 @@
         <Feature Id="Main" Level="1">
             <ComponentRef Id="MainExecutable"/>
             <ComponentRef Id="StartMenuShortcut"/>
+            <ComponentRef Id="CleanupAppData"/>
         </Feature>
 
         <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER"/>
