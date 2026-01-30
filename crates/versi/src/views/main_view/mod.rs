@@ -1,0 +1,72 @@
+mod banners;
+mod header;
+mod modals;
+mod search;
+mod tabs;
+
+use iced::Element;
+use iced::widget::{column, container};
+
+use crate::message::Message;
+use crate::settings::AppSettings;
+use crate::state::MainState;
+use crate::widgets::{toast_container, version_list};
+
+pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, Message> {
+    let header = header::header_view(state);
+    let search_bar = search::search_bar_view(state);
+    let hovered = if state.modal.is_some() {
+        &None
+    } else {
+        &state.hovered_version
+    };
+    let version_list = version_list::view(
+        state.active_environment(),
+        &state.search_query,
+        &state.available_versions.versions,
+        state.available_versions.schedule.as_ref(),
+        &state.operation_queue,
+        hovered,
+    );
+
+    let mut main_column = column![].spacing(0);
+
+    let has_tabs = if let Some(tab_row) = tabs::environment_tabs_view(state) {
+        main_column = main_column.push(
+            container(tab_row).padding(iced::Padding::new(0.0).top(16.0).left(32.0).right(32.0)),
+        );
+        true
+    } else {
+        false
+    };
+
+    let right_inset = iced::Padding::new(0.0).right(32.0);
+    let mut content_column = column![
+        container(header).padding(right_inset),
+        container(search_bar).padding(right_inset),
+    ]
+    .spacing(20);
+
+    if let Some(banner_content) = banners::contextual_banners(state) {
+        content_column = content_column.push(container(banner_content).padding(right_inset));
+    }
+
+    content_column = content_column.push(version_list);
+
+    let content_padding = if has_tabs {
+        iced::Padding::new(32.0).right(0.0)
+    } else {
+        iced::Padding::new(32.0).top(16.0).right(0.0)
+    };
+    let main_content = content_column.padding(content_padding);
+
+    main_column = main_column.push(main_content);
+
+    let with_modal: Element<Message> = if let Some(modal) = &state.modal {
+        modals::modal_overlay(main_column.into(), modal, state, settings)
+    } else {
+        main_column.into()
+    };
+
+    toast_container::view(with_modal, &state.toasts)
+}

@@ -50,10 +50,10 @@ fn main() -> iced::Result {
         None => (iced::Size::new(800.0, 600.0), window::Position::Default),
     };
 
-    iced::application(app::FnmUi::new, app::FnmUi::update, app::FnmUi::view)
-        .title(|state: &app::FnmUi| state.title())
-        .subscription(|state: &app::FnmUi| state.subscription())
-        .theme(|state: &app::FnmUi| state.theme())
+    iced::application(app::Versi::new, app::Versi::update, app::Versi::view)
+        .title(|state: &app::Versi| state.title())
+        .subscription(|state: &app::Versi| state.subscription())
+        .theme(|state: &app::Versi| state.theme())
         .window(window::Settings {
             size: window_size,
             position: window_position,
