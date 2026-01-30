@@ -93,11 +93,17 @@ fn get_common_fnm_paths() -> Vec<PathBuf> {
     if let Some(home) = dirs::home_dir() {
         paths.push(home.join(".fnm").join("fnm"));
         paths.push(home.join(".local").join("bin").join("fnm"));
+        paths.push(home.join(".cargo").join("bin").join("fnm"));
 
         #[cfg(target_os = "macos")]
         {
             paths.push(PathBuf::from("/opt/homebrew/bin/fnm"));
+        }
+
+        #[cfg(unix)]
+        {
             paths.push(PathBuf::from("/usr/local/bin/fnm"));
+            paths.push(PathBuf::from("/usr/bin/fnm"));
         }
 
         #[cfg(target_os = "windows")]

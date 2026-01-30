@@ -339,7 +339,9 @@ impl FnmUi {
                 }
                 Task::none()
             }
-            Message::WindowEvent(iced::window::Event::CloseRequested) | Message::CloseWindow => {
+            Message::WindowEvent(iced::window::Event::CloseRequested)
+            | Message::WindowEvent(iced::window::Event::Closed)
+            | Message::CloseWindow => {
                 self.save_window_geometry();
                 if self.settings.tray_behavior == TrayBehavior::AlwaysRunning
                     && tray::is_tray_active()
