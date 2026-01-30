@@ -92,6 +92,14 @@ impl Versi {
                 self.handle_environment_error(env_id, error)
             }
             Message::RefreshEnvironment => self.handle_refresh_environment(),
+            Message::FocusSearch => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.view = MainViewKind::Versions;
+                }
+                iced::widget::operation::focus(iced::widget::Id::new(
+                    crate::views::main_view::search::SEARCH_INPUT_ID,
+                ))
+            }
             Message::VersionGroupToggled { major } => {
                 self.handle_version_group_toggled(major);
                 Task::none()
@@ -448,15 +456,18 @@ impl Versi {
                 }
 
                 #[cfg(target_os = "macos")]
-                let close_modifier = modifiers.command();
+                let cmd = modifiers.command();
                 #[cfg(not(target_os = "macos"))]
-                let close_modifier = modifiers.control();
+                let cmd = modifiers.control();
 
-                if close_modifier
-                    && let iced::keyboard::Key::Character(c) = key
-                    && c.as_str() == "w"
-                {
-                    return Some(Message::CloseWindow);
+                if cmd && let iced::keyboard::Key::Character(c) = &key {
+                    match c.as_str() {
+                        "k" => return Some(Message::FocusSearch),
+                        "," => return Some(Message::NavigateToSettings),
+                        "r" => return Some(Message::RefreshEnvironment),
+                        "w" => return Some(Message::CloseWindow),
+                        _ => {}
+                    }
                 }
 
                 None

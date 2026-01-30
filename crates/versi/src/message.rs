@@ -25,6 +25,7 @@ pub enum Message {
         error: String,
     },
     RefreshEnvironment,
+    FocusSearch,
 
     VersionGroupToggled {
         major: u32,

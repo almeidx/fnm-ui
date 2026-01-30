@@ -1,7 +1,7 @@
 mod banners;
 mod header;
 mod modals;
-mod search;
+pub mod search;
 mod tabs;
 
 use iced::Element;
