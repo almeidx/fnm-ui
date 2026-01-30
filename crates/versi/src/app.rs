@@ -103,11 +103,9 @@ impl FnmUi {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Initialized(result) => self.handle_initialized(result),
-            Message::EnvironmentLoaded {
-                env_id,
-                versions,
-                default_version,
-            } => self.handle_environment_loaded(env_id, versions, default_version),
+            Message::EnvironmentLoaded { env_id, versions } => {
+                self.handle_environment_loaded(env_id, versions)
+            }
             Message::EnvironmentError { env_id, error } => {
                 self.handle_environment_error(env_id, error)
             }
@@ -187,12 +185,9 @@ impl FnmUi {
                 Task::none()
             }
             Message::SetDefault(version) => self.handle_set_default(version),
-            Message::DefaultChanged {
-                version,
-                previous,
-                success,
-                error,
-            } => self.handle_default_changed(version, previous, success, error),
+            Message::DefaultChanged { success, error } => {
+                self.handle_default_changed(success, error)
+            }
             Message::ToastDismiss(id) => {
                 if let AppState::Main(state) = &mut self.state {
                     state.remove_toast(id);
@@ -621,14 +616,9 @@ impl FnmUi {
             load_tasks.push(Task::perform(
                 async move {
                     let versions = backend.list_installed().await.unwrap_or_default();
-                    let default = backend.default_version().await.ok().flatten();
-                    (env_id, versions, default)
+                    (env_id, versions)
                 },
-                move |(env_id, versions, default)| Message::EnvironmentLoaded {
-                    env_id,
-                    versions,
-                    default_version: default,
-                },
+                move |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },
             ));
         }
 
@@ -651,7 +641,6 @@ impl FnmUi {
         &mut self,
         env_id: EnvironmentId,
         versions: Vec<versi_core::InstalledVersion>,
-        _default_version: Option<versi_core::NodeVersion>,
     ) -> Task<Message> {
         info!(
             "Environment loaded: {:?} with {} versions",
@@ -735,21 +724,14 @@ impl FnmUi {
                     async move {
                         debug!("Fetching installed versions for {:?}...", env_id);
                         let versions = backend.list_installed().await.unwrap_or_default();
-                        debug!("Fetching default version for {:?}...", env_id);
-                        let default = backend.default_version().await.ok().flatten();
                         debug!(
-                            "Environment {:?} loaded: {} versions, default={:?}",
+                            "Environment {:?} loaded: {} versions",
                             env_id,
                             versions.len(),
-                            default
                         );
-                        (env_id, versions, default)
+                        (env_id, versions)
                     },
-                    |(env_id, versions, default)| Message::EnvironmentLoaded {
-                        env_id,
-                        versions,
-                        default_version: default,
-                    },
+                    |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },
                 )
             } else {
                 Task::none()
@@ -773,14 +755,9 @@ impl FnmUi {
             return Task::perform(
                 async move {
                     let versions = backend.list_installed().await.unwrap_or_default();
-                    let default = backend.default_version().await.ok().flatten();
-                    (env_id, versions, default)
+                    (env_id, versions)
                 },
-                |(env_id, versions, default)| Message::EnvironmentLoaded {
-                    env_id,
-                    versions,
-                    default_version: default,
-                },
+                |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },
             );
         }
         Task::none()
@@ -1146,44 +1123,26 @@ impl FnmUi {
 
     fn start_set_default_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            let previous = state
-                .active_environment()
-                .default_version
-                .as_ref()
-                .map(|v| v.to_string());
-
             state.operation_queue.exclusive_op = Some(Operation::SetDefault {
                 version: version.clone(),
             });
 
             let backend = state.backend.clone();
-            let version_clone = version.clone();
 
             return Task::perform(
                 async move {
-                    match backend.set_default(&version_clone).await {
-                        Ok(()) => (version_clone, previous, true, None),
-                        Err(e) => (version_clone, previous, false, Some(e.to_string())),
+                    match backend.set_default(&version).await {
+                        Ok(()) => (true, None),
+                        Err(e) => (false, Some(e.to_string())),
                     }
                 },
-                |(version, previous, success, error)| Message::DefaultChanged {
-                    version,
-                    previous,
-                    success,
-                    error,
-                },
+                |(success, error)| Message::DefaultChanged { success, error },
             );
         }
         Task::none()
     }
 
-    fn handle_default_changed(
-        &mut self,
-        _version: String,
-        _previous: Option<String>,
-        success: bool,
-        error: Option<String>,
-    ) -> Task<Message> {
+    fn handle_default_changed(&mut self, success: bool, error: Option<String>) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.exclusive_op = None;
 
@@ -1606,14 +1565,9 @@ impl FnmUi {
         let load_task = Task::perform(
             async move {
                 let versions = load_backend.list_installed().await.unwrap_or_default();
-                let default = load_backend.default_version().await.ok().flatten();
-                (versions, default)
+                (EnvironmentId::Native, versions)
             },
-            move |(versions, default)| Message::EnvironmentLoaded {
-                env_id: EnvironmentId::Native,
-                versions,
-                default_version: default,
-            },
+            |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },
         );
 
         let fetch_remote = self.handle_fetch_remote_versions();

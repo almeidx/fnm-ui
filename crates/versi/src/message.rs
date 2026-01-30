@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 use versi_core::{
-    AppUpdate, FnmUpdate, InstallProgress, InstalledVersion, NodeVersion, ReleaseSchedule,
-    RemoteVersion,
+    AppUpdate, FnmUpdate, InstallProgress, InstalledVersion, ReleaseSchedule, RemoteVersion,
 };
 use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
@@ -20,7 +19,6 @@ pub enum Message {
     EnvironmentLoaded {
         env_id: EnvironmentId,
         versions: Vec<InstalledVersion>,
-        default_version: Option<NodeVersion>,
     },
     EnvironmentError {
         env_id: EnvironmentId,
@@ -77,8 +75,6 @@ pub enum Message {
 
     SetDefault(String),
     DefaultChanged {
-        version: String,
-        previous: Option<String>,
         success: bool,
         error: Option<String>,
     },
