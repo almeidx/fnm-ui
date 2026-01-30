@@ -1,5 +1,7 @@
 use iced::Task;
 
+#[cfg(target_os = "windows")]
+use versi_platform::EnvironmentId;
 use versi_shell::{ShellInitOptions, detect_shells};
 
 use crate::message::Message;
@@ -39,7 +41,7 @@ impl Versi {
 
                 for shell in shells {
                     #[cfg(target_os = "windows")]
-                    let result = if let Some(ref distro) = wsl_distro {
+                    let result = if let Some(distro) = &wsl_distro {
                         verify_wsl_shell_config(&shell.shell_type, distro, &marker, &backend_name)
                             .await
                     } else {
