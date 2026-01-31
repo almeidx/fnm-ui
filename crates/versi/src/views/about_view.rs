@@ -4,15 +4,16 @@ use iced::{Alignment, Element, Length};
 use crate::icon;
 use crate::message::Message;
 use crate::theme::styles;
+use crate::widgets::helpers::styled_tooltip;
 
 pub fn view<'a>() -> Element<'a, Message> {
     let header = row![
-        tooltip(
+        styled_tooltip(
             button(icon::arrow_left(16.0))
                 .on_press(Message::NavigateToVersions)
                 .style(styles::ghost_button)
                 .padding([4, 8]),
-            text("Back").size(12),
+            "Back",
             tooltip::Position::Bottom,
         ),
         text("About").size(14),

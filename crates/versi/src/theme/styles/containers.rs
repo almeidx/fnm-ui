@@ -87,6 +87,42 @@ pub fn search_input(theme: &Theme, _status: text_input::Status) -> text_input::S
     }
 }
 
+pub fn tooltip_container(theme: &Theme) -> container::Style {
+    let palette = theme.palette();
+    let is_dark = palette.background.r < 0.5;
+
+    let bg = if is_dark {
+        Color::from_rgb8(58, 58, 60)
+    } else {
+        Color::from_rgb8(255, 255, 255)
+    };
+
+    let border_color = if is_dark {
+        Color::from_rgb8(80, 80, 82)
+    } else {
+        Color::from_rgb8(200, 200, 200)
+    };
+
+    container::Style {
+        background: Some(Background::Color(bg)),
+        border: Border {
+            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            width: 1.0,
+            color: border_color,
+        },
+        shadow: Shadow {
+            color: Color {
+                a: if is_dark { 0.3 } else { 0.12 },
+                ..Color::BLACK
+            },
+            offset: iced::Vector::new(0.0, 2.0),
+            blur_radius: 6.0,
+        },
+        text_color: None,
+        snap: false,
+    }
+}
+
 pub fn version_row_hovered(theme: &Theme) -> container::Style {
     let palette = theme.palette();
     let is_dark = palette.background.r < 0.5;

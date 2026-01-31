@@ -6,6 +6,7 @@ use crate::message::Message;
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{MainState, SettingsModalState, ShellVerificationStatus};
 use crate::theme::{is_system_dark, styles};
+use crate::widgets::helpers::styled_tooltip;
 
 pub fn view<'a>(
     settings_state: &'a SettingsModalState,
@@ -13,12 +14,12 @@ pub fn view<'a>(
     state: &'a MainState,
 ) -> Element<'a, Message> {
     let header = row![
-        tooltip(
+        styled_tooltip(
             button(icon::arrow_left(16.0))
                 .on_press(Message::NavigateToVersions)
                 .style(styles::ghost_button)
                 .padding([4, 8]),
-            text("Back").size(12),
+            "Back",
             tooltip::Position::Bottom,
         ),
         text("Settings").size(14),
@@ -343,28 +344,9 @@ fn engine_button<'a>(
     } else {
         tooltip(
             btn,
-            container(text(format!("{} is not installed", name)).size(11))
+            container(text(format!("{} is not installed", name)).size(12))
                 .padding([4, 8])
-                .style(|theme: &iced::Theme| {
-                    let palette = theme.palette();
-                    container::Style {
-                        background: Some(iced::Background::Color(palette.background)),
-                        border: iced::Border {
-                            radius: 4.0.into(),
-                            width: 1.0,
-                            color: iced::Color::from_rgb8(180, 180, 180),
-                        },
-                        shadow: iced::Shadow {
-                            color: iced::Color {
-                                a: 0.15,
-                                ..iced::Color::BLACK
-                            },
-                            offset: iced::Vector::new(0.0, 2.0),
-                            blur_radius: 4.0,
-                        },
-                        ..Default::default()
-                    }
-                }),
+                .style(styles::tooltip_container),
             tooltip::Position::Bottom,
         )
         .gap(4.0)

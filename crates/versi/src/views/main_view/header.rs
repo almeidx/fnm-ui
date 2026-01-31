@@ -5,6 +5,7 @@ use crate::icon;
 use crate::message::Message;
 use crate::state::MainState;
 use crate::theme::styles;
+use crate::widgets::helpers::styled_tooltip;
 
 pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     let env = state.active_environment();
@@ -67,28 +68,28 @@ pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
     };
 
     let icon_row = row![
-        tooltip(
+        styled_tooltip(
             button(refresh_icon)
                 .on_press(Message::RefreshEnvironment)
                 .style(styles::ghost_button)
                 .padding([4, 6]),
-            text("Refresh").size(12),
+            "Refresh",
             tooltip::Position::Bottom,
         ),
-        tooltip(
+        styled_tooltip(
             button(icon::settings(16.0))
                 .on_press(Message::NavigateToSettings)
                 .style(styles::ghost_button)
                 .padding([4, 6]),
-            text("Settings").size(12),
+            "Settings",
             tooltip::Position::Bottom,
         ),
-        tooltip(
+        styled_tooltip(
             button(icon::info(16.0))
                 .on_press(Message::NavigateToAbout)
                 .style(styles::ghost_button)
                 .padding([4, 6]),
-            text("About").size(12),
+            "About",
             tooltip::Position::Bottom,
         ),
     ]

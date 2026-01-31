@@ -1,10 +1,11 @@
-use iced::widget::{Space, button, container, text, text_input, tooltip};
+use iced::widget::{Space, button, container, text_input, tooltip};
 use iced::{Element, Length};
 
 use crate::icon;
 use crate::message::Message;
 use crate::state::MainState;
 use crate::theme::styles;
+use crate::widgets::helpers::styled_tooltip;
 
 pub const SEARCH_INPUT_ID: &str = "search-input";
 
@@ -22,15 +23,14 @@ pub(super) fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> 
     let clear_btn: Element<Message> = if state.search_query.is_empty() {
         Space::new().into()
     } else {
-        tooltip(
+        styled_tooltip(
             button(icon::close(14.0))
                 .on_press(Message::SearchChanged(String::new()))
                 .style(styles::ghost_button)
                 .padding([6, 10]),
-            text("Clear search").size(12),
+            "Clear search",
             tooltip::Position::Left,
         )
-        .into()
     };
 
     iced::widget::stack![
