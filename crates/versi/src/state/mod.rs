@@ -11,11 +11,10 @@ pub use operations::*;
 pub use ui::*;
 
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
 pub enum AppState {
     Loading,
     Onboarding(OnboardingState),
-    Main(MainState),
+    Main(Box<MainState>),
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]

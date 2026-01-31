@@ -5,7 +5,6 @@ use tokio::process::Command;
 use versi_backend::ShellInitOptions;
 
 #[cfg(windows)]
-#[allow(unused_imports)]
 use std::os::windows::process::CommandExt;
 
 #[cfg(windows)]

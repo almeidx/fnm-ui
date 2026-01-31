@@ -124,7 +124,7 @@ impl Versi {
             }
         }
 
-        self.state = AppState::Main(main_state);
+        self.state = AppState::Main(Box::new(main_state));
 
         let mut load_tasks: Vec<Task<Message>> = Vec::new();
 
@@ -234,17 +234,21 @@ pub(super) async fn initialize(
         }
     };
 
-    #[allow(unused_mut)]
-    let mut environments = vec![EnvironmentInfo {
+    let native_env = EnvironmentInfo {
         id: EnvironmentId::Native,
         backend_name,
         backend_version: detection.version.clone(),
         available: true,
         unavailable_reason: None,
-    }];
+    };
+
+    #[cfg(not(windows))]
+    let environments = vec![native_env];
 
     #[cfg(windows)]
-    {
+    let environments = {
+        let mut envs = vec![native_env];
+
         use versi_platform::detect_wsl_distros;
         info!("Running on Windows, detecting WSL distros...");
 
@@ -270,7 +274,7 @@ pub(super) async fn initialize(
                     "Adding unavailable WSL environment: {} (not running)",
                     distro.name
                 );
-                environments.push(EnvironmentInfo {
+                envs.push(EnvironmentInfo {
                     id: EnvironmentId::Wsl {
                         distro: distro.name,
                         backend_path: String::new(),
@@ -287,7 +291,7 @@ pub(super) async fn initialize(
                     distro.name, wsl_backend_name, bp
                 );
                 let backend_version = get_wsl_backend_version(&distro.name, &bp).await;
-                environments.push(EnvironmentInfo {
+                envs.push(EnvironmentInfo {
                     id: EnvironmentId::Wsl {
                         distro: distro.name,
                         backend_path: bp,
@@ -302,7 +306,7 @@ pub(super) async fn initialize(
                     "Adding unavailable WSL environment: {} (no backend found)",
                     distro.name
                 );
-                environments.push(EnvironmentInfo {
+                envs.push(EnvironmentInfo {
                     id: EnvironmentId::Wsl {
                         distro: distro.name,
                         backend_path: String::new(),
@@ -314,7 +318,9 @@ pub(super) async fn initialize(
                 });
             }
         }
-    }
+
+        envs
+    };
 
     info!(
         "Initialization complete with {} environments",

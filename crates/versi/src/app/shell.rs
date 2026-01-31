@@ -15,7 +15,7 @@ impl Versi {
         #[cfg(target_os = "windows")]
         use versi_shell::{detect_wsl_shells, verify_wsl_shell_config};
 
-        #[allow(unused_variables)]
+        #[cfg(target_os = "windows")]
         let env_id = if let AppState::Main(state) = &self.state {
             Some(state.active_environment().id.clone())
         } else {
