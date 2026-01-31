@@ -425,11 +425,3 @@ pub async fn execute_in_wsl(distro: &str, command: &str) -> Result<String, WslEr
         Err(WslError::CommandFailed { stderr })
     }
 }
-
-#[allow(dead_code)]
-pub async fn check_fnm_in_wsl(distro: &str) -> bool {
-    execute_in_wsl(distro, "which fnm")
-        .await
-        .map(|output| !output.trim().is_empty())
-        .unwrap_or(false)
-}

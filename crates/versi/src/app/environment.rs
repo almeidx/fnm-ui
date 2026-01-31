@@ -1,4 +1,4 @@
-use log::{debug, error, info, trace};
+use log::{debug, info, trace};
 
 use iced::Task;
 
@@ -45,22 +45,6 @@ impl Versi {
             ]);
         }
 
-        Task::none()
-    }
-
-    pub(super) fn handle_environment_error(
-        &mut self,
-        env_id: EnvironmentId,
-        error: String,
-    ) -> Task<Message> {
-        error!("Environment error for {:?}: {}", env_id, error);
-
-        if let AppState::Main(state) = &mut self.state
-            && let Some(env) = state.environments.iter_mut().find(|e| e.id == env_id)
-        {
-            env.loading = false;
-            env.error = Some(error);
-        }
         Task::none()
     }
 

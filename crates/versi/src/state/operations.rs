@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::time::Instant;
 
 use versi_core::InstallProgress;
 
@@ -37,8 +36,6 @@ impl OperationRequest {
 #[derive(Debug, Clone)]
 pub struct QueuedOperation {
     pub request: OperationRequest,
-    #[allow(dead_code)]
-    pub queued_at: Instant,
 }
 
 #[derive(Clone)]
@@ -79,16 +76,6 @@ impl OperationQueue {
 
     pub fn is_busy_for_exclusive(&self) -> bool {
         !self.active_installs.is_empty() || self.exclusive_op.is_some()
-    }
-
-    #[allow(dead_code)]
-    pub fn has_pending(&self) -> bool {
-        !self.pending.is_empty()
-    }
-
-    #[allow(dead_code)]
-    pub fn queue_count(&self) -> usize {
-        self.pending.len()
     }
 
     pub fn has_pending_for_version(&self, version: &str) -> bool {

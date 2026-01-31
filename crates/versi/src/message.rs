@@ -10,7 +10,6 @@ use crate::settings::TrayBehavior;
 use crate::tray::TrayMessage;
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub enum Message {
     NoOp,
     Initialized(InitResult),
@@ -19,10 +18,6 @@ pub enum Message {
     EnvironmentLoaded {
         env_id: EnvironmentId,
         versions: Vec<InstalledVersion>,
-    },
-    EnvironmentError {
-        env_id: EnvironmentId,
-        error: String,
     },
     RefreshEnvironment,
     FocusSearch,
@@ -96,11 +91,10 @@ pub enum Message {
     LogFileCleared,
     RevealLogFile,
     LogFileStatsLoaded(Option<u64>),
-    CheckShellSetup,
     ShellSetupChecked(Vec<(ShellType, versi_shell::VerificationResult)>),
     ConfigureShell(ShellType),
     ShellConfigured(ShellType, Result<(), String>),
-    ShellFlagsUpdated(Result<usize, String>),
+    ShellFlagsUpdated,
 
     PreferredBackendChanged(String),
 
@@ -124,19 +118,14 @@ pub enum Message {
     StartMinimizedToggled(bool),
     WindowOpened(iced::window::Id),
 
-    CheckForAppUpdate,
     AppUpdateChecked(Result<Option<AppUpdate>, String>),
     OpenAppUpdate,
-    DismissAppUpdate,
-
-    CheckForBackendUpdate,
     BackendUpdateChecked(Result<Option<BackendUpdate>, String>),
     OpenBackendUpdate,
 
     FetchReleaseSchedule,
 
     OpenLink(String),
-    WindowGeometrySaved,
 }
 
 #[derive(Debug, Clone)]

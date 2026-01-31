@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use iced::Task;
 
 use crate::message::Message;
@@ -33,7 +31,6 @@ impl Versi {
                     request: OperationRequest::Install {
                         version: version.clone(),
                     },
-                    queued_at: Instant::now(),
                 });
                 return Task::none();
             }
@@ -148,7 +145,6 @@ impl Versi {
                     request: OperationRequest::Uninstall {
                         version: version.clone(),
                     },
-                    queued_at: Instant::now(),
                 });
                 return Task::none();
             }
@@ -218,7 +214,6 @@ impl Versi {
                     request: OperationRequest::SetDefault {
                         version: version.clone(),
                     },
-                    queued_at: Instant::now(),
                 });
                 return Task::none();
             }
@@ -388,7 +383,6 @@ impl Versi {
                     request: OperationRequest::Install {
                         version: to.clone(),
                     },
-                    queued_at: Instant::now(),
                 });
             }
             return self.process_next_operation();
@@ -403,7 +397,6 @@ impl Versi {
             for version in versions {
                 state.operation_queue.pending.push_back(QueuedOperation {
                     request: OperationRequest::Uninstall { version },
-                    queued_at: Instant::now(),
                 });
             }
             return self.process_next_operation();
@@ -420,7 +413,6 @@ impl Versi {
             for version in versions {
                 state.operation_queue.pending.push_back(QueuedOperation {
                     request: OperationRequest::Uninstall { version },
-                    queued_at: Instant::now(),
                 });
             }
             return self.process_next_operation();
@@ -480,7 +472,6 @@ impl Versi {
             for version in versions {
                 state.operation_queue.pending.push_back(QueuedOperation {
                     request: OperationRequest::Uninstall { version },
-                    queued_at: Instant::now(),
                 });
             }
             return self.process_next_operation();

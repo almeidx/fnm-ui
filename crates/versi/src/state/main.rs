@@ -117,20 +117,19 @@ impl VersionCache {
         if self.loading {
             return NetworkStatus::Fetching;
         }
-        if let Some(err) = &self.error {
+        if self.error.is_some() {
             if self.versions.is_empty() {
-                return NetworkStatus::Offline(err.clone());
+                return NetworkStatus::Offline;
             }
-            return NetworkStatus::Stale(err.clone());
+            return NetworkStatus::Stale;
         }
         NetworkStatus::Online
     }
 }
 
-#[allow(dead_code)]
 pub enum NetworkStatus {
     Online,
     Fetching,
-    Offline(String),
-    Stale(String),
+    Offline,
+    Stale,
 }

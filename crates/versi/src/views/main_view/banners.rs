@@ -13,7 +13,7 @@ pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a,
     let mut banners: Vec<Element<Message>> = Vec::new();
 
     match state.available_versions.network_status() {
-        NetworkStatus::Offline(_) => {
+        NetworkStatus::Offline => {
             banners.push(
                 button(
                     row![
@@ -30,7 +30,7 @@ pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a,
                 .into(),
             );
         }
-        NetworkStatus::Stale(_) => {
+        NetworkStatus::Stale => {
             banners.push(
                 button(
                     row![

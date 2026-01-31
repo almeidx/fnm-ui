@@ -88,9 +88,7 @@ impl Versi {
                         versi_shell::VerificationResult::FunctionalButNotInConfig => {
                             ShellVerificationStatus::FunctionalButNotInConfig
                         }
-                        versi_shell::VerificationResult::Error(e) => {
-                            ShellVerificationStatus::Error(e)
-                        }
+                        versi_shell::VerificationResult::Error(_) => ShellVerificationStatus::Error,
                     };
                     ShellSetupStatus {
                         shell_name: shell_type.name().to_string(),
@@ -188,7 +186,7 @@ impl Versi {
             shell.configuring = false;
             match result {
                 Ok(()) => shell.status = ShellVerificationStatus::Configured,
-                Err(e) => shell.status = ShellVerificationStatus::Error(e),
+                Err(_) => shell.status = ShellVerificationStatus::Error,
             }
         }
     }
@@ -207,7 +205,6 @@ impl Versi {
                 use versi_shell::ShellConfig;
 
                 let shells = detect_shells();
-                let mut updated_count = 0;
 
                 for shell in shells {
                     if let Some(config_path) = shell.config_file
@@ -218,14 +215,13 @@ impl Versi {
                         let edit = config.update_flags(&marker, &options);
                         if edit.has_changes() {
                             config.apply_edit(&edit).map_err(|e| e.to_string())?;
-                            updated_count += 1;
                         }
                     }
                 }
 
-                Ok::<_, String>(updated_count)
+                Ok::<_, String>(())
             },
-            Message::ShellFlagsUpdated,
+            |_| Message::ShellFlagsUpdated,
         )
     }
 }

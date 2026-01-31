@@ -47,12 +47,10 @@ pub struct ShellSetupStatus {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub enum ShellVerificationStatus {
-    Unknown,
     Configured,
     NotConfigured,
     NoConfigFile,
     FunctionalButNotInConfig,
-    Error(String),
+    Error,
 }

@@ -104,9 +104,6 @@ impl Versi {
             Message::EnvironmentLoaded { env_id, versions } => {
                 self.handle_environment_loaded(env_id, versions)
             }
-            Message::EnvironmentError { env_id, error } => {
-                self.handle_environment_error(env_id, error)
-            }
             Message::RefreshEnvironment => self.handle_refresh_environment(),
             Message::FocusSearch => {
                 if let AppState::Main(state) = &mut self.state {
@@ -297,8 +294,7 @@ impl Versi {
                 }
                 Task::none()
             }
-            Message::ShellFlagsUpdated(_) => Task::none(),
-            Message::CheckShellSetup => self.handle_check_shell_setup(),
+            Message::ShellFlagsUpdated => Task::none(),
             Message::ShellSetupChecked(results) => {
                 self.handle_shell_setup_checked(results);
                 Task::none()
@@ -388,7 +384,6 @@ impl Versi {
                 Task::none()
             }
             Message::WindowEvent(_) => Task::none(),
-            Message::CheckForAppUpdate => self.handle_check_for_app_update(),
             Message::AppUpdateChecked(result) => {
                 self.handle_app_update_checked(result);
                 Task::none()
@@ -407,13 +402,6 @@ impl Versi {
                 }
                 Task::none()
             }
-            Message::DismissAppUpdate => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.app_update = None;
-                }
-                Task::none()
-            }
-            Message::CheckForBackendUpdate => self.handle_check_for_backend_update(),
             Message::BackendUpdateChecked(result) => {
                 self.handle_backend_update_checked(result);
                 Task::none()
@@ -433,7 +421,6 @@ impl Versi {
                 }
                 Task::none()
             }
-            Message::WindowGeometrySaved => Task::none(),
             Message::OpenLink(url) => Task::perform(
                 async move {
                     let _ = open::that(&url);

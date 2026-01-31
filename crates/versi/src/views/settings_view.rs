@@ -195,12 +195,11 @@ pub fn view<'a>(
             let is_configured_check = matches!(shell.status, ShellVerificationStatus::Configured);
 
             let status_text = match &shell.status {
-                ShellVerificationStatus::Unknown => "Unknown",
                 ShellVerificationStatus::Configured => "Configured",
                 ShellVerificationStatus::NotConfigured => "Not configured",
                 ShellVerificationStatus::NoConfigFile => "No config file",
                 ShellVerificationStatus::FunctionalButNotInConfig => "Working (not in config)",
-                ShellVerificationStatus::Error(_) => "Error",
+                ShellVerificationStatus::Error => "Error",
             };
 
             let is_configured = matches!(
