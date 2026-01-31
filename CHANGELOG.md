@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.6.0] - 2026-01-31
+
+- refactor: extract fnm backend from versi-core into versi-fnm
+- fix: resolve Windows build error and unused import warnings
+- fix(win): build
+- refactor: unify navigation header across all views
+- refactor: eliminate all #[allow] attributes via structural changes
+- refactor: remove dead code and unused enum variants/fields
+- refactor: centralize tooltip styling with styled_tooltip helper
+- refactor: normalize spacing and header size in Settings and About views
+- fix: improve header visibility and declutter search results
+- refactor: compact header and normalize spacing in main view
+- docs: add UI guideline restricting toast usage to background errors
+- feat: add nvm backend with per-environment engine selection
+
+
 ## [0.5.0] - 2026-01-30
 
 - fix: resolve Windows build errors in shell setup handler
