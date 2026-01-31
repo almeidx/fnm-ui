@@ -21,7 +21,7 @@ pub fn view<'a>(
             text("Back").size(12),
             tooltip::Position::Bottom,
         ),
-        text("Settings").size(22),
+        text("Settings").size(14),
         Space::new().width(Length::Fill),
     ]
     .spacing(8)
@@ -313,12 +313,12 @@ pub fn view<'a>(
         .spacing(8),
     );
     column![
-        container(header).padding(iced::Padding::new(0.0).right(32.0)),
-        Space::new().height(24),
-        scrollable(content.padding(iced::Padding::default().right(32.0))).height(Length::Fill),
+        container(header).padding(iced::Padding::new(0.0).right(24.0)),
+        Space::new().height(12),
+        scrollable(content.padding(iced::Padding::default().right(24.0))).height(Length::Fill),
     ]
     .spacing(0)
-    .padding(iced::Padding::new(32.0).right(0.0))
+    .padding(iced::Padding::new(24.0).right(0.0))
     .width(Length::Fill)
     .height(Length::Fill)
     .into()
