@@ -123,6 +123,11 @@ cargo clippy
 - Use meaningful message names that describe the event
 - Group related functionality into separate crates
 
+## UI Guidelines
+
+- **Toasts are only for background errors.** Never use toasts (`Toast::error`) for feedback that can be shown reactively in the UI (disabled buttons, inline text, tooltips, etc.). Toasts are reserved for errors from async background operations where no other UI surface exists to report the failure (e.g., install failed, uninstall failed, set-default failed).
+- Prefer disabled states with tooltips, inline status text, or view changes over transient notifications.
+
 ## Key Files to Understand
 
 1. `crates/versi/src/app/mod.rs` - Main application logic and message dispatch
