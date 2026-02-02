@@ -203,3 +203,64 @@ pub async fn install_nvm() -> Result<(), crate::NvmError> {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::*;
+
+    #[test]
+    fn unix_variant_maps_to_unix_environment() {
+        let detection = NvmDetection {
+            found: true,
+            nvm_dir: Some(PathBuf::from("/home/user/.nvm")),
+            nvm_exe: None,
+            version: Some("0.40.1".to_string()),
+            variant: NvmVariant::Unix,
+        };
+        let env = detect_nvm_environment(&detection).unwrap();
+        assert!(
+            matches!(env, NvmEnvironment::Unix { nvm_dir } if nvm_dir == Path::new("/home/user/.nvm"))
+        );
+    }
+
+    #[test]
+    fn windows_variant_maps_to_windows_environment() {
+        let detection = NvmDetection {
+            found: true,
+            nvm_dir: None,
+            nvm_exe: Some(PathBuf::from("C:\\nvm\\nvm.exe")),
+            version: Some("1.1.12".to_string()),
+            variant: NvmVariant::Windows,
+        };
+        let env = detect_nvm_environment(&detection).unwrap();
+        assert!(
+            matches!(env, NvmEnvironment::Windows { nvm_exe } if nvm_exe == Path::new("C:\\nvm\\nvm.exe"))
+        );
+    }
+
+    #[test]
+    fn not_found_variant_returns_none() {
+        let detection = NvmDetection {
+            found: false,
+            nvm_dir: None,
+            nvm_exe: None,
+            version: None,
+            variant: NvmVariant::NotFound,
+        };
+        assert!(detect_nvm_environment(&detection).is_none());
+    }
+
+    #[test]
+    fn unix_with_missing_nvm_dir_returns_none() {
+        let detection = NvmDetection {
+            found: true,
+            nvm_dir: None,
+            nvm_exe: None,
+            version: Some("0.40.1".to_string()),
+            variant: NvmVariant::Unix,
+        };
+        assert!(detect_nvm_environment(&detection).is_none());
+    }
+}

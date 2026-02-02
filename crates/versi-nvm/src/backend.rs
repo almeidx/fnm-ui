@@ -190,3 +190,38 @@ impl VersionManager for NvmBackend {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unix_backend() -> NvmBackend {
+        let client = NvmClient::unix(PathBuf::from("/home/user/.nvm"));
+        NvmBackend::new(client, Some("0.40.1".to_string()))
+    }
+
+    fn windows_backend() -> NvmBackend {
+        let client = NvmClient::windows(PathBuf::from("C:\\nvm\\nvm.exe"));
+        NvmBackend::new(client, Some("1.1.12".to_string()))
+    }
+
+    #[test]
+    fn unix_capabilities_supports_shell_integration() {
+        let caps = unix_backend().capabilities();
+        assert!(caps.supports_shell_integration);
+        assert!(caps.supports_lts_filter);
+        assert!(caps.supports_use_version);
+        assert!(!caps.supports_progress);
+        assert!(!caps.supports_auto_switch);
+        assert!(!caps.supports_corepack);
+        assert!(!caps.supports_resolve_engines);
+    }
+
+    #[test]
+    fn windows_capabilities_no_shell_integration() {
+        let caps = windows_backend().capabilities();
+        assert!(!caps.supports_shell_integration);
+        assert!(caps.supports_lts_filter);
+        assert!(caps.supports_use_version);
+    }
+}

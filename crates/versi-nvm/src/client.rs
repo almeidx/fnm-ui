@@ -275,3 +275,36 @@ impl NvmClient {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_windows_returns_true_for_windows_environment() {
+        let client = NvmClient::windows(PathBuf::from("C:\\nvm\\nvm.exe"));
+        assert!(client.is_windows());
+    }
+
+    #[test]
+    fn is_windows_returns_false_for_unix_environment() {
+        let client = NvmClient::unix(PathBuf::from("/home/user/.nvm"));
+        assert!(!client.is_windows());
+    }
+
+    #[test]
+    fn is_windows_returns_false_for_wsl_environment() {
+        let client = NvmClient::wsl("Ubuntu".to_string(), "/home/user/.nvm".to_string());
+        assert!(!client.is_windows());
+    }
+
+    #[test]
+    fn wsl_constructor_sets_environment() {
+        let client = NvmClient::wsl("Debian".to_string(), "/home/user/.nvm".to_string());
+        assert!(matches!(
+            client.environment,
+            NvmEnvironment::Wsl { ref distro, ref nvm_dir }
+            if distro == "Debian" && nvm_dir == "/home/user/.nvm"
+        ));
+    }
+}
