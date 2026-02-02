@@ -62,7 +62,7 @@ impl Versi {
                     state.available_versions.loaded_from_disk = false;
 
                     let schedule = state.available_versions.schedule.clone();
-                    std::thread::spawn(move || {
+                    tokio::task::spawn_blocking(move || {
                         let cache = crate::cache::DiskCache {
                             remote_versions: versions,
                             release_schedule: schedule,
@@ -121,7 +121,7 @@ impl Versi {
                     state.available_versions.schedule_error = None;
 
                     let versions = state.available_versions.versions.clone();
-                    std::thread::spawn(move || {
+                    tokio::task::spawn_blocking(move || {
                         let cache = crate::cache::DiskCache {
                             remote_versions: versions,
                             release_schedule: Some(schedule),
