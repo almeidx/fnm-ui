@@ -7,7 +7,7 @@ use crate::state::MainState;
 use crate::theme::styles;
 use crate::widgets::helpers::nav_icons;
 
-pub fn view<'a>(state: &'a MainState) -> Element<'a, Message> {
+pub fn view<'a>(state: &'a MainState, has_tabs: bool) -> Element<'a, Message> {
     let header = row![
         text("About").size(14),
         Space::new().width(Length::Fill),
@@ -56,7 +56,11 @@ pub fn view<'a>(state: &'a MainState) -> Element<'a, Message> {
         scrollable(content.padding(iced::Padding::default().right(24.0))).height(Length::Fill),
     ]
     .spacing(0)
-    .padding(iced::Padding::new(24.0).top(12.0).right(0.0))
+    .padding(if has_tabs {
+        iced::Padding::new(24.0).right(0.0)
+    } else {
+        iced::Padding::new(24.0).top(12.0).right(0.0)
+    })
     .width(Length::Fill)
     .height(Length::Fill)
     .into()

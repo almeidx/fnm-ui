@@ -2,7 +2,7 @@ mod banners;
 mod header;
 mod modals;
 pub mod search;
-mod tabs;
+pub mod tabs;
 
 use iced::Element;
 use iced::widget::{column, container};
@@ -12,7 +12,11 @@ use crate::settings::AppSettings;
 use crate::state::MainState;
 use crate::widgets::{toast_container, version_list};
 
-pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, Message> {
+pub fn view<'a>(
+    state: &'a MainState,
+    settings: &'a AppSettings,
+    has_tabs: bool,
+) -> Element<'a, Message> {
     let header = header::header_view(state);
     let search_bar = search::search_bar_view(state);
     let hovered = if state.modal.is_some() {
@@ -28,17 +32,6 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
         &state.operation_queue,
         hovered,
     );
-
-    let mut main_column = column![].spacing(0);
-
-    let has_tabs = if let Some(tab_row) = tabs::environment_tabs_view(state) {
-        main_column = main_column.push(
-            container(tab_row).padding(iced::Padding::new(0.0).top(12.0).left(24.0).right(24.0)),
-        );
-        true
-    } else {
-        false
-    };
 
     let right_inset = iced::Padding::new(0.0).right(24.0);
     let mut content_column = column![
@@ -62,7 +55,7 @@ pub fn view<'a>(state: &'a MainState, settings: &'a AppSettings) -> Element<'a, 
     };
     let main_content = content_column.padding(content_padding);
 
-    main_column = main_column.push(main_content);
+    let main_column = column![main_content].spacing(0);
 
     let with_modal: Element<Message> = if let Some(modal) = &state.modal {
         modals::modal_overlay(main_column.into(), modal, state, settings)

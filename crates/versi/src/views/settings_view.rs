@@ -12,6 +12,7 @@ pub fn view<'a>(
     settings_state: &'a SettingsModalState,
     settings: &'a AppSettings,
     state: &'a MainState,
+    has_tabs: bool,
 ) -> Element<'a, Message> {
     let header = row![
         text("Settings").size(14),
@@ -311,7 +312,11 @@ pub fn view<'a>(
         scrollable(content.padding(iced::Padding::default().right(24.0))).height(Length::Fill),
     ]
     .spacing(0)
-    .padding(iced::Padding::new(24.0).top(12.0).right(0.0))
+    .padding(if has_tabs {
+        iced::Padding::new(24.0).right(0.0)
+    } else {
+        iced::Padding::new(24.0).top(12.0).right(0.0)
+    })
     .width(Length::Fill)
     .height(Length::Fill)
     .into()

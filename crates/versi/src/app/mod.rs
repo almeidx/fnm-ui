@@ -449,13 +449,33 @@ impl Versi {
                     .unwrap_or(self.provider.name());
                 views::onboarding::view(state, backend_name)
             }
-            AppState::Main(state) => match state.view {
-                MainViewKind::Versions => views::main_view::view(state, &self.settings),
-                MainViewKind::Settings => {
-                    views::settings_view::view(&state.settings_state, &self.settings, state)
+            AppState::Main(state) => {
+                use iced::widget::{column, container};
+
+                let tab_row = views::main_view::tabs::environment_tabs_view(state);
+                let has_tabs = tab_row.is_some();
+
+                let inner = match state.view {
+                    MainViewKind::Versions => {
+                        views::main_view::view(state, &self.settings, has_tabs)
+                    }
+                    MainViewKind::Settings => views::settings_view::view(
+                        &state.settings_state,
+                        &self.settings,
+                        state,
+                        has_tabs,
+                    ),
+                    MainViewKind::About => views::about_view::view(state, has_tabs),
+                };
+
+                if let Some(tabs) = tab_row {
+                    let tabs_container = container(tabs)
+                        .padding(iced::Padding::new(0.0).top(12.0).left(24.0).right(24.0));
+                    column![tabs_container, inner].spacing(0).into()
+                } else {
+                    inner
                 }
-                MainViewKind::About => views::about_view::view(state),
-            },
+            }
         }
     }
 
