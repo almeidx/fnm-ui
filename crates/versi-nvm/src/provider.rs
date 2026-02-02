@@ -49,7 +49,7 @@ impl BackendProvider for NvmProvider {
     async fn detect(&self) -> BackendDetection {
         let detection = detect_nvm().await;
 
-        *self.variant.lock().unwrap() = detection.variant.clone();
+        *self.variant.lock().unwrap_or_else(|e| e.into_inner()) = detection.variant.clone();
 
         let path = detection.nvm_dir.clone().or(detection.nvm_exe.clone());
 
@@ -73,12 +73,20 @@ impl BackendProvider for NvmProvider {
         client: &reqwest::Client,
         current_version: &str,
     ) -> Result<Option<BackendUpdate>, String> {
-        let variant = self.variant.lock().unwrap().clone();
+        let variant = self
+            .variant
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
         check_for_nvm_update(client, current_version, &variant).await
     }
 
     fn create_manager(&self, detection: &BackendDetection) -> Box<dyn VersionManager> {
-        let variant = self.variant.lock().unwrap().clone();
+        let variant = self
+            .variant
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
 
         let nvm_detection = crate::detection::NvmDetection {
             found: detection.found,
