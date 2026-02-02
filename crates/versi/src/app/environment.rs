@@ -40,6 +40,7 @@ impl Versi {
         self.update_tray_menu();
 
         if self.pending_minimize
+            && !self.pending_show
             && let Some(id) = self.window_id
         {
             self.pending_minimize = false;

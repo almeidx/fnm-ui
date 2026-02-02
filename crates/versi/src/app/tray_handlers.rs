@@ -13,37 +13,10 @@ use super::platform;
 
 impl Versi {
     pub(super) fn handle_tray_event(&mut self, msg: TrayMessage) -> Task<Message> {
-        if !matches!(self.state, AppState::Main(_)) && !matches!(msg, TrayMessage::Quit) {
-            return Task::none();
-        }
-
         match msg {
-            TrayMessage::ShowWindow => {
-                if let Some(id) = self.window_id {
-                    platform::set_dock_visible(true);
-
-                    let needs_refresh = if let AppState::Main(state) = &self.state {
-                        state.active_environment().installed_versions.is_empty()
-                            && !state.active_environment().loading
-                    } else {
-                        false
-                    };
-
-                    let mut tasks = vec![
-                        iced::window::set_mode(id, iced::window::Mode::Windowed),
-                        iced::window::minimize(id, false),
-                        iced::window::gain_focus(id),
-                    ];
-
-                    if needs_refresh {
-                        tasks.push(Task::done(Message::RefreshEnvironment));
-                    }
-
-                    Task::batch(tasks)
-                } else {
-                    Task::none()
-                }
-            }
+            TrayMessage::ShowWindow => self.tray_show_window(),
+            TrayMessage::Quit => iced::exit(),
+            _ if !matches!(self.state, AppState::Main(_)) => Task::none(),
             TrayMessage::OpenSettings => {
                 if let AppState::Main(state) = &mut self.state {
                     state.view = MainViewKind::Settings;
@@ -84,7 +57,6 @@ impl Versi {
                     Task::none()
                 }
             }
-            TrayMessage::Quit => iced::exit(),
             TrayMessage::SetDefault { env_index, version } => {
                 if let AppState::Main(state) = &mut self.state
                     && env_index != state.active_environment_idx
@@ -101,6 +73,33 @@ impl Versi {
                 }
                 self.handle_set_default(version)
             }
+        }
+    }
+
+    fn tray_show_window(&mut self) -> Task<Message> {
+        self.pending_minimize = false;
+
+        let needs_refresh = if let AppState::Main(state) = &self.state {
+            state.active_environment().installed_versions.is_empty()
+                && !state.active_environment().loading
+        } else {
+            false
+        };
+
+        if let Some(id) = self.window_id {
+            platform::set_dock_visible(true);
+            let mut tasks = vec![
+                iced::window::set_mode(id, iced::window::Mode::Windowed),
+                iced::window::minimize(id, false),
+                iced::window::gain_focus(id),
+            ];
+            if needs_refresh {
+                tasks.push(Task::done(Message::RefreshEnvironment));
+            }
+            Task::batch(tasks)
+        } else {
+            self.pending_show = true;
+            Task::none()
         }
     }
 

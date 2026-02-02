@@ -24,7 +24,16 @@ impl Versi {
 
     pub(super) fn handle_window_opened(&mut self, id: iced::window::Id) -> Task<Message> {
         self.window_id = Some(id);
-        if self.pending_minimize {
+        if self.pending_show {
+            self.pending_show = false;
+            self.pending_minimize = false;
+            platform::set_dock_visible(true);
+            Task::batch([
+                iced::window::set_mode(id, iced::window::Mode::Windowed),
+                iced::window::minimize(id, false),
+                iced::window::gain_focus(id),
+            ])
+        } else if self.pending_minimize {
             self.pending_minimize = false;
             Task::batch([
                 Task::done(Message::HideDockIcon),
