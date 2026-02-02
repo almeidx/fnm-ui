@@ -43,11 +43,11 @@ fn main() -> iced::Result {
     let icon = window::icon::from_file_data(include_bytes!("../../../assets/logo.png"), None).ok();
 
     let (window_size, window_position) = match &settings.window_geometry {
-        Some(geo) => (
+        Some(geo) if geo.is_likely_visible() => (
             iced::Size::new(geo.width, geo.height),
             window::Position::Specific(iced::Point::new(geo.x as f32, geo.y as f32)),
         ),
-        None => (iced::Size::new(800.0, 600.0), window::Position::Default),
+        _ => (iced::Size::new(800.0, 600.0), window::Position::Default),
     };
 
     iced::application(app::Versi::new, app::Versi::update, app::Versi::view)

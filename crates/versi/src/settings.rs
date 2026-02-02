@@ -115,6 +115,21 @@ pub struct WindowGeometry {
     pub y: i32,
 }
 
+impl WindowGeometry {
+    pub fn is_likely_visible(&self) -> bool {
+        const MIN_VISIBLE: i32 = -50;
+        const MAX_COORD: i32 = 16384;
+        const MIN_SIZE: f32 = 100.0;
+
+        self.x > MIN_VISIBLE
+            && self.y > MIN_VISIBLE
+            && self.x < MAX_COORD
+            && self.y < MAX_COORD
+            && self.width >= MIN_SIZE
+            && self.height >= MIN_SIZE
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub enum ThemeSetting {
     #[default]
