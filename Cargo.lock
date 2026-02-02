@@ -5346,7 +5346,7 @@ dependencies = [
 
 [[package]]
 name = "versi"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "dirs",
@@ -5375,7 +5375,7 @@ dependencies = [
 
 [[package]]
 name = "versi-backend"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5387,7 +5387,7 @@ dependencies = [
 
 [[package]]
 name = "versi-core"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "futures-util",
@@ -5403,7 +5403,7 @@ dependencies = [
 
 [[package]]
 name = "versi-fnm"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "dirs",
@@ -5420,7 +5420,7 @@ dependencies = [
 
 [[package]]
 name = "versi-nvm"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "dirs",
@@ -5436,7 +5436,7 @@ dependencies = [
 
 [[package]]
 name = "versi-platform"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "dirs",
  "log",
@@ -5447,7 +5447,7 @@ dependencies = [
 
 [[package]]
 name = "versi-shell"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "dirs",
  "log",
