@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.7.0] - 2026-02-02
+
+- feat: add in-app auto-update with download, extract, and apply
+- ci: use rustsec/audit-check action for security scanning
+- refactor: replace dark-light with Iced native theme detection
+- ci: add cargo-audit ignore list for non-actionable advisories
+- ci: add cargo-audit security scanning
+- refactor: remove install progress tracking
+
+
 ## [0.6.1] - 2026-02-02
 
 - feat: add keyboard navigation for version list
