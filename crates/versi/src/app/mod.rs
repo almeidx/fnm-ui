@@ -7,6 +7,7 @@ mod platform;
 mod shell;
 mod tray_handlers;
 mod versions;
+mod window;
 
 use log::info;
 use std::collections::HashMap;
@@ -345,21 +346,7 @@ impl Versi {
             }
             Message::WindowEvent(iced::window::Event::CloseRequested)
             | Message::WindowEvent(iced::window::Event::Closed)
-            | Message::CloseWindow => {
-                self.save_window_geometry();
-                if self.settings.tray_behavior == TrayBehavior::AlwaysRunning
-                    && tray::is_tray_active()
-                {
-                    if let Some(id) = self.window_id {
-                        platform::set_dock_visible(false);
-                        iced::window::set_mode(id, iced::window::Mode::Hidden)
-                    } else {
-                        Task::none()
-                    }
-                } else {
-                    iced::exit()
-                }
-            }
+            | Message::CloseWindow => self.handle_window_close(),
             Message::WindowEvent(iced::window::Event::Resized(size)) => {
                 self.window_size = Some(size);
                 Task::none()
@@ -368,18 +355,7 @@ impl Versi {
                 self.window_position = Some(point);
                 Task::none()
             }
-            Message::WindowOpened(id) => {
-                self.window_id = Some(id);
-                if self.pending_minimize {
-                    self.pending_minimize = false;
-                    Task::batch([
-                        Task::done(Message::HideDockIcon),
-                        iced::window::set_mode(id, iced::window::Mode::Hidden),
-                    ])
-                } else {
-                    Task::none()
-                }
-            }
+            Message::WindowOpened(id) => self.handle_window_opened(id),
             Message::HideDockIcon => {
                 platform::set_dock_visible(false);
                 Task::none()
@@ -586,17 +562,5 @@ impl Versi {
 
     pub(crate) fn all_providers(&self) -> Vec<Arc<dyn BackendProvider>> {
         self.providers.values().cloned().collect()
-    }
-
-    fn save_window_geometry(&mut self) {
-        if let (Some(size), Some(pos)) = (self.window_size, self.window_position) {
-            self.settings.window_geometry = Some(crate::settings::WindowGeometry {
-                width: size.width,
-                height: size.height,
-                x: pos.x as i32,
-                y: pos.y as i32,
-            });
-            let _ = self.settings.save();
-        }
     }
 }
