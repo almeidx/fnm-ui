@@ -70,7 +70,8 @@ impl Versi {
                     state.available_versions.loaded_from_disk = false;
 
                     let schedule = state.available_versions.schedule.clone();
-                    tokio::task::spawn_blocking(move || {
+                    // std::thread::spawn, not tokio — Iced doesn't guarantee a tokio runtime context
+                    std::thread::spawn(move || {
                         let cache = crate::cache::DiskCache {
                             remote_versions: versions,
                             release_schedule: schedule,
@@ -129,7 +130,8 @@ impl Versi {
                     state.available_versions.schedule_error = None;
 
                     let versions = state.available_versions.versions.clone();
-                    tokio::task::spawn_blocking(move || {
+                    // std::thread::spawn, not tokio — Iced doesn't guarantee a tokio runtime context
+                    std::thread::spawn(move || {
                         let cache = crate::cache::DiskCache {
                             remote_versions: versions,
                             release_schedule: Some(schedule),
