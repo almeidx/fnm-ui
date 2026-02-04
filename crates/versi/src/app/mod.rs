@@ -46,8 +46,9 @@ impl Versi {
     pub fn new() -> (Self, Task<Message>) {
         let settings = AppSettings::load();
 
-        let should_minimize =
-            settings.start_minimized && settings.tray_behavior != TrayBehavior::Disabled;
+        let should_minimize = settings.start_minimized
+            && settings.tray_behavior != TrayBehavior::Disabled
+            && tray::is_tray_active();
 
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
@@ -606,11 +607,12 @@ impl Versi {
             }
         });
 
-        let tray_sub = if self.settings.tray_behavior != TrayBehavior::Disabled {
-            tray::tray_subscription()
-        } else {
-            Subscription::none()
-        };
+        let tray_sub =
+            if self.settings.tray_behavior != TrayBehavior::Disabled && tray::is_tray_active() {
+                tray::tray_subscription()
+            } else {
+                Subscription::none()
+            };
 
         let window_open_sub = iced::window::open_events().map(Message::WindowOpened);
 

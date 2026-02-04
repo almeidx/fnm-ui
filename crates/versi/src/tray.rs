@@ -61,6 +61,11 @@ pub fn init_tray(behavior: &TrayBehavior) -> Result<(), Box<dyn std::error::Erro
         return Ok(());
     }
 
+    #[cfg(target_os = "linux")]
+    if !has_tray_host() {
+        return Err("no tray host detected (StatusNotifierWatcher not registered on D-Bus)".into());
+    }
+
     let icon = load_icon()?;
     let menu = build_menu(&TrayMenuData {
         environments: vec![],
@@ -77,6 +82,22 @@ pub fn init_tray(behavior: &TrayBehavior) -> Result<(), Box<dyn std::error::Erro
     });
 
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn has_tray_host() -> bool {
+    std::process::Command::new("dbus-send")
+        .args([
+            "--session",
+            "--print-reply",
+            "--dest=org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus.NameHasOwner",
+            "string:org.kde.StatusNotifierWatcher",
+        ])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).contains("true"))
+        .unwrap_or(false)
 }
 
 pub fn destroy_tray() {
