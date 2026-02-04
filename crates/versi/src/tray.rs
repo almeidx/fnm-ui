@@ -27,6 +27,7 @@ pub struct TrayMenuData {
 
 pub struct EnvironmentData {
     pub name: String,
+    pub env_index: usize,
     pub versions: Vec<VersionData>,
 }
 
@@ -40,8 +41,11 @@ impl TrayMenuData {
         Self {
             environments: environments
                 .iter()
-                .map(|env| EnvironmentData {
+                .enumerate()
+                .filter(|(_, env)| env.available && !env.installed_versions.is_empty())
+                .map(|(idx, env)| EnvironmentData {
                     name: env.name.clone(),
+                    env_index: idx,
                     versions: env
                         .installed_versions
                         .iter()
@@ -122,10 +126,10 @@ fn build_menu(data: &TrayMenuData) -> Menu {
     let menu = Menu::new();
     let show_multiple_envs = data.environments.len() > 1;
 
-    for (env_idx, env) in data.environments.iter().enumerate() {
+    for (i, env) in data.environments.iter().enumerate() {
         if show_multiple_envs {
             let _ = menu.append(&MenuItem::with_id(
-                MenuId::new(format!("env_header:{}", env_idx)),
+                MenuId::new(format!("env_header:{}", env.env_index)),
                 &env.name,
                 false,
                 None,
@@ -140,14 +144,14 @@ fn build_menu(data: &TrayMenuData) -> Menu {
             };
 
             let _ = menu.append(&MenuItem::with_id(
-                MenuId::new(format!("set:{}:{}", env_idx, ver.version)),
+                MenuId::new(format!("set:{}:{}", env.env_index, ver.version)),
                 label,
                 true,
                 None,
             ));
         }
 
-        if show_multiple_envs && env_idx < data.environments.len() - 1 {
+        if show_multiple_envs && i < data.environments.len() - 1 {
             let _ = menu.append(&PredefinedMenuItem::separator());
         }
     }
