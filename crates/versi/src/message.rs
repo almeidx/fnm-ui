@@ -88,6 +88,7 @@ pub enum Message {
     ClearLogFile,
     LogFileCleared,
     RevealLogFile,
+    RevealSettingsFile,
     LogFileStatsLoaded(Option<u64>),
     ShellSetupChecked(Vec<(ShellType, versi_shell::VerificationResult)>),
     ConfigureShell(ShellType),

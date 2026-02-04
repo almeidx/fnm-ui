@@ -268,11 +268,15 @@ pub fn view<'a>(
                 .on_press(Message::ImportSettings)
                 .style(styles::secondary_button)
                 .padding([4, 10]),
+            button(text("Show in Folder").size(11))
+                .on_press(Message::RevealSettingsFile)
+                .style(styles::secondary_button)
+                .padding([4, 10]),
         ]
         .spacing(8),
     );
     content = content.push(
-        text("Export or import preferences to sync across devices")
+        text("Export or import preferences, or edit the config file directly")
             .size(11)
             .color(iced::Color::from_rgb8(142, 142, 147)),
     );

@@ -353,6 +353,13 @@ impl Versi {
                     |_| Message::NoOp,
                 )
             }
+            Message::RevealSettingsFile => {
+                let settings_path = versi_platform::AppPaths::new().settings_file();
+                Task::perform(
+                    async move { platform::reveal_in_file_manager(&settings_path) },
+                    |_| Message::NoOp,
+                )
+            }
             Message::LogFileStatsLoaded(size) => {
                 if let AppState::Main(state) = &mut self.state {
                     state.settings_state.log_file_size = size;
