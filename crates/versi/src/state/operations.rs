@@ -186,6 +186,7 @@ pub enum Modal {
         versions: Vec<String>,
         keeping: String,
     },
+    KeyboardShortcuts,
 }
 
 #[cfg(test)]

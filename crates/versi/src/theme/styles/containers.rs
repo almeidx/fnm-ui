@@ -123,6 +123,30 @@ pub fn tooltip_container(theme: &Theme) -> container::Style {
     }
 }
 
+pub fn kbd_container(theme: &Theme) -> container::Style {
+    let palette = theme.palette();
+    let is_dark = palette.background.r < 0.5;
+
+    let (bg, border_color) = if is_dark {
+        (Color::from_rgb8(58, 58, 60), Color::from_rgb8(80, 80, 82))
+    } else {
+        (
+            Color::from_rgb8(232, 232, 237),
+            Color::from_rgb8(200, 200, 200),
+        )
+    };
+
+    container::Style {
+        background: Some(Background::Color(bg)),
+        border: Border {
+            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            width: 1.0,
+            color: border_color,
+        },
+        ..Default::default()
+    }
+}
+
 pub fn version_row_hovered(theme: &Theme) -> container::Style {
     let palette = theme.palette();
     let is_dark = palette.background.r < 0.5;

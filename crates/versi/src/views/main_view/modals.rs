@@ -23,6 +23,7 @@ pub(super) fn modal_overlay<'a>(
             versions,
             keeping,
         } => confirm_bulk_uninstall_major_except_latest_view(*major, versions, keeping),
+        Modal::KeyboardShortcuts => keyboard_shortcuts_view(),
     };
 
     let backdrop = mouse_area(
@@ -256,6 +257,55 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
                 .padding([10, 20]),
         ]
         .spacing(16),
+    ]
+    .spacing(4)
+    .width(Length::Fill)
+    .into()
+}
+
+fn keyboard_shortcuts_view() -> Element<'static, Message> {
+    #[cfg(target_os = "macos")]
+    let mod_key = "\u{2318}";
+    #[cfg(not(target_os = "macos"))]
+    let mod_key = "Ctrl+";
+
+    let shortcuts = [
+        (format!("{}K", mod_key), "Search versions"),
+        (format!("{}R", mod_key), "Refresh"),
+        (format!("{},", mod_key), "Settings"),
+        (format!("{}W", mod_key), "Close window"),
+        ("\u{2191}/\u{2193}".to_string(), "Navigate versions"),
+        ("Enter".to_string(), "Install / set default"),
+        ("Esc".to_string(), "Close modal"),
+        ("?".to_string(), "This help"),
+    ];
+
+    let muted = iced::Color::from_rgb8(142, 142, 147);
+
+    let mut rows = column![].spacing(8);
+    for (key, desc) in shortcuts {
+        rows = rows.push(
+            row![
+                container(text(key).size(12))
+                    .style(styles::kbd_container)
+                    .padding([2, 8])
+                    .width(Length::Fixed(80.0)),
+                text(desc).size(13).color(muted),
+            ]
+            .spacing(12)
+            .align_y(iced::Alignment::Center),
+        );
+    }
+
+    column![
+        text("Keyboard Shortcuts").size(20),
+        Space::new().height(16),
+        rows,
+        Space::new().height(24),
+        button(text("Close").size(13))
+            .on_press(Message::CloseModal)
+            .style(styles::secondary_button)
+            .padding([10, 20]),
     ]
     .spacing(4)
     .width(Length::Fill)

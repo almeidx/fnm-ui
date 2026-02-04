@@ -137,6 +137,7 @@ pub enum Message {
 
     FetchReleaseSchedule,
 
+    ShowKeyboardShortcuts,
     OpenLink(String),
 
     SystemThemeChanged(iced::theme::Mode),

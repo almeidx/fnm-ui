@@ -547,6 +547,12 @@ impl Versi {
                 }
                 Task::none()
             }
+            Message::ShowKeyboardShortcuts => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.modal = Some(crate::state::Modal::KeyboardShortcuts);
+                }
+                Task::none()
+            }
             Message::OpenLink(url) => Task::perform(
                 async move {
                     let _ = open::that(&url);
@@ -653,6 +659,13 @@ impl Versi {
                         "w" => return Some(Message::CloseWindow),
                         _ => {}
                     }
+                }
+
+                if !cmd
+                    && let iced::keyboard::Key::Character(c) = &key
+                    && c.as_str() == "?"
+                {
+                    return Some(Message::ShowKeyboardShortcuts);
                 }
 
                 if let iced::keyboard::Key::Named(named) = &key {
