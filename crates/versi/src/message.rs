@@ -94,6 +94,11 @@ pub enum Message {
     ShellConfigured(ShellType, Result<(), String>),
     ShellFlagsUpdated,
 
+    ExportSettings,
+    SettingsExported(Result<std::path::PathBuf, String>),
+    ImportSettings,
+    SettingsImported(Result<(), String>),
+
     PreferredBackendChanged(String),
 
     OnboardingNext,

@@ -354,6 +354,83 @@ impl Versi {
                 Task::none()
             }
             Message::ShellFlagsUpdated => Task::none(),
+            Message::ExportSettings => {
+                let settings = self.settings.clone();
+                Task::perform(
+                    async move {
+                        let dialog = rfd::AsyncFileDialog::new()
+                            .set_file_name("versi-settings.json")
+                            .add_filter("JSON", &["json"])
+                            .save_file()
+                            .await;
+                        match dialog {
+                            Some(handle) => {
+                                let content = serde_json::to_string_pretty(&settings)
+                                    .map_err(|e| e.to_string())?;
+                                let path = handle.path().to_path_buf();
+                                tokio::fs::write(&path, content)
+                                    .await
+                                    .map_err(|e| e.to_string())?;
+                                Ok(path)
+                            }
+                            None => Err("Cancelled".to_string()),
+                        }
+                    },
+                    Message::SettingsExported,
+                )
+            }
+            Message::SettingsExported(result) => {
+                if let Err(e) = result
+                    && e != "Cancelled"
+                    && let AppState::Main(state) = &mut self.state
+                {
+                    let id = state.next_toast_id();
+                    state.add_toast(crate::state::Toast::error(
+                        id,
+                        format!("Export failed: {}", e),
+                    ));
+                }
+                Task::none()
+            }
+            Message::ImportSettings => Task::perform(
+                async {
+                    let dialog = rfd::AsyncFileDialog::new()
+                        .add_filter("JSON", &["json"])
+                        .pick_file()
+                        .await;
+                    match dialog {
+                        Some(handle) => {
+                            let content = tokio::fs::read_to_string(handle.path())
+                                .await
+                                .map_err(|e| e.to_string())?;
+                            let imported: crate::settings::AppSettings =
+                                serde_json::from_str(&content).map_err(|e| e.to_string())?;
+                            imported.save().map_err(|e| e.to_string())?;
+                            Ok(())
+                        }
+                        None => Err("Cancelled".to_string()),
+                    }
+                },
+                Message::SettingsImported,
+            ),
+            Message::SettingsImported(result) => {
+                match result {
+                    Ok(()) => {
+                        self.settings = crate::settings::AppSettings::load();
+                    }
+                    Err(e) if e != "Cancelled" => {
+                        if let AppState::Main(state) = &mut self.state {
+                            let id = state.next_toast_id();
+                            state.add_toast(crate::state::Toast::error(
+                                id,
+                                format!("Import failed: {}", e),
+                            ));
+                        }
+                    }
+                    _ => {}
+                }
+                Task::none()
+            }
             Message::ShellSetupChecked(results) => {
                 self.handle_shell_setup_checked(results);
                 Task::none()

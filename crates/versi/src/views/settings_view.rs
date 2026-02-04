@@ -255,6 +255,28 @@ pub fn view<'a>(
     }
 
     content = content.push(Space::new().height(28));
+    content = content.push(text("Settings Data").size(14));
+    content = content.push(Space::new().height(8));
+    content = content.push(
+        row![
+            button(text("Export").size(11))
+                .on_press(Message::ExportSettings)
+                .style(styles::secondary_button)
+                .padding([4, 10]),
+            button(text("Import").size(11))
+                .on_press(Message::ImportSettings)
+                .style(styles::secondary_button)
+                .padding([4, 10]),
+        ]
+        .spacing(8),
+    );
+    content = content.push(
+        text("Export or import preferences to sync across devices")
+            .size(11)
+            .color(iced::Color::from_rgb8(142, 142, 147)),
+    );
+
+    content = content.push(Space::new().height(28));
     content = content.push(text("Advanced").size(14));
     content = content.push(Space::new().height(8));
     content = content.push(
