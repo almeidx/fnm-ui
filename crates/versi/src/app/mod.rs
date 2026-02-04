@@ -354,6 +354,7 @@ impl Versi {
                 )
             }
             Message::RevealSettingsFile => {
+                let _ = self.settings.save();
                 let settings_path = versi_platform::AppPaths::new().settings_file();
                 Task::perform(
                     async move { platform::reveal_in_file_manager(&settings_path) },

@@ -30,7 +30,7 @@ pub(super) fn reveal_in_file_manager(path: &std::path::Path) {
     {
         use versi_core::HideWindow;
         let _ = std::process::Command::new("explorer")
-            .args(["/select,", &path.to_string_lossy()])
+            .arg(format!("/select,{}", path.to_string_lossy()))
             .hide_window()
             .spawn();
     }
