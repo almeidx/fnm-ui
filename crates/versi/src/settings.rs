@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use versi_platform::AppPaths;
 
@@ -23,7 +24,10 @@ pub struct AppSettings {
     pub node_dist_mirror: Option<String>,
 
     #[serde(default)]
-    pub shell_options: ShellOptions,
+    pub backend_shell_options: HashMap<String, ShellOptions>,
+
+    #[serde(default, skip_serializing)]
+    shell_options: Option<ShellOptions>,
 
     #[serde(default)]
     pub preferred_backend: Option<String>,
@@ -75,7 +79,8 @@ impl Default for AppSettings {
             fnm_dir: None,
             node_dist_mirror: None,
             preferred_backend: None,
-            shell_options: ShellOptions::default(),
+            backend_shell_options: HashMap::new(),
+            shell_options: None,
             debug_logging: false,
             window_geometry: None,
         }
@@ -87,14 +92,24 @@ impl AppSettings {
         let paths = AppPaths::new();
         let settings_path = paths.settings_file();
 
-        if settings_path.exists() {
+        let mut settings: Self = if settings_path.exists() {
             match std::fs::read_to_string(&settings_path) {
                 Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
                 Err(_) => Self::default(),
             }
         } else {
             Self::default()
+        };
+
+        if let Some(legacy) = settings.shell_options.take()
+            && settings.backend_shell_options.is_empty()
+        {
+            settings
+                .backend_shell_options
+                .insert("fnm".to_string(), legacy);
         }
+
+        settings
     }
 
     pub fn save(&self) -> Result<(), std::io::Error> {
@@ -104,6 +119,19 @@ impl AppSettings {
         let content = serde_json::to_string_pretty(self)?;
         std::fs::write(paths.settings_file(), content)?;
         Ok(())
+    }
+
+    pub fn shell_options_for(&self, backend: &str) -> ShellOptions {
+        self.backend_shell_options
+            .get(backend)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub fn shell_options_for_mut(&mut self, backend: &str) -> &mut ShellOptions {
+        self.backend_shell_options
+            .entry(backend.to_string())
+            .or_default()
     }
 }
 

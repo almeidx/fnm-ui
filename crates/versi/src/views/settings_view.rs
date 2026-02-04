@@ -24,6 +24,7 @@ pub fn view<'a>(
     .align_y(Alignment::Center);
 
     let capabilities = state.backend.capabilities();
+    let shell_opts = settings.shell_options_for(state.backend_name);
 
     let mut content = column![
         text("Appearance").size(14),
@@ -124,7 +125,7 @@ pub fn view<'a>(
     if capabilities.supports_auto_switch {
         content = content.push(
             row![
-                toggler(settings.shell_options.use_on_cd)
+                toggler(shell_opts.use_on_cd)
                     .on_toggle(Message::ShellOptionUseOnCdToggled)
                     .size(18),
                 text("Auto-switch on cd").size(12),
@@ -137,7 +138,7 @@ pub fn view<'a>(
     if capabilities.supports_resolve_engines {
         content = content.push(
             row![
-                toggler(settings.shell_options.resolve_engines)
+                toggler(shell_opts.resolve_engines)
                     .on_toggle(Message::ShellOptionResolveEnginesToggled)
                     .size(18),
                 text("Resolve engines from package.json").size(12),
@@ -150,7 +151,7 @@ pub fn view<'a>(
     if capabilities.supports_corepack {
         content = content.push(
             row![
-                toggler(settings.shell_options.corepack_enabled)
+                toggler(shell_opts.corepack_enabled)
                     .on_toggle(Message::ShellOptionCorepackEnabledToggled)
                     .size(18),
                 text("Enable corepack").size(12),

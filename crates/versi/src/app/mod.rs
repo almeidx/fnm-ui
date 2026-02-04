@@ -299,17 +299,23 @@ impl Versi {
                 Task::none()
             }
             Message::ShellOptionUseOnCdToggled(value) => {
-                self.settings.shell_options.use_on_cd = value;
+                self.settings
+                    .shell_options_for_mut(self.provider.name())
+                    .use_on_cd = value;
                 let _ = self.settings.save();
                 self.update_shell_flags()
             }
             Message::ShellOptionResolveEnginesToggled(value) => {
-                self.settings.shell_options.resolve_engines = value;
+                self.settings
+                    .shell_options_for_mut(self.provider.name())
+                    .resolve_engines = value;
                 let _ = self.settings.save();
                 self.update_shell_flags()
             }
             Message::ShellOptionCorepackEnabledToggled(value) => {
-                self.settings.shell_options.corepack_enabled = value;
+                self.settings
+                    .shell_options_for_mut(self.provider.name())
+                    .corepack_enabled = value;
                 let _ = self.settings.save();
                 self.update_shell_flags()
             }

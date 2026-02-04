@@ -99,10 +99,11 @@ impl Versi {
                 shell.error = None;
             }
 
+            let backend_opts = self.settings.shell_options_for(self.provider.name());
             let options = versi_shell::ShellInitOptions {
-                use_on_cd: self.settings.shell_options.use_on_cd,
-                resolve_engines: self.settings.shell_options.resolve_engines,
-                corepack_enabled: self.settings.shell_options.corepack_enabled,
+                use_on_cd: backend_opts.use_on_cd,
+                resolve_engines: backend_opts.resolve_engines,
+                corepack_enabled: backend_opts.corepack_enabled,
             };
 
             let backend = self.provider.clone();

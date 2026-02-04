@@ -101,9 +101,10 @@ impl Versi {
         }
 
         if let Some(options) = first_detected_options {
-            self.settings.shell_options.use_on_cd = options.use_on_cd;
-            self.settings.shell_options.resolve_engines = options.resolve_engines;
-            self.settings.shell_options.corepack_enabled = options.corepack_enabled;
+            let backend_opts = self.settings.shell_options_for_mut(self.provider.name());
+            backend_opts.use_on_cd = options.use_on_cd;
+            backend_opts.resolve_engines = options.resolve_engines;
+            backend_opts.corepack_enabled = options.corepack_enabled;
         }
     }
 
@@ -121,10 +122,11 @@ impl Versi {
             shell.configuring = true;
         }
 
+        let backend_opts = self.settings.shell_options_for(self.provider.name());
         let options = ShellInitOptions {
-            use_on_cd: self.settings.shell_options.use_on_cd,
-            resolve_engines: self.settings.shell_options.resolve_engines,
-            corepack_enabled: self.settings.shell_options.corepack_enabled,
+            use_on_cd: backend_opts.use_on_cd,
+            resolve_engines: backend_opts.resolve_engines,
+            corepack_enabled: backend_opts.corepack_enabled,
         };
 
         let provider = self.provider.clone();
@@ -192,10 +194,11 @@ impl Versi {
     }
 
     pub(super) fn update_shell_flags(&self) -> Task<Message> {
+        let backend_opts = self.settings.shell_options_for(self.provider.name());
         let options = ShellInitOptions {
-            use_on_cd: self.settings.shell_options.use_on_cd,
-            resolve_engines: self.settings.shell_options.resolve_engines,
-            corepack_enabled: self.settings.shell_options.corepack_enabled,
+            use_on_cd: backend_opts.use_on_cd,
+            resolve_engines: backend_opts.resolve_engines,
+            corepack_enabled: backend_opts.corepack_enabled,
         };
 
         let marker = self.provider.shell_config_marker().to_string();
