@@ -119,7 +119,8 @@ jobs:
           cp target/x86_64-unknown-linux-gnu/release/versi dist/pkg/
           cp assets/versi.desktop dist/pkg/
           cp assets/logo.png dist/pkg/versi.png
-          cd dist/pkg && zip "../versi-${VERSION}-linux-x64.zip" versi versi.desktop versi.png && cd -
+          cp scripts/install.sh dist/pkg/install.sh
+          cd dist/pkg && zip "../versi-${VERSION}-linux-x64.zip" versi versi.desktop versi.png install.sh && cd -
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
@@ -158,7 +159,8 @@ jobs:
           cp target/aarch64-unknown-linux-gnu/release/versi dist/pkg/
           cp assets/versi.desktop dist/pkg/
           cp assets/logo.png dist/pkg/versi.png
-          cd dist/pkg && zip "../versi-${VERSION}-linux-arm64.zip" versi versi.desktop versi.png && cd -
+          cp scripts/install.sh dist/pkg/install.sh
+          cd dist/pkg && zip "../versi-${VERSION}-linux-arm64.zip" versi versi.desktop versi.png install.sh && cd -
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
