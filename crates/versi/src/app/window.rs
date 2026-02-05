@@ -21,7 +21,14 @@ impl Versi {
             info!("Hiding window to tray");
             if let Some(id) = self.window_id {
                 platform::set_dock_visible(false);
-                iced::window::set_mode(id, iced::window::Mode::Hidden)
+                #[cfg(target_os = "linux")]
+                {
+                    iced::window::minimize(id, true)
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    iced::window::set_mode(id, iced::window::Mode::Hidden)
+                }
             } else {
                 Task::none()
             }
@@ -44,10 +51,11 @@ impl Versi {
             ])
         } else if self.pending_minimize {
             self.pending_minimize = false;
-            Task::batch([
-                Task::done(Message::HideDockIcon),
-                iced::window::set_mode(id, iced::window::Mode::Hidden),
-            ])
+            #[cfg(target_os = "linux")]
+            let hide_task = iced::window::minimize(id, true);
+            #[cfg(not(target_os = "linux"))]
+            let hide_task = iced::window::set_mode(id, iced::window::Mode::Hidden);
+            Task::batch([Task::done(Message::HideDockIcon), hide_task])
         } else {
             Task::none()
         }
