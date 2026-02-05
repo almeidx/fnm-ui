@@ -1,3 +1,5 @@
+use log::info;
+
 use iced::Task;
 
 use crate::message::Message;
@@ -9,8 +11,14 @@ use super::platform;
 
 impl Versi {
     pub(super) fn handle_window_close(&mut self) -> Task<Message> {
+        info!(
+            "Window close: tray_behavior={:?}, tray_active={}",
+            self.settings.tray_behavior,
+            tray::is_tray_active()
+        );
         self.save_window_geometry();
         if self.settings.tray_behavior == TrayBehavior::AlwaysRunning && tray::is_tray_active() {
+            info!("Hiding window to tray");
             if let Some(id) = self.window_id {
                 platform::set_dock_visible(false);
                 iced::window::set_mode(id, iced::window::Mode::Hidden)
@@ -18,6 +26,7 @@ impl Versi {
                 Task::none()
             }
         } else {
+            info!("Exiting application");
             iced::exit()
         }
     }

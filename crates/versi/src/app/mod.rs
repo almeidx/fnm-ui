@@ -487,6 +487,14 @@ impl Versi {
                 Task::none()
             }
             Message::Tick => {
+                #[cfg(target_os = "linux")]
+                {
+                    if tray::is_tray_active() {
+                        while gtk::events_pending() {
+                            gtk::main_iteration();
+                        }
+                    }
+                }
                 if let AppState::Main(state) = &mut self.state {
                     let timeout = self.settings.toast_timeout_secs;
                     state.toasts.retain(|t| !t.is_expired(timeout));
@@ -672,7 +680,18 @@ impl Versi {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let tick = iced::time::every(std::time::Duration::from_secs(1)).map(|_| Message::Tick);
+        let tick_ms = {
+            #[cfg(target_os = "linux")]
+            {
+                if tray::is_tray_active() { 100 } else { 1000 }
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                1000u64
+            }
+        };
+        let tick =
+            iced::time::every(std::time::Duration::from_millis(tick_ms)).map(|_| Message::Tick);
 
         let keyboard = iced::event::listen_with(|event, _status, _id| {
             if let iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
