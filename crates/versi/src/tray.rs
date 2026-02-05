@@ -15,6 +15,7 @@ thread_local! {
 #[derive(Debug, Clone)]
 pub enum TrayMessage {
     ShowWindow,
+    HideWindow,
     OpenSettings,
     OpenAbout,
     Quit,
@@ -23,6 +24,7 @@ pub enum TrayMessage {
 
 pub struct TrayMenuData {
     pub environments: Vec<EnvironmentData>,
+    pub window_visible: bool,
 }
 
 pub struct EnvironmentData {
@@ -37,8 +39,9 @@ pub struct VersionData {
 }
 
 impl TrayMenuData {
-    pub fn from_environments(environments: &[EnvironmentState]) -> Self {
+    pub fn from_environments(environments: &[EnvironmentState], window_visible: bool) -> Self {
         Self {
+            window_visible,
             environments: environments
                 .iter()
                 .enumerate()
@@ -73,6 +76,7 @@ pub fn init_tray(behavior: &TrayBehavior) -> Result<(), Box<dyn std::error::Erro
     let icon = load_icon()?;
     let menu = build_menu(&TrayMenuData {
         environments: vec![],
+        window_visible: true,
     });
 
     let tray_icon = TrayIconBuilder::new()
@@ -160,12 +164,21 @@ fn build_menu(data: &TrayMenuData) -> Menu {
         let _ = menu.append(&PredefinedMenuItem::separator());
     }
 
-    let _ = menu.append(&MenuItem::with_id(
-        MenuId::new("show_window"),
-        "Open Versi",
-        true,
-        None,
-    ));
+    if data.window_visible {
+        let _ = menu.append(&MenuItem::with_id(
+            MenuId::new("hide_window"),
+            "Hide Versi",
+            true,
+            None,
+        ));
+    } else {
+        let _ = menu.append(&MenuItem::with_id(
+            MenuId::new("show_window"),
+            "Open Versi",
+            true,
+            None,
+        ));
+    }
     let _ = menu.append(&MenuItem::with_id(
         MenuId::new("open_settings"),
         "Settings",
@@ -196,6 +209,7 @@ pub fn update_menu(data: &TrayMenuData) {
 fn parse_menu_event(id: &str) -> Option<TrayMessage> {
     match id {
         "show_window" => Some(TrayMessage::ShowWindow),
+        "hide_window" => Some(TrayMessage::HideWindow),
         "open_settings" => Some(TrayMessage::OpenSettings),
         "open_about" => Some(TrayMessage::OpenAbout),
         "quit" => Some(TrayMessage::Quit),

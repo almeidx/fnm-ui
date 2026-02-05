@@ -19,6 +19,8 @@ impl Versi {
         self.save_window_geometry();
         if self.settings.tray_behavior == TrayBehavior::AlwaysRunning && tray::is_tray_active() {
             info!("Hiding window to tray");
+            self.window_visible = false;
+            self.update_tray_menu();
             if let Some(id) = self.window_id {
                 platform::set_dock_visible(false);
                 #[cfg(target_os = "linux")]
@@ -43,6 +45,8 @@ impl Versi {
         if self.pending_show {
             self.pending_show = false;
             self.pending_minimize = false;
+            self.window_visible = true;
+            self.update_tray_menu();
             platform::set_dock_visible(true);
             Task::batch([
                 iced::window::set_mode(id, iced::window::Mode::Windowed),
@@ -51,6 +55,8 @@ impl Versi {
             ])
         } else if self.pending_minimize {
             self.pending_minimize = false;
+            self.window_visible = false;
+            self.update_tray_menu();
             #[cfg(target_os = "linux")]
             let hide_task = iced::window::minimize(id, true);
             #[cfg(not(target_os = "linux"))]

@@ -15,6 +15,7 @@ impl Versi {
     pub(super) fn handle_tray_event(&mut self, msg: TrayMessage) -> Task<Message> {
         match msg {
             TrayMessage::ShowWindow => self.tray_show_window(),
+            TrayMessage::HideWindow => self.tray_hide_window(),
             TrayMessage::Quit => iced::exit(),
             _ if !matches!(self.state, AppState::Main(_)) => Task::none(),
             TrayMessage::OpenSettings => {
@@ -78,6 +79,8 @@ impl Versi {
 
     fn tray_show_window(&mut self) -> Task<Message> {
         self.pending_minimize = false;
+        self.window_visible = true;
+        self.update_tray_menu();
 
         let needs_refresh = if let AppState::Main(state) = &self.state {
             state.active_environment().installed_versions.is_empty()
@@ -103,6 +106,25 @@ impl Versi {
         }
     }
 
+    fn tray_hide_window(&mut self) -> Task<Message> {
+        self.window_visible = false;
+        self.update_tray_menu();
+
+        if let Some(id) = self.window_id {
+            platform::set_dock_visible(false);
+            #[cfg(target_os = "linux")]
+            {
+                iced::window::minimize(id, true)
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                iced::window::set_mode(id, iced::window::Mode::Hidden)
+            }
+        } else {
+            Task::none()
+        }
+    }
+
     pub(super) fn handle_tray_behavior_changed(&mut self, behavior: TrayBehavior) -> Task<Message> {
         let old_behavior = self.settings.tray_behavior.clone();
         self.settings.tray_behavior = behavior.clone();
@@ -123,7 +145,7 @@ impl Versi {
 
     pub(super) fn update_tray_menu(&self) {
         if let AppState::Main(state) = &self.state {
-            let data = TrayMenuData::from_environments(&state.environments);
+            let data = TrayMenuData::from_environments(&state.environments, self.window_visible);
             tray::update_menu(&data);
         }
     }
