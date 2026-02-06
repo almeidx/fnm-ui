@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.8.3] - 2026-02-06
+
+- deps: Update Rust crate zip to 7.3.0 (#57)
+- fix: prevent MSI temp file deletion during Windows auto-update
+- feat: toggle tray menu between Open/Hide Versi based on window state
+- feat: add Linux support to install.sh
+- fix: suppress unused variable warning in Windows apply_update
+- fix: use minimize instead of Mode::Hidden on Linux for tray hide
+
+
 ## [0.8.2] - 2026-02-05
 
 - chore(deps): bump time in the cargo group across 1 directory (#55)
