@@ -186,6 +186,9 @@ pub enum Modal {
         versions: Vec<String>,
         keeping: String,
     },
+    ConfirmUninstallDefault {
+        version: String,
+    },
     KeyboardShortcuts,
 }
 

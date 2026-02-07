@@ -223,6 +223,9 @@ impl Versi {
                 error,
             } => self.handle_install_complete(version, success, error),
             Message::RequestUninstall(version) => self.handle_uninstall(version),
+            Message::ConfirmUninstallDefault(version) => {
+                self.handle_confirm_uninstall_default(version)
+            }
             Message::UninstallComplete {
                 version,
                 success,
@@ -342,9 +345,7 @@ impl Versi {
             }
             Message::CopyToClipboard(text) => iced::clipboard::write(text),
             Message::ClearLogFile => {
-                let Some(log_path) = versi_platform::AppPaths::new()
-                    .ok()
-                    .map(|p| p.log_file())
+                let Some(log_path) = versi_platform::AppPaths::new().ok().map(|p| p.log_file())
                 else {
                     return Task::none();
                 };
@@ -364,9 +365,7 @@ impl Versi {
                 Task::none()
             }
             Message::RevealLogFile => {
-                let Some(log_path) = versi_platform::AppPaths::new()
-                    .ok()
-                    .map(|p| p.log_file())
+                let Some(log_path) = versi_platform::AppPaths::new().ok().map(|p| p.log_file())
                 else {
                     return Task::none();
                 };

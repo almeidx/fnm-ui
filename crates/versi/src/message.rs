@@ -45,6 +45,7 @@ pub enum Message {
     },
 
     RequestUninstall(String),
+    ConfirmUninstallDefault(String),
     UninstallComplete {
         version: String,
         success: bool,

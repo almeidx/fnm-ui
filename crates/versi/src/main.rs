@@ -25,7 +25,9 @@ fn main() -> iced::Result {
     };
 
     if let Err(e) = versi_platform::AppPaths::new() {
-        eprintln!("Error: {e}. Versi cannot determine where to store its data. Please ensure your system environment is configured correctly.");
+        eprintln!(
+            "Error: {e}. Versi cannot determine where to store its data. Please ensure your system environment is configured correctly."
+        );
         std::process::exit(1);
     }
 

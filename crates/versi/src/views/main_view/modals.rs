@@ -33,6 +33,7 @@ pub(super) fn modal_overlay<'a>(
             keeping,
             preview_limit,
         ),
+        Modal::ConfirmUninstallDefault { version } => confirm_uninstall_default_view(version),
         Modal::KeyboardShortcuts => keyboard_shortcuts_view(),
     };
 
@@ -274,6 +275,34 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
             Space::new().width(Length::Fill),
             button(text("Remove Older").size(13))
                 .on_press(Message::ConfirmBulkUninstallMajorExceptLatest { major })
+                .style(styles::danger_button)
+                .padding([10, 20]),
+        ]
+        .spacing(16),
+    ]
+    .spacing(4)
+    .width(Length::Fill)
+    .into()
+}
+
+fn confirm_uninstall_default_view(version: &str) -> Element<'_, Message> {
+    column![
+        text("Uninstall Default Version?").size(20),
+        Space::new().height(12),
+        text(format!(
+            "Node {} is your current default version. Uninstalling it will leave no default set.",
+            version
+        ))
+        .size(14),
+        Space::new().height(24),
+        row![
+            button(text("Cancel").size(13))
+                .on_press(Message::CloseModal)
+                .style(styles::secondary_button)
+                .padding([10, 20]),
+            Space::new().width(Length::Fill),
+            button(text("Uninstall").size(13))
+                .on_press(Message::ConfirmUninstallDefault(version.to_string()))
                 .style(styles::danger_button)
                 .padding([10, 20]),
         ]

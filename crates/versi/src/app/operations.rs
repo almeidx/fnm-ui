@@ -8,7 +8,7 @@ use std::time::Duration;
 use iced::Task;
 
 use crate::message::Message;
-use crate::state::{AppState, Operation, OperationRequest, Toast};
+use crate::state::{AppState, Modal, Operation, OperationRequest, Toast};
 
 use super::Versi;
 
@@ -95,6 +95,35 @@ impl Versi {
 
     pub(super) fn handle_uninstall(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            let is_default = state
+                .active_environment()
+                .default_version
+                .as_ref()
+                .is_some_and(|dv| dv.to_string() == version);
+
+            if is_default {
+                state.modal = Some(Modal::ConfirmUninstallDefault {
+                    version: version.clone(),
+                });
+                return Task::none();
+            }
+
+            if state.operation_queue.is_busy_for_exclusive() {
+                state
+                    .operation_queue
+                    .enqueue(OperationRequest::Uninstall { version });
+                return Task::none();
+            }
+
+            return self.start_uninstall_internal(version);
+        }
+        Task::none()
+    }
+
+    pub(super) fn handle_confirm_uninstall_default(&mut self, version: String) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            state.modal = None;
+
             if state.operation_queue.is_busy_for_exclusive() {
                 state
                     .operation_queue
