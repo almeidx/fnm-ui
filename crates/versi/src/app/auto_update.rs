@@ -1,3 +1,8 @@
+//! Application self-update: download, apply, and restart.
+//!
+//! Handles messages: StartAppUpdate, AppUpdateProgress, AppUpdateExtracting,
+//! AppUpdateApplying, AppUpdateComplete, RestartApp
+
 use iced::Task;
 use iced::futures::SinkExt;
 use log::info;

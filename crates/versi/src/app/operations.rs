@@ -1,3 +1,8 @@
+//! Install, uninstall, and set-default operations with queuing.
+//!
+//! Handles messages: StartInstall, InstallComplete, Uninstall, UninstallComplete,
+//! SetDefault, DefaultChanged, CloseModal
+
 use std::time::Duration;
 
 use iced::Task;

@@ -1,3 +1,8 @@
+//! Environment switching, version loading, and search.
+//!
+//! Handles messages: EnvironmentSelected, EnvironmentLoaded, RefreshEnvironment,
+//! VersionGroupToggled, SearchChanged
+
 use std::time::Duration;
 
 use log::{debug, info, trace};

@@ -1,3 +1,8 @@
+//! Shell configuration detection, setup, and flag updates.
+//!
+//! Handles messages: ShellSetupChecked, ConfigureShell, ShellConfigured,
+//! ShellFlagsUpdated
+
 use iced::Task;
 
 #[cfg(target_os = "windows")]

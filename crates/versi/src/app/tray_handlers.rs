@@ -1,3 +1,7 @@
+//! System tray event handling and menu updates.
+//!
+//! Handles messages: TrayEvent, TrayBehaviorChanged
+
 use log::error;
 
 use iced::Task;

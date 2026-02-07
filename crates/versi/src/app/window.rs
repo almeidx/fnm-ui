@@ -1,3 +1,7 @@
+//! Window lifecycle: open, close, hide-to-tray, and geometry persistence.
+//!
+//! Handles messages: WindowClose, WindowOpened
+
 use log::info;
 
 use iced::Task;

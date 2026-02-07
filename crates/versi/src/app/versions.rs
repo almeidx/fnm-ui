@@ -1,3 +1,8 @@
+//! Remote version fetching, release schedule, and update checks.
+//!
+//! Handles messages: RemoteVersionsFetched, ReleaseScheduleFetched,
+//! AppUpdateChecked, BackendUpdateChecked
+
 use std::time::{Duration, Instant};
 
 use log::debug;
