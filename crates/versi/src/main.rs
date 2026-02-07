@@ -57,6 +57,14 @@ fn main() -> iced::Result {
         _ => (iced::Size::new(800.0, 600.0), window::Position::Default),
     };
 
+    #[cfg(target_os = "linux")]
+    let platform_specific = window::settings::PlatformSpecific {
+        application_id: String::from("versi"),
+        ..Default::default()
+    };
+    #[cfg(not(target_os = "linux"))]
+    let platform_specific = Default::default();
+
     iced::application(app::Versi::new, app::Versi::update, app::Versi::view)
         .title(|state: &app::Versi| state.title())
         .subscription(|state: &app::Versi| state.subscription())
@@ -68,6 +76,7 @@ fn main() -> iced::Result {
             icon,
             visible: true,
             exit_on_close_request: false,
+            platform_specific,
             ..Default::default()
         })
         .run()
