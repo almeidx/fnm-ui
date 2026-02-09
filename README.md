@@ -68,7 +68,7 @@ Download the latest release for your platform from the [Releases](https://github
    ```
 4. (Optional) Install the desktop entry for application launchers:
    ```bash
-   mv versi.desktop ~/.local/share/applications/
+   mv dev.almeidx.versi.desktop ~/.local/share/applications/
    ```
 
 ### Build from Source

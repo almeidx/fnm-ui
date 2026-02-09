@@ -59,7 +59,7 @@ fn main() -> iced::Result {
 
     #[cfg(target_os = "linux")]
     let platform_specific = window::settings::PlatformSpecific {
-        application_id: String::from("versi"),
+        application_id: String::from("dev.almeidx.versi"),
         ..Default::default()
     };
     #[cfg(not(target_os = "linux"))]

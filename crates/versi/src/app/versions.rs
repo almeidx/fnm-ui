@@ -72,6 +72,22 @@ impl Versi {
                     state.available_versions.error = None;
                     state.available_versions.loaded_from_disk = false;
 
+                    // Show badge if any installed major line has a newer version available
+                    let env = state.active_environment();
+                    let installed_majors: std::collections::HashSet<u32> = env
+                        .installed_versions
+                        .iter()
+                        .map(|v| v.version.major)
+                        .collect();
+                    let has_update = installed_majors.iter().any(|major| {
+                        state
+                            .available_versions
+                            .latest_by_major
+                            .get(major)
+                            .is_some_and(|latest| !env.installed_set.contains(&latest.to_string()))
+                    });
+                    super::platform::set_update_badge(has_update);
+
                     let schedule = state.available_versions.schedule.clone();
                     // std::thread::spawn, not tokio — Iced doesn't guarantee a tokio runtime context
                     std::thread::spawn(move || {

@@ -63,8 +63,8 @@ case "$OS" in
 
         DESKTOP_FILE=""
         for dir in "." "$SCRIPT_DIR"; do
-            if [ -f "$dir/versi.desktop" ]; then
-                DESKTOP_FILE="$dir/versi.desktop"
+            if [ -f "$dir/dev.almeidx.versi.desktop" ]; then
+                DESKTOP_FILE="$dir/dev.almeidx.versi.desktop"
                 break
             fi
         done
@@ -86,8 +86,11 @@ case "$OS" in
 
         if [ -n "$DESKTOP_FILE" ]; then
             mkdir -p "$APPS_DIR"
-            cp "$DESKTOP_FILE" "$APPS_DIR/versi.desktop"
-            echo "Installed desktop entry to $APPS_DIR/versi.desktop"
+            cp "$DESKTOP_FILE" "$APPS_DIR/dev.almeidx.versi.desktop"
+            echo "Installed desktop entry to $APPS_DIR/dev.almeidx.versi.desktop"
+
+            # Remove old desktop entry from previous installations
+            rm -f "$APPS_DIR/versi.desktop"
 
             # Update desktop database if available
             if command -v update-desktop-database >/dev/null 2>&1; then
