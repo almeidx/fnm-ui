@@ -88,12 +88,29 @@ case "$OS" in
             mkdir -p "$APPS_DIR"
             cp "$DESKTOP_FILE" "$APPS_DIR/versi.desktop"
             echo "Installed desktop entry to $APPS_DIR/versi.desktop"
+
+            # Update desktop database if available
+            if command -v update-desktop-database >/dev/null 2>&1; then
+                update-desktop-database "$APPS_DIR" 2>/dev/null || true
+            fi
         fi
 
         if [ -n "$ICON_FILE" ]; then
             mkdir -p "$ICON_DIR"
             cp "$ICON_FILE" "$ICON_DIR/versi.png"
             echo "Installed icon to $ICON_DIR/versi.png"
+
+            # Ensure the hicolor icon theme index exists so desktop environments
+            # can discover icons in the user-local directory
+            ICON_BASE="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
+            if [ ! -f "$ICON_BASE/index.theme" ] && [ -f /usr/share/icons/hicolor/index.theme ]; then
+                cp /usr/share/icons/hicolor/index.theme "$ICON_BASE/index.theme"
+            fi
+
+            # Update icon cache if gtk-update-icon-cache is available
+            if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+                gtk-update-icon-cache --force "$ICON_BASE" 2>/dev/null || true
+            fi
         fi
 
         echo ""
