@@ -52,12 +52,12 @@ pub(super) fn set_update_badge(visible: bool) {
 
     use log::debug;
     use windows::Win32::Graphics::Gdi::{
-        CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, BITMAPINFO, BITMAPINFOHEADER,
-        BI_RGB, DIB_RGB_COLORS,
+        BI_RGB, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS,
+        DeleteDC, DeleteObject,
     };
     use windows::Win32::System::Com::{
-        CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER,
-        COINIT_APARTMENTTHREADED,
+        CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
+        CoUninitialize,
     };
     use windows::Win32::UI::Shell::ITaskbarList3;
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -75,8 +75,11 @@ pub(super) fn set_update_badge(visible: bool) {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
 
         let result = (|| -> Result<(), Box<dyn std::error::Error>> {
-            let taskbar: ITaskbarList3 =
-                CoCreateInstance(&windows::Win32::UI::Shell::TaskbarList, None, CLSCTX_INPROC_SERVER)?;
+            let taskbar: ITaskbarList3 = CoCreateInstance(
+                &windows::Win32::UI::Shell::TaskbarList,
+                None,
+                CLSCTX_INPROC_SERVER,
+            )?;
 
             if !visible {
                 taskbar.SetOverlayIcon(hwnd, None, PCSTR::null())?;
@@ -99,10 +102,10 @@ pub(super) fn set_update_badge(visible: bool) {
 
                     if dist <= radius {
                         // BGRA format: red circle
-                        pixels[offset] = 0x33;     // B
-                        pixels[offset + 1] = 0x33;  // G
-                        pixels[offset + 2] = 0xEE;  // R
-                        pixels[offset + 3] = 0xFF;  // A
+                        pixels[offset] = 0x33; // B
+                        pixels[offset + 1] = 0x33; // G
+                        pixels[offset + 2] = 0xEE; // R
+                        pixels[offset + 3] = 0xFF; // A
                     }
                 }
             }
