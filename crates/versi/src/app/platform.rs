@@ -78,7 +78,7 @@ pub(super) fn set_update_badge(visible: bool) {
             }
         };
 
-        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let com_initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
 
         let result = (|| -> Result<(), Box<dyn std::error::Error>> {
             let taskbar: ITaskbarList3 = CoCreateInstance(
@@ -181,7 +181,9 @@ pub(super) fn set_update_badge(visible: bool) {
             Ok(())
         })();
 
-        CoUninitialize();
+        if com_initialized {
+            CoUninitialize();
+        }
 
         if let Err(e) = result {
             debug!("Failed to set update badge: {}", e);
