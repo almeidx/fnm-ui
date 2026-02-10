@@ -63,7 +63,7 @@ pub(super) fn set_update_badge(visible: bool) {
     use windows::Win32::UI::WindowsAndMessaging::{
         CreateIconIndirect, DestroyIcon, FindWindowA, HICON, ICONINFO,
     };
-    use windows::core::{s, w, PCSTR, PCWSTR};
+    use windows::core::{PCSTR, PCWSTR, s, w};
 
     unsafe {
         let hwnd = match FindWindowA(PCSTR::null(), s!("Versi")) {
@@ -131,7 +131,8 @@ pub(super) fn set_update_badge(visible: bool) {
 
             let dc = CreateCompatibleDC(None);
             let mut bits_ptr: *mut std::ffi::c_void = ptr::null_mut();
-            let color_bitmap = CreateDIBSection(Some(dc), &bmi, DIB_RGB_COLORS, &mut bits_ptr, None, 0)?;
+            let color_bitmap =
+                CreateDIBSection(Some(dc), &bmi, DIB_RGB_COLORS, &mut bits_ptr, None, 0)?;
 
             ptr::copy_nonoverlapping(pixels.as_ptr(), bits_ptr as *mut u8, pixels.len());
 
@@ -149,8 +150,14 @@ pub(super) fn set_update_badge(visible: bool) {
                 ..Default::default()
             };
             let mut mask_bits_ptr: *mut std::ffi::c_void = ptr::null_mut();
-            let mask_bitmap =
-                CreateDIBSection(Some(dc), &mask_bmi, DIB_RGB_COLORS, &mut mask_bits_ptr, None, 0)?;
+            let mask_bitmap = CreateDIBSection(
+                Some(dc),
+                &mask_bmi,
+                DIB_RGB_COLORS,
+                &mut mask_bits_ptr,
+                None,
+                0,
+            )?;
 
             ptr::write_bytes(mask_bits_ptr as *mut u8, 0, pixels.len());
 
