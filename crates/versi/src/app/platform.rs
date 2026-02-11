@@ -52,34 +52,64 @@ pub(super) fn set_update_badge(visible: bool) {
 
     use log::debug;
     use windows::Win32::Graphics::Gdi::{
-        CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, BITMAPINFO, BITMAPINFOHEADER,
-        BI_RGB, DIB_RGB_COLORS,
+        BI_RGB, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS,
+        DeleteDC, DeleteObject, HBITMAP, HDC,
     };
     use windows::Win32::System::Com::{
-        CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER,
-        COINIT_APARTMENTTHREADED,
+        CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
+        CoUninitialize,
     };
     use windows::Win32::UI::Shell::ITaskbarList3;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateIconIndirect, DestroyIcon, FindWindowA, ICONINFO,
+        CreateIconIndirect, DestroyIcon, FindWindowA, HICON, ICONINFO,
     };
-    use windows::core::{PCSTR, s};
+    use windows::core::{PCSTR, PCWSTR, s, w};
+
+    struct GdiGuard {
+        dc: Option<HDC>,
+        color_bitmap: Option<HBITMAP>,
+        mask_bitmap: Option<HBITMAP>,
+        icon: Option<HICON>,
+    }
+    impl Drop for GdiGuard {
+        fn drop(&mut self) {
+            unsafe {
+                if let Some(icon) = self.icon.take() {
+                    let _ = DestroyIcon(icon);
+                }
+                if let Some(bm) = self.color_bitmap.take() {
+                    let _ = DeleteObject(bm.into());
+                }
+                if let Some(bm) = self.mask_bitmap.take() {
+                    let _ = DeleteObject(bm.into());
+                }
+                if let Some(dc) = self.dc.take() {
+                    let _ = DeleteDC(dc);
+                }
+            }
+        }
+    }
 
     unsafe {
-        let hwnd = FindWindowA(PCSTR::null(), s!("Versi"));
-        if hwnd.is_invalid() {
-            debug!("Could not find Versi window for badge");
-            return;
-        }
+        let hwnd = match FindWindowA(PCSTR::null(), s!("Versi")) {
+            Ok(h) if !h.is_invalid() => h,
+            _ => {
+                debug!("Could not find Versi window for badge");
+                return;
+            }
+        };
 
-        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let com_initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
 
         let result = (|| -> Result<(), Box<dyn std::error::Error>> {
-            let taskbar: ITaskbarList3 =
-                CoCreateInstance(&windows::Win32::UI::Shell::TaskbarList, None, CLSCTX_INPROC_SERVER)?;
+            let taskbar: ITaskbarList3 = CoCreateInstance(
+                &windows::Win32::UI::Shell::TaskbarList,
+                None,
+                CLSCTX_INPROC_SERVER,
+            )?;
 
             if !visible {
-                taskbar.SetOverlayIcon(hwnd, None, PCSTR::null())?;
+                taskbar.SetOverlayIcon(hwnd, HICON::default(), PCWSTR::null())?;
                 return Ok(());
             }
 
@@ -99,10 +129,10 @@ pub(super) fn set_update_badge(visible: bool) {
 
                     if dist <= radius {
                         // BGRA format: red circle
-                        pixels[offset] = 0x33;     // B
-                        pixels[offset + 1] = 0x33;  // G
-                        pixels[offset + 2] = 0xEE;  // R
-                        pixels[offset + 3] = 0xFF;  // A
+                        pixels[offset] = 0x33; // B
+                        pixels[offset + 1] = 0x33; // G
+                        pixels[offset + 2] = 0xEE; // R
+                        pixels[offset + 3] = 0xFF; // A
                     }
                 }
             }
@@ -120,10 +150,24 @@ pub(super) fn set_update_badge(visible: bool) {
                 ..Default::default()
             };
 
-            let dc = CreateCompatibleDC(None);
-            let mut bits_ptr: *mut std::ffi::c_void = ptr::null_mut();
-            let color_bitmap = CreateDIBSection(dc, &bmi, DIB_RGB_COLORS, &mut bits_ptr, None, 0)?;
+            let mut guard = GdiGuard {
+                dc: None,
+                color_bitmap: None,
+                mask_bitmap: None,
+                icon: None,
+            };
 
+            let dc = CreateCompatibleDC(None);
+            guard.dc = Some(dc);
+            let mut bits_ptr: *mut std::ffi::c_void = ptr::null_mut();
+            guard.color_bitmap = Some(CreateDIBSection(
+                Some(dc),
+                &bmi,
+                DIB_RGB_COLORS,
+                &mut bits_ptr,
+                None,
+                0,
+            )?);
             ptr::copy_nonoverlapping(pixels.as_ptr(), bits_ptr as *mut u8, pixels.len());
 
             // Create mask bitmap (all zeros = fully opaque)
@@ -140,32 +184,40 @@ pub(super) fn set_update_badge(visible: bool) {
                 ..Default::default()
             };
             let mut mask_bits_ptr: *mut std::ffi::c_void = ptr::null_mut();
-            let mask_bitmap =
-                CreateDIBSection(dc, &mask_bmi, DIB_RGB_COLORS, &mut mask_bits_ptr, None, 0)?;
-
+            guard.mask_bitmap = Some(CreateDIBSection(
+                Some(dc),
+                &mask_bmi,
+                DIB_RGB_COLORS,
+                &mut mask_bits_ptr,
+                None,
+                0,
+            )?);
             ptr::write_bytes(mask_bits_ptr as *mut u8, 0, pixels.len());
 
             let icon_info = ICONINFO {
                 fIcon: true.into(),
                 xHotspot: 0,
                 yHotspot: 0,
-                hbmMask: mask_bitmap,
-                hbmColor: color_bitmap,
+                hbmMask: guard.mask_bitmap.as_ref().copied().unwrap(),
+                hbmColor: guard.color_bitmap.as_ref().copied().unwrap(),
             };
 
-            let icon = CreateIconIndirect(&icon_info)?;
-            let result = taskbar.SetOverlayIcon(hwnd, Some(icon), s!("Update available"));
+            guard.icon = Some(CreateIconIndirect(&icon_info)?);
+            let result = taskbar.SetOverlayIcon(
+                hwnd,
+                guard.icon.as_ref().copied().unwrap(),
+                w!("Update available"),
+            );
 
-            let _ = DestroyIcon(icon);
-            let _ = DeleteObject(color_bitmap);
-            let _ = DeleteObject(mask_bitmap);
-            let _ = DeleteDC(dc);
+            // Guard's Drop cleans up dc, color_bitmap, mask_bitmap, icon
 
             result?;
             Ok(())
         })();
 
-        CoUninitialize();
+        if com_initialized {
+            CoUninitialize();
+        }
 
         if let Err(e) = result {
             debug!("Failed to set update badge: {}", e);
