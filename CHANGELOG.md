@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.9.0] - 2026-02-15
+
+- feat: add version detail modal with inline release metadata
+- feat: add launch at login setting with per-platform autostart
+- feat: add search filter chips for LTS, installed, not installed, EOL, and active
+- fix: remove unnecessary libxdo dependency
+- deps: Update patch/minor dependencies (#64)
+- fix(windows): update Windows API calls for newer windows crate and add GDI RAII cleanup
+- feat: add update badge on app icon and adopt reverse-domain app ID
+- fix: update icon and desktop caches in Linux install script
+- deps: Lock file maintenance (#63)
+
+
 ## [0.8.5] - 2026-02-07
 
 - fix: set application_id on Linux for GNOME/Wayland icon matching
