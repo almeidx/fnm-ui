@@ -129,6 +129,14 @@ impl Versi {
     pub(super) fn handle_tray_behavior_changed(&mut self, behavior: TrayBehavior) -> Task<Message> {
         let old_behavior = self.settings.tray_behavior.clone();
         self.settings.tray_behavior = behavior.clone();
+
+        if behavior != TrayBehavior::AlwaysRunning && self.settings.launch_at_login {
+            self.settings.launch_at_login = false;
+            if let Err(e) = platform::set_launch_at_login(false) {
+                log::error!("Failed to disable launch at login: {e}");
+            }
+        }
+
         if let Err(e) = self.settings.save() {
             log::error!("Failed to save settings: {e}");
         }

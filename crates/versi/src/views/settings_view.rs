@@ -112,6 +112,7 @@ pub fn view<'a>(
         ]
         .spacing(8)
         .align_y(Alignment::Center),
+        launch_at_login_row(settings),
         text("\"Always\" keeps the app running in the tray when closed")
             .size(11)
             .color(iced::Color::from_rgb8(142, 142, 147)),
@@ -376,6 +377,33 @@ fn engine_button<'a>(
         .gap(4.0)
         .into()
     }
+}
+
+fn launch_at_login_row(settings: &AppSettings) -> Element<'_, Message> {
+    let is_always = settings.tray_behavior == TrayBehavior::AlwaysRunning;
+    let toggle = if is_always {
+        toggler(settings.launch_at_login)
+            .on_toggle(Message::LaunchAtLoginToggled)
+            .size(18)
+    } else {
+        toggler(false).size(18)
+    };
+
+    let label_color = if is_always {
+        None
+    } else {
+        Some(iced::Color::from_rgb8(142, 142, 147))
+    };
+
+    let mut label = text("Launch at login").size(12);
+    if let Some(color) = label_color {
+        label = label.color(color);
+    }
+
+    row![toggle, label]
+        .spacing(8)
+        .align_y(Alignment::Center)
+        .into()
 }
 
 fn engine_selector<'a>(settings: &'a AppSettings, state: &'a MainState) -> Element<'a, Message> {

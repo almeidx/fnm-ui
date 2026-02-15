@@ -18,6 +18,9 @@ pub struct AppSettings {
     pub start_minimized: bool,
 
     #[serde(default)]
+    pub launch_at_login: bool,
+
+    #[serde(default)]
     pub fnm_dir: Option<PathBuf>,
 
     #[serde(default)]
@@ -149,6 +152,7 @@ impl Default for AppSettings {
             cache_ttl_hours: 1,
             tray_behavior: TrayBehavior::WhenWindowOpen,
             start_minimized: false,
+            launch_at_login: false,
             fnm_dir: None,
             node_dist_mirror: None,
             preferred_backend: None,

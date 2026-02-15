@@ -646,6 +646,16 @@ impl Versi {
                 }
                 Task::none()
             }
+            Message::LaunchAtLoginToggled(value) => {
+                self.settings.launch_at_login = value;
+                if let Err(e) = platform::set_launch_at_login(value) {
+                    log::error!("Failed to set launch at login: {e}");
+                }
+                if let Err(e) = self.settings.save() {
+                    log::error!("Failed to save settings: {e}");
+                }
+                Task::none()
+            }
             Message::SystemThemeChanged(mode) => {
                 self.system_theme_mode = mode;
                 Task::none()

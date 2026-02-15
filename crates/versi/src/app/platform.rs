@@ -34,7 +34,10 @@ pub(super) fn set_update_badge(visible: bool) {
                 "/",
                 "com.canonical.Unity.LauncherEntry",
                 "Update",
-                &("application://dev.almeidx.versi.desktop", props),
+                &(
+                    format!("application://{}", versi_platform::DESKTOP_ENTRY_FILENAME),
+                    props,
+                ),
             )?;
 
             Ok(())
@@ -258,6 +261,161 @@ pub(super) fn is_wayland() -> bool {
 #[cfg(not(target_os = "linux"))]
 pub(super) fn is_wayland() -> bool {
     false
+}
+
+#[cfg(target_os = "macos")]
+pub(super) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    let home = dirs::home_dir().ok_or("could not determine home directory")?;
+    let plist_path = home
+        .join("Library/LaunchAgents")
+        .join(versi_platform::LAUNCHAGENT_PLIST_FILENAME);
+
+    if !enable {
+        if plist_path.exists() {
+            fs::remove_file(&plist_path)?;
+        }
+        return Ok(());
+    }
+
+    let exe = std::env::current_exe()?;
+    let exe_str = exe.to_string_lossy();
+
+    let (program_arg, extra_arg) = if let Some(app_pos) = exe_str.find(".app/") {
+        let bundle_path = PathBuf::from(&exe_str[..app_pos + 4]);
+        (
+            "open".to_string(),
+            format!("-a\n    <string>{}</string>", bundle_path.display()),
+        )
+    } else {
+        (exe_str.to_string(), String::new())
+    };
+
+    let extra_line = if extra_arg.is_empty() {
+        String::new()
+    } else {
+        format!("\n    {extra_arg}")
+    };
+
+    let app_id = versi_platform::APP_ID;
+    let plist = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{app_id}</string>
+    <key>ProgramArguments</key>
+    <array>
+    <string>{program_arg}</string>{extra_line}
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>
+"#
+    );
+
+    if let Some(parent) = plist_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&plist_path, plist)?;
+    Ok(())
+}
+
+#[cfg(windows)]
+pub(super) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+    use windows_sys::Win32::System::Registry::{
+        HKEY_CURRENT_USER, KEY_SET_VALUE, REG_SZ, RegCloseKey, RegDeleteValueW, RegOpenKeyExW,
+        RegSetValueExW,
+    };
+
+    let subkey: Vec<u16> = "Software\\Microsoft\\Windows\\CurrentVersion\\Run\0"
+        .encode_utf16()
+        .collect();
+    let value_name: Vec<u16> = "Versi\0".encode_utf16().collect();
+
+    unsafe {
+        let mut hkey = std::mem::zeroed();
+        let status = RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            subkey.as_ptr(),
+            0,
+            KEY_SET_VALUE,
+            &mut hkey,
+        );
+        if status != 0 {
+            return Err(format!("RegOpenKeyExW failed: {status}").into());
+        }
+
+        let result = if enable {
+            let exe = std::env::current_exe()?;
+            let exe_wide: Vec<u16> = exe
+                .to_string_lossy()
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect();
+            let byte_len = exe_wide.len() * 2;
+            RegSetValueExW(
+                hkey,
+                value_name.as_ptr(),
+                0,
+                REG_SZ,
+                exe_wide.as_ptr() as *const u8,
+                byte_len as u32,
+            )
+        } else {
+            RegDeleteValueW(hkey, value_name.as_ptr())
+        };
+
+        RegCloseKey(hkey);
+
+        if result != 0 && !(result == 2 && !enable) {
+            return Err(format!("Registry operation failed: {result}").into());
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+pub(super) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+    use std::fs;
+
+    let autostart_dir = dirs::config_dir()
+        .ok_or("could not determine config directory")?
+        .join("autostart");
+    let desktop_path = autostart_dir.join(versi_platform::DESKTOP_ENTRY_FILENAME);
+
+    if !enable {
+        if desktop_path.exists() {
+            fs::remove_file(&desktop_path)?;
+        }
+        return Ok(());
+    }
+
+    let exe = std::env::current_exe()?;
+    let entry = format!(
+        "[Desktop Entry]\n\
+         Type=Application\n\
+         Name=Versi\n\
+         Exec={}\n\
+         X-GNOME-Autostart-enabled=true\n",
+        exe.display()
+    );
+
+    fs::create_dir_all(&autostart_dir)?;
+    fs::write(&desktop_path, entry)?;
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
+pub(super) fn set_launch_at_login(_enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(())
 }
 
 pub(super) fn reveal_in_file_manager(path: &std::path::Path) {

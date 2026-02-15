@@ -11,3 +11,7 @@ pub use paths::AppPaths;
 
 #[cfg(target_os = "windows")]
 pub use wsl::{WslDistro, detect_wsl_distros, execute_in_wsl};
+
+pub const APP_ID: &str = "dev.almeidx.versi";
+pub const DESKTOP_ENTRY_FILENAME: &str = "dev.almeidx.versi.desktop";
+pub const LAUNCHAGENT_PLIST_FILENAME: &str = "dev.almeidx.versi.plist";

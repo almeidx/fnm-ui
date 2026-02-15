@@ -125,6 +125,7 @@ pub enum Message {
     TrayEvent(TrayMessage),
     TrayBehaviorChanged(TrayBehavior),
     StartMinimizedToggled(bool),
+    LaunchAtLoginToggled(bool),
     WindowOpened(iced::window::Id),
 
     AppUpdateChecked(Result<Option<AppUpdate>, String>),
