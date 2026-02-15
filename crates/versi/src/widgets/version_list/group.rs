@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
@@ -6,12 +8,13 @@ use versi_core::ReleaseSchedule;
 
 use crate::icon;
 use crate::message::Message;
-use crate::state::OperationQueue;
+use crate::state::{OperationQueue, SearchFilter};
 use crate::theme::styles;
 
 use super::filter_version;
 use super::item::version_item_view;
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn version_group_view<'a>(
     group: &'a VersionGroup,
     default: &'a Option<versi_backend::NodeVersion>,
@@ -20,6 +23,7 @@ pub(super) fn version_group_view<'a>(
     schedule: Option<&ReleaseSchedule>,
     operation_queue: &'a OperationQueue,
     hovered_version: &'a Option<String>,
+    active_filters: &'a HashSet<SearchFilter>,
 ) -> Element<'a, Message> {
     let has_lts = group.versions.iter().any(|v| v.lts_codename.is_some());
     let has_default = group
@@ -114,7 +118,7 @@ pub(super) fn version_group_view<'a>(
         let filtered_versions: Vec<&InstalledVersion> = group
             .versions
             .iter()
-            .filter(|v| filter_version(v, search_query))
+            .filter(|v| filter_version(v, search_query, active_filters, schedule))
             .collect();
 
         let items: Vec<Element<Message>> = filtered_versions

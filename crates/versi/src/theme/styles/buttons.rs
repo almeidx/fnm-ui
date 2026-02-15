@@ -625,3 +625,103 @@ pub fn row_action_button_danger(_theme: &Theme, status: button::Status) -> butto
         },
     }
 }
+
+pub fn filter_chip(theme: &Theme, status: button::Status) -> button::Style {
+    let palette = theme.palette();
+    let is_dark = palette.background.r < 0.5;
+
+    let border_color = if is_dark {
+        Color::from_rgba8(255, 255, 255, 0.12)
+    } else {
+        Color::from_rgba8(0, 0, 0, 0.1)
+    };
+
+    let base = button::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        text_color: Color {
+            a: 0.6,
+            ..palette.text
+        },
+        border: Border {
+            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            width: 1.0,
+            color: border_color,
+        },
+        shadow: Shadow::default(),
+        snap: false,
+    };
+
+    match status {
+        button::Status::Active => base,
+        button::Status::Hovered => button::Style {
+            text_color: palette.text,
+            background: Some(Background::Color(Color {
+                a: 0.05,
+                ..palette.text
+            })),
+            ..base
+        },
+        button::Status::Pressed => button::Style {
+            text_color: palette.text,
+            background: Some(Background::Color(Color {
+                a: 0.1,
+                ..palette.text
+            })),
+            ..base
+        },
+        button::Status::Disabled => button::Style {
+            text_color: Color {
+                a: 0.3,
+                ..palette.text
+            },
+            ..base
+        },
+    }
+}
+
+pub fn filter_chip_active(theme: &Theme, status: button::Status) -> button::Style {
+    let palette = theme.palette();
+
+    let base = button::Style {
+        background: Some(Background::Color(Color {
+            a: 0.12,
+            ..palette.primary
+        })),
+        text_color: palette.primary,
+        border: Border {
+            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            width: 1.0,
+            color: Color {
+                a: 0.25,
+                ..palette.primary
+            },
+        },
+        shadow: Shadow::default(),
+        snap: false,
+    };
+
+    match status {
+        button::Status::Active => base,
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(Color {
+                a: 0.18,
+                ..palette.primary
+            })),
+            ..base
+        },
+        button::Status::Pressed => button::Style {
+            background: Some(Background::Color(Color {
+                a: 0.25,
+                ..palette.primary
+            })),
+            ..base
+        },
+        button::Status::Disabled => button::Style {
+            text_color: Color {
+                a: 0.4,
+                ..palette.primary
+            },
+            ..base
+        },
+    }
+}

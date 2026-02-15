@@ -6,6 +6,7 @@ use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
 
 use crate::settings::TrayBehavior;
+use crate::state::SearchFilter;
 use crate::tray::TrayMessage;
 
 #[derive(Debug, Clone)]
@@ -30,6 +31,7 @@ pub enum Message {
         major: u32,
     },
     SearchChanged(String),
+    SearchFilterToggled(SearchFilter),
 
     FetchRemoteVersions,
     RemoteVersionsFetched(Result<Vec<RemoteVersion>, String>),

@@ -186,6 +186,10 @@ impl Versi {
                 self.handle_search_changed(query);
                 Task::none()
             }
+            Message::SearchFilterToggled(filter) => {
+                self.handle_search_filter_toggled(filter);
+                Task::none()
+            }
             Message::FetchRemoteVersions => self.handle_fetch_remote_versions(),
             Message::RemoteVersionsFetched(result) => {
                 self.handle_remote_versions_fetched(result);

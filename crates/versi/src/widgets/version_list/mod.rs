@@ -3,7 +3,7 @@ mod filters;
 mod group;
 mod item;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use iced::widget::{Space, button, column, container, scrollable, text};
 use iced::{Alignment, Element, Length};
@@ -12,20 +12,59 @@ use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup};
 use versi_core::ReleaseSchedule;
 
 use crate::message::Message;
-use crate::state::{EnvironmentState, OperationQueue};
+use crate::state::{EnvironmentState, OperationQueue, SearchFilter};
 use crate::theme::styles;
 
 use filters::{filter_available_versions, resolve_alias};
 
-fn filter_group(group: &VersionGroup, query: &str) -> bool {
+fn filter_group(
+    group: &VersionGroup,
+    query: &str,
+    active_filters: &HashSet<SearchFilter>,
+    schedule: Option<&ReleaseSchedule>,
+) -> bool {
     if query.is_empty() {
         return true;
+    }
+
+    if active_filters.contains(&SearchFilter::NotInstalled) {
+        return false;
+    }
+
+    if active_filters.contains(&SearchFilter::Eol) {
+        let is_eol = schedule.map(|s| !s.is_active(group.major)).unwrap_or(false);
+        if !is_eol {
+            return false;
+        }
+    }
+    if active_filters.contains(&SearchFilter::Active) {
+        let is_active = schedule.map(|s| s.is_active(group.major)).unwrap_or(true);
+        if !is_active {
+            return false;
+        }
     }
 
     let query_lower = query.to_lowercase();
 
     if query_lower == "lts" {
-        return group.versions.iter().any(|v| v.lts_codename.is_some());
+        let has_lts = group.versions.iter().any(|v| v.lts_codename.is_some());
+        if !has_lts {
+            return false;
+        }
+        return true;
+    }
+
+    if active_filters.contains(&SearchFilter::Lts) {
+        return group.versions.iter().any(|v| {
+            v.lts_codename.is_some() && {
+                let version_str = v.version.to_string();
+                version_str.contains(query)
+                    || v.lts_codename
+                        .as_ref()
+                        .map(|c| c.to_lowercase().contains(&query_lower))
+                        .unwrap_or(false)
+            }
+        });
     }
 
     group.versions.iter().any(|v| {
@@ -38,24 +77,58 @@ fn filter_group(group: &VersionGroup, query: &str) -> bool {
     })
 }
 
-fn filter_version(version: &InstalledVersion, query: &str) -> bool {
+fn filter_version(
+    version: &InstalledVersion,
+    query: &str,
+    active_filters: &HashSet<SearchFilter>,
+    schedule: Option<&ReleaseSchedule>,
+) -> bool {
     if query.is_empty() {
         return true;
     }
 
     let query_lower = query.to_lowercase();
 
-    if query_lower == "lts" {
-        return version.lts_codename.is_some();
+    let text_match = if query_lower == "lts" {
+        version.lts_codename.is_some()
+    } else {
+        let version_str = version.version.to_string();
+        version_str.contains(query)
+            || version
+                .lts_codename
+                .as_ref()
+                .map(|c| c.to_lowercase().contains(&query_lower))
+                .unwrap_or(false)
+    };
+
+    if !text_match {
+        return false;
     }
 
-    let version_str = version.version.to_string();
-    version_str.contains(query)
-        || version
-            .lts_codename
-            .as_ref()
-            .map(|c| c.to_lowercase().contains(&query_lower))
-            .unwrap_or(false)
+    if active_filters.contains(&SearchFilter::Lts) && version.lts_codename.is_none() {
+        return false;
+    }
+    if active_filters.contains(&SearchFilter::NotInstalled) {
+        return false;
+    }
+    if active_filters.contains(&SearchFilter::Eol) {
+        let is_eol = schedule
+            .map(|s| !s.is_active(version.version.major))
+            .unwrap_or(false);
+        if !is_eol {
+            return false;
+        }
+    }
+    if active_filters.contains(&SearchFilter::Active) {
+        let is_active = schedule
+            .map(|s| s.is_active(version.version.major))
+            .unwrap_or(true);
+        if !is_active {
+            return false;
+        }
+    }
+
+    true
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -68,6 +141,7 @@ pub fn view<'a>(
     operation_queue: &'a OperationQueue,
     hovered_version: &'a Option<String>,
     search_results_limit: usize,
+    active_filters: &'a HashSet<SearchFilter>,
 ) -> Element<'a, Message> {
     if env.loading && env.installed_versions.is_empty() {
         return container(
@@ -104,7 +178,7 @@ pub fn view<'a>(
     let filtered_groups: Vec<&VersionGroup> = env
         .version_groups
         .iter()
-        .filter(|g| filter_group(g, search_query))
+        .filter(|g| filter_group(g, search_query, active_filters, schedule))
         .collect();
 
     let default_version = &env.default_version;
@@ -131,14 +205,21 @@ pub fn view<'a>(
                 schedule,
                 operation_queue,
                 hovered_version,
+                active_filters,
             ));
         }
     }
 
     if !search_query.is_empty() {
         let alias_resolved = resolve_alias(remote_versions, search_query);
-        let available_list =
-            filter_available_versions(remote_versions, search_query, search_results_limit);
+        let available_list = filter_available_versions(
+            remote_versions,
+            search_query,
+            search_results_limit,
+            active_filters,
+            &env.installed_set,
+            schedule,
+        );
 
         if !available_list.is_empty() {
             let mut card_items: Vec<Element<Message>> = Vec::new();

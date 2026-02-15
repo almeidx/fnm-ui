@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 use chrono::{DateTime, Utc};
@@ -6,6 +6,15 @@ use versi_backend::{BackendUpdate, NodeVersion, RemoteVersion, VersionManager};
 use versi_core::{AppUpdate, ReleaseSchedule};
 
 use super::{EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SearchFilter {
+    Lts,
+    Installed,
+    NotInstalled,
+    Eol,
+    Active,
+}
 
 pub struct MainState {
     pub environments: Vec<EnvironmentState>,
@@ -25,6 +34,7 @@ pub struct MainState {
     pub backend_name: &'static str,
     pub detected_backends: Vec<&'static str>,
     pub refresh_rotation: f32,
+    pub active_filters: HashSet<SearchFilter>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -84,6 +94,7 @@ impl MainState {
             backend_name,
             detected_backends: Vec::new(),
             refresh_rotation: 0.0,
+            active_filters: HashSet::new(),
         }
     }
 

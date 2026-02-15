@@ -33,6 +33,7 @@ pub fn view<'a>(
         &state.operation_queue,
         hovered,
         settings.search_results_limit,
+        &state.active_filters,
     );
 
     let right_inset = iced::Padding::new(0.0).right(24.0);
@@ -41,6 +42,11 @@ pub fn view<'a>(
         container(search_bar).padding(right_inset),
     ]
     .spacing(12);
+
+    if !state.search_query.is_empty() {
+        let chips = search::filter_chips_view(&state.active_filters);
+        content_column = content_column.push(container(chips).padding(right_inset));
+    }
 
     if state.search_query.is_empty()
         && let Some(banner_content) = banners::contextual_banners(state)

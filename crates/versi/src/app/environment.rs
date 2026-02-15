@@ -12,7 +12,7 @@ use iced::Task;
 use versi_platform::EnvironmentId;
 
 use crate::message::Message;
-use crate::state::{AppState, MainViewKind};
+use crate::state::{AppState, MainViewKind, SearchFilter};
 
 use super::Versi;
 use super::init::create_backend_for_environment;
@@ -178,7 +178,35 @@ impl Versi {
 
     pub(super) fn handle_search_changed(&mut self, query: String) {
         if let AppState::Main(state) = &mut self.state {
+            if query.is_empty() {
+                state.active_filters.clear();
+            }
             state.search_query = query;
+        }
+    }
+
+    pub(super) fn handle_search_filter_toggled(&mut self, filter: SearchFilter) {
+        if let AppState::Main(state) = &mut self.state {
+            if state.active_filters.contains(&filter) {
+                state.active_filters.remove(&filter);
+            } else {
+                match filter {
+                    SearchFilter::Installed => {
+                        state.active_filters.remove(&SearchFilter::NotInstalled);
+                    }
+                    SearchFilter::NotInstalled => {
+                        state.active_filters.remove(&SearchFilter::Installed);
+                    }
+                    SearchFilter::Eol => {
+                        state.active_filters.remove(&SearchFilter::Active);
+                    }
+                    SearchFilter::Active => {
+                        state.active_filters.remove(&SearchFilter::Eol);
+                    }
+                    _ => {}
+                }
+                state.active_filters.insert(filter);
+            }
         }
     }
 }

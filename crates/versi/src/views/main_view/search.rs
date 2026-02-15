@@ -1,9 +1,11 @@
-use iced::widget::{Space, button, container, text_input, tooltip};
+use std::collections::HashSet;
+
+use iced::widget::{Space, button, container, row, text, text_input, tooltip};
 use iced::{Element, Length};
 
 use crate::icon;
 use crate::message::Message;
-use crate::state::MainState;
+use crate::state::{MainState, SearchFilter};
 use crate::theme::styles;
 use crate::widgets::helpers::styled_tooltip;
 
@@ -42,5 +44,51 @@ pub(super) fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> 
             .height(Length::Fill)
             .padding(iced::Padding::new(0.0).right(4.0)),
     ]
+    .into()
+}
+
+fn chip_button<'a>(label: &'a str, filter: SearchFilter, active: bool) -> Element<'a, Message> {
+    let style = if active {
+        styles::filter_chip_active as fn(&iced::Theme, button::Status) -> button::Style
+    } else {
+        styles::filter_chip
+    };
+
+    button(text(label).size(12))
+        .on_press(Message::SearchFilterToggled(filter))
+        .style(style)
+        .padding([4, 12])
+        .into()
+}
+
+pub(super) fn filter_chips_view(active_filters: &HashSet<SearchFilter>) -> Element<'_, Message> {
+    row![
+        chip_button(
+            "LTS",
+            SearchFilter::Lts,
+            active_filters.contains(&SearchFilter::Lts)
+        ),
+        chip_button(
+            "Installed",
+            SearchFilter::Installed,
+            active_filters.contains(&SearchFilter::Installed)
+        ),
+        chip_button(
+            "Not installed",
+            SearchFilter::NotInstalled,
+            active_filters.contains(&SearchFilter::NotInstalled)
+        ),
+        chip_button(
+            "EOL",
+            SearchFilter::Eol,
+            active_filters.contains(&SearchFilter::Eol)
+        ),
+        chip_button(
+            "Active",
+            SearchFilter::Active,
+            active_filters.contains(&SearchFilter::Active)
+        ),
+    ]
+    .spacing(8)
     .into()
 }
