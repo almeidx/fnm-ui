@@ -199,6 +199,16 @@ impl Versi {
                 self.handle_release_schedule_fetched(result);
                 Task::none()
             }
+            Message::VersionMetadataFetched(result) => {
+                self.handle_version_metadata_fetched(result);
+                Task::none()
+            }
+            Message::ShowVersionDetail(version) => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.modal = Some(crate::state::Modal::VersionDetail { version });
+                }
+                Task::none()
+            }
             Message::CloseModal => {
                 if let AppState::Main(state) = &mut self.state {
                     if state.modal.is_some() {

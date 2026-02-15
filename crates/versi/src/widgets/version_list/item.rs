@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use iced::widget::{Space, button, container, mouse_area, row, text};
 use iced::{Alignment, Element, Length};
 
 use versi_backend::InstalledVersion;
+use versi_core::VersionMeta;
 
-use crate::icon;
 use crate::message::Message;
 use crate::state::{Operation, OperationQueue};
 use crate::theme::styles;
@@ -13,6 +15,7 @@ pub(super) fn version_item_view<'a>(
     default: &'a Option<versi_backend::NodeVersion>,
     operation_queue: &'a OperationQueue,
     hovered_version: &'a Option<String>,
+    metadata: Option<&'a HashMap<String, VersionMeta>>,
 ) -> Element<'a, Message> {
     let is_default = default
         .as_ref()
@@ -20,6 +23,7 @@ pub(super) fn version_item_view<'a>(
         .unwrap_or(false);
 
     let version_str = version.version.to_string();
+    let meta = metadata.and_then(|m| m.get(&version_str));
     let version_display = version_str.clone();
     let version_for_default = version_str.clone();
     let version_for_changelog = version_str.clone();
@@ -35,9 +39,15 @@ pub(super) fn version_item_view<'a>(
     let is_hovered = hovered_version.as_ref().is_some_and(|h| h == &version_str);
     let show_actions = is_hovered || is_default;
 
-    let mut row_content = row![text(version_display).size(14).width(Length::Fixed(120.0)),]
-        .spacing(8)
-        .align_y(Alignment::Center);
+    let mut row_content = row![
+        button(text(version_display).size(14))
+            .on_press(Message::ShowVersionDetail(version_for_changelog))
+            .style(styles::ghost_button)
+            .padding([2, 4])
+            .width(Length::Fixed(120.0)),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
 
     if let Some(lts) = &version.lts_codename {
         row_content = row_content.push(
@@ -52,6 +62,14 @@ pub(super) fn version_item_view<'a>(
             container(text("default").size(11))
                 .padding([2, 6])
                 .style(styles::badge_default),
+        );
+    }
+
+    if meta.map(|m| m.security).unwrap_or(false) {
+        row_content = row_content.push(
+            container(text("Security").size(11))
+                .padding([2, 6])
+                .style(styles::badge_security),
         );
     }
 
@@ -71,25 +89,6 @@ pub(super) fn version_item_view<'a>(
     } else {
         styles::row_action_button_hidden
     };
-
-    if show_actions {
-        row_content = row_content.push(
-            button(
-                row![text("Changelog").size(11), icon::arrow_up_right(11.0),]
-                    .spacing(2)
-                    .align_y(Alignment::Center),
-            )
-            .on_press(Message::OpenChangelog(version_for_changelog))
-            .style(action_style)
-            .padding([4, 8]),
-        );
-    } else {
-        row_content = row_content.push(
-            button(text("Changelog").size(11))
-                .style(action_style)
-                .padding([4, 8]),
-        );
-    }
 
     if is_default {
         row_content = row_content.push(

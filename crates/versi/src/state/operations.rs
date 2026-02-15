@@ -190,6 +190,9 @@ pub enum Modal {
         version: String,
     },
     KeyboardShortcuts,
+    VersionDetail {
+        version: String,
+    },
 }
 
 #[cfg(test)]

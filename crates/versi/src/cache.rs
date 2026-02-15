@@ -1,13 +1,17 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use versi_backend::RemoteVersion;
-use versi_core::ReleaseSchedule;
+use versi_core::{ReleaseSchedule, VersionMeta};
 use versi_platform::AppPaths;
 
 #[derive(Serialize, Deserialize)]
 pub struct DiskCache {
     pub remote_versions: Vec<RemoteVersion>,
     pub release_schedule: Option<ReleaseSchedule>,
+    #[serde(default)]
+    pub version_metadata: Option<HashMap<String, VersionMeta>>,
     pub cached_at: DateTime<Utc>,
 }
 

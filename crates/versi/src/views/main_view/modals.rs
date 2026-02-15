@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
 use iced::widget::{Space, button, column, container, mouse_area, row, text};
 use iced::{Element, Length};
+
+use versi_core::VersionMeta;
 
 use crate::message::Message;
 use crate::settings::AppSettings;
@@ -35,6 +39,9 @@ pub(super) fn modal_overlay<'a>(
         ),
         Modal::ConfirmUninstallDefault { version } => confirm_uninstall_default_view(version),
         Modal::KeyboardShortcuts => keyboard_shortcuts_view(),
+        Modal::VersionDetail { version } => {
+            version_detail_view(version, _state.available_versions.metadata.as_ref(), _state)
+        }
     };
 
     let backdrop = mouse_area(
@@ -311,6 +318,114 @@ fn confirm_uninstall_default_view(version: &str) -> Element<'_, Message> {
     .spacing(4)
     .width(Length::Fill)
     .into()
+}
+
+fn version_detail_view<'a>(
+    version: &'a str,
+    metadata: Option<&'a HashMap<String, VersionMeta>>,
+    state: &'a MainState,
+) -> Element<'a, Message> {
+    let muted = iced::Color::from_rgb8(142, 142, 147);
+    let meta = metadata.and_then(|m| m.get(version));
+
+    let mut content = column![text(format!("Node {}", version)).size(20),].spacing(4);
+
+    content = content.push(Space::new().height(12));
+
+    if let Some(meta) = meta {
+        content = content.push(
+            text(format!("Released {}", meta.date))
+                .size(13)
+                .color(muted),
+        );
+        content = content.push(Space::new().height(8));
+
+        let mut badge_row = row![].spacing(8).align_y(iced::Alignment::Center);
+
+        if meta.security {
+            badge_row = badge_row.push(
+                container(text("Security Release").size(11))
+                    .padding([2, 6])
+                    .style(styles::badge_security),
+            );
+        }
+
+        if let Some(lts) = lookup_lts(version, state) {
+            badge_row = badge_row.push(
+                container(text(format!("LTS: {}", lts)).size(11))
+                    .padding([2, 6])
+                    .style(styles::badge_lts),
+            );
+        }
+
+        content = content.push(badge_row);
+        content = content.push(Space::new().height(12));
+
+        let mut details = column![].spacing(6);
+        if let Some(npm) = &meta.npm {
+            details = details.push(meta_row("npm", npm, muted));
+        }
+        if let Some(v8) = &meta.v8 {
+            details = details.push(meta_row("V8", v8, muted));
+        }
+        if let Some(openssl) = &meta.openssl {
+            details = details.push(meta_row("OpenSSL", openssl, muted));
+        }
+        content = content.push(details);
+
+        if is_major_release(version) {
+            content = content.push(Space::new().height(8));
+            content = content.push(
+                text("Major release — check changelog for breaking changes")
+                    .size(12)
+                    .color(iced::Color::from_rgb8(255, 149, 0)),
+            );
+        }
+    } else {
+        content = content.push(text("No metadata available").size(13).color(muted));
+    }
+
+    content = content.push(Space::new().height(24));
+    content = content.push(
+        row![
+            button(text("Close").size(13))
+                .on_press(Message::CloseModal)
+                .style(styles::secondary_button)
+                .padding([10, 20]),
+            Space::new().width(Length::Fill),
+            button(text("View Full Changelog").size(13))
+                .on_press(Message::OpenChangelog(version.to_string()))
+                .style(styles::primary_button)
+                .padding([10, 20]),
+        ]
+        .spacing(16),
+    );
+
+    content.width(Length::Fill).into()
+}
+
+fn meta_row<'a>(label: &'a str, value: &'a str, muted: iced::Color) -> Element<'a, Message> {
+    row![
+        text(label).size(12).width(Length::Fixed(64.0)).color(muted),
+        text(value).size(12),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center)
+    .into()
+}
+
+fn lookup_lts<'a>(version: &str, state: &'a MainState) -> Option<&'a str> {
+    state
+        .available_versions
+        .versions
+        .iter()
+        .find(|v| v.version.to_string() == version)
+        .and_then(|v| v.lts_codename.as_deref())
+}
+
+fn is_major_release(version: &str) -> bool {
+    let trimmed = version.strip_prefix('v').unwrap_or(version);
+    trimmed.ends_with(".0.0")
 }
 
 fn keyboard_shortcuts_view() -> Element<'static, Message> {

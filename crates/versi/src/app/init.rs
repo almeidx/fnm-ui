@@ -129,6 +129,9 @@ impl Versi {
             if let Some(schedule) = disk_cache.release_schedule {
                 main_state.available_versions.schedule = Some(schedule);
             }
+            if let Some(metadata) = disk_cache.version_metadata {
+                main_state.available_versions.metadata = Some(metadata);
+            }
         }
 
         self.state = AppState::Main(Box::new(main_state));
@@ -171,12 +174,14 @@ impl Versi {
 
         let fetch_remote = self.handle_fetch_remote_versions();
         let fetch_schedule = self.handle_fetch_release_schedule();
+        let fetch_metadata = self.handle_fetch_version_metadata();
         let check_app_update = self.handle_check_for_app_update();
         let check_backend_update = self.handle_check_for_backend_update();
 
         load_tasks.extend([
             fetch_remote,
             fetch_schedule,
+            fetch_metadata,
             check_app_update,
             check_backend_update,
         ]);

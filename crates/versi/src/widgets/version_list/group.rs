@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
 use versi_backend::{InstalledVersion, VersionGroup};
-use versi_core::ReleaseSchedule;
+use versi_core::{ReleaseSchedule, VersionMeta};
 
 use crate::icon;
 use crate::message::Message;
@@ -24,6 +24,7 @@ pub(super) fn version_group_view<'a>(
     operation_queue: &'a OperationQueue,
     hovered_version: &'a Option<String>,
     active_filters: &'a HashSet<SearchFilter>,
+    metadata: Option<&'a HashMap<String, VersionMeta>>,
 ) -> Element<'a, Message> {
     let has_lts = group.versions.iter().any(|v| v.lts_codename.is_some());
     let has_default = group
@@ -123,7 +124,7 @@ pub(super) fn version_group_view<'a>(
 
         let items: Vec<Element<Message>> = filtered_versions
             .iter()
-            .map(|v| version_item_view(v, default, operation_queue, hovered_version))
+            .map(|v| version_item_view(v, default, operation_queue, hovered_version, metadata))
             .collect();
 
         container(

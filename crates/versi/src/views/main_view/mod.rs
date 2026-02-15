@@ -34,6 +34,7 @@ pub fn view<'a>(
         hovered,
         settings.search_results_limit,
         &state.active_filters,
+        state.available_versions.metadata.as_ref(),
     );
 
     let right_inset = iced::Padding::new(0.0).right(24.0);

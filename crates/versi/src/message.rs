@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use versi_backend::{BackendUpdate, InstalledVersion, RemoteVersion};
-use versi_core::{AppUpdate, ReleaseSchedule};
+use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
 
@@ -143,6 +144,8 @@ pub enum Message {
     OpenBackendUpdate,
 
     FetchReleaseSchedule,
+    VersionMetadataFetched(Result<HashMap<String, VersionMeta>, String>),
+    ShowVersionDetail(String),
 
     ShowKeyboardShortcuts,
     OpenLink(String),

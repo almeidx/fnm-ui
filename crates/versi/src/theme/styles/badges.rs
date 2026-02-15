@@ -54,3 +54,21 @@ pub fn badge_eol(_theme: &Theme) -> container::Style {
         ..Default::default()
     }
 }
+
+pub fn badge_security(theme: &Theme) -> container::Style {
+    let palette = theme.palette();
+
+    container::Style {
+        background: Some(Background::Color(Color {
+            a: 0.15,
+            ..palette.danger
+        })),
+        text_color: Some(palette.danger),
+        border: Border {
+            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        ..Default::default()
+    }
+}

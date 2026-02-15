@@ -9,7 +9,7 @@ use log::debug;
 
 use iced::Task;
 
-use versi_core::{check_for_update, fetch_release_schedule};
+use versi_core::{check_for_update, fetch_release_schedule, fetch_version_metadata};
 
 use crate::message::Message;
 use crate::state::AppState;
@@ -89,11 +89,13 @@ impl Versi {
                     super::platform::set_update_badge(has_update);
 
                     let schedule = state.available_versions.schedule.clone();
+                    let metadata = state.available_versions.metadata.clone();
                     // std::thread::spawn, not tokio — Iced doesn't guarantee a tokio runtime context
                     std::thread::spawn(move || {
                         let cache = crate::cache::DiskCache {
                             remote_versions: versions,
                             release_schedule: schedule,
+                            version_metadata: metadata,
                             cached_at: chrono::Utc::now(),
                         };
                         cache.save();
@@ -149,11 +151,13 @@ impl Versi {
                     state.available_versions.schedule_error = None;
 
                     let versions = state.available_versions.versions.clone();
+                    let metadata = state.available_versions.metadata.clone();
                     // std::thread::spawn, not tokio — Iced doesn't guarantee a tokio runtime context
                     std::thread::spawn(move || {
                         let cache = crate::cache::DiskCache {
                             remote_versions: versions,
                             release_schedule: Some(schedule),
+                            version_metadata: metadata,
                             cached_at: chrono::Utc::now(),
                         };
                         cache.save();
@@ -162,6 +166,66 @@ impl Versi {
                 Err(error) => {
                     debug!("Release schedule fetch failed: {}", error);
                     state.available_versions.schedule_error = Some(error);
+                }
+            }
+        }
+    }
+
+    pub(super) fn handle_fetch_version_metadata(&mut self) -> Task<Message> {
+        if let AppState::Main(_) = &self.state {
+            let client = self.http_client.clone();
+            let retry_delays = self.settings.retry_delays_secs.clone();
+
+            return Task::perform(
+                async move {
+                    let mut last_err = String::new();
+                    for (attempt, &delay) in retry_delays.iter().enumerate() {
+                        if delay > 0 {
+                            tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                        }
+                        match fetch_version_metadata(&client).await {
+                            Ok(metadata) => return Ok(metadata),
+                            Err(e) => {
+                                last_err = e;
+                                debug!(
+                                    "Version metadata fetch attempt {} failed: {}",
+                                    attempt + 1,
+                                    last_err
+                                );
+                            }
+                        }
+                    }
+                    Err(last_err)
+                },
+                Message::VersionMetadataFetched,
+            );
+        }
+        Task::none()
+    }
+
+    pub(super) fn handle_version_metadata_fetched(
+        &mut self,
+        result: Result<std::collections::HashMap<String, versi_core::VersionMeta>, String>,
+    ) {
+        if let AppState::Main(state) = &mut self.state {
+            match result {
+                Ok(metadata) => {
+                    state.available_versions.metadata = Some(metadata.clone());
+
+                    let versions = state.available_versions.versions.clone();
+                    let schedule = state.available_versions.schedule.clone();
+                    std::thread::spawn(move || {
+                        let cache = crate::cache::DiskCache {
+                            remote_versions: versions,
+                            release_schedule: schedule,
+                            version_metadata: Some(metadata),
+                            cached_at: chrono::Utc::now(),
+                        };
+                        cache.save();
+                    });
+                }
+                Err(error) => {
+                    debug!("Version metadata fetch failed: {}", error);
                 }
             }
         }

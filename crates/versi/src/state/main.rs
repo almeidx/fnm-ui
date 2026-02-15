@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 use versi_backend::{BackendUpdate, NodeVersion, RemoteVersion, VersionManager};
-use versi_core::{AppUpdate, ReleaseSchedule};
+use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 
 use super::{EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast};
 
@@ -199,6 +199,7 @@ pub struct VersionCache {
     pub error: Option<String>,
     pub schedule: Option<ReleaseSchedule>,
     pub schedule_error: Option<String>,
+    pub metadata: Option<HashMap<String, VersionMeta>>,
     pub loaded_from_disk: bool,
     pub disk_cached_at: Option<DateTime<Utc>>,
 }
@@ -213,6 +214,7 @@ impl VersionCache {
             error: None,
             schedule: None,
             schedule_error: None,
+            metadata: None,
             loaded_from_disk: false,
             disk_cached_at: None,
         }

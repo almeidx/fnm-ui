@@ -9,7 +9,7 @@ use iced::widget::{Space, button, column, container, scrollable, text};
 use iced::{Alignment, Element, Length};
 
 use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion, VersionGroup};
-use versi_core::ReleaseSchedule;
+use versi_core::{ReleaseSchedule, VersionMeta};
 
 use crate::message::Message;
 use crate::state::{EnvironmentState, OperationQueue, SearchFilter};
@@ -142,6 +142,7 @@ pub fn view<'a>(
     hovered_version: &'a Option<String>,
     search_results_limit: usize,
     active_filters: &'a HashSet<SearchFilter>,
+    metadata: Option<&'a HashMap<String, VersionMeta>>,
 ) -> Element<'a, Message> {
     if env.loading && env.installed_versions.is_empty() {
         return container(
@@ -206,6 +207,7 @@ pub fn view<'a>(
                 operation_queue,
                 hovered_version,
                 active_filters,
+                metadata,
             ));
         }
     }
@@ -241,6 +243,7 @@ pub fn view<'a>(
                     operation_queue,
                     &env.installed_set,
                     hovered_version,
+                    metadata,
                 ));
             }
 
