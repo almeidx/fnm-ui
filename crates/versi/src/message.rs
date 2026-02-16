@@ -6,6 +6,7 @@ use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
 
+use crate::backend_kind::BackendKind;
 use crate::settings::TrayBehavior;
 use crate::state::SearchFilter;
 use crate::tray::TrayMessage;
@@ -106,11 +107,11 @@ pub enum Message {
     ImportSettings,
     SettingsImported(Result<(), String>),
 
-    PreferredBackendChanged(String),
+    PreferredBackendChanged(BackendKind),
 
     OnboardingNext,
     OnboardingBack,
-    OnboardingSelectBackend(String),
+    OnboardingSelectBackend(BackendKind),
     OnboardingInstallBackend,
     OnboardingBackendInstallResult(Result<(), String>),
     OnboardingConfigureShell(ShellType),
@@ -168,13 +169,13 @@ pub struct InitResult {
     pub backend_dir: Option<PathBuf>,
     pub backend_version: Option<String>,
     pub environments: Vec<EnvironmentInfo>,
-    pub detected_backends: Vec<&'static str>,
+    pub detected_backends: Vec<BackendKind>,
 }
 
 #[derive(Debug, Clone)]
 pub struct EnvironmentInfo {
     pub id: EnvironmentId,
-    pub backend_name: &'static str,
+    pub backend_name: BackendKind,
     pub backend_version: Option<String>,
     pub available: bool,
     pub unavailable_reason: Option<String>,

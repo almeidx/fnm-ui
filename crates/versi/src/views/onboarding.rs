@@ -1,11 +1,12 @@
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
+use crate::backend_kind::BackendKind;
 use crate::message::Message;
 use crate::state::{OnboardingState, OnboardingStep};
 use crate::theme::styles;
 
-pub fn view<'a>(state: &'a OnboardingState, backend_name: &'a str) -> Element<'a, Message> {
+pub fn view<'a>(state: &'a OnboardingState, backend_name: BackendKind) -> Element<'a, Message> {
     let content = match state.step {
         OnboardingStep::Welcome => welcome_step(backend_name),
         OnboardingStep::SelectBackend => select_backend_step(state),
@@ -104,7 +105,7 @@ fn full_step_index(step: &OnboardingStep, has_select: bool) -> usize {
     }
 }
 
-fn welcome_step(backend_name: &str) -> Element<'_, Message> {
+fn welcome_step(backend_name: BackendKind) -> Element<'static, Message> {
     column![
         text("Welcome to Versi").size(32),
         Space::new().height(16),
@@ -129,11 +130,10 @@ fn select_backend_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     ]
     .spacing(8);
 
-    let selected = state.selected_backend.as_deref();
+    let selected = state.selected_backend;
 
     for backend in &state.available_backends {
-        let is_selected = selected == Some(backend.name);
-        let name = backend.name.to_string();
+        let is_selected = selected == Some(backend.kind);
 
         let btn_style = if is_selected {
             styles::primary_button
@@ -149,7 +149,7 @@ fn select_backend_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
 
         content = content.push(
             button(text(label).size(14))
-                .on_press(Message::OnboardingSelectBackend(name))
+                .on_press(Message::OnboardingSelectBackend(backend.kind))
                 .style(btn_style)
                 .padding([12, 24])
                 .width(Length::Fill),
@@ -162,7 +162,7 @@ fn select_backend_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
 
 fn install_backend_step<'a>(
     state: &'a OnboardingState,
-    backend_name: &str,
+    backend_name: BackendKind,
 ) -> Element<'a, Message> {
     let mut content = column![
         text(format!("Install {}", backend_name)).size(28),
@@ -209,10 +209,7 @@ fn install_backend_step<'a>(
     content.into()
 }
 
-fn configure_shell_step<'a>(
-    state: &'a OnboardingState,
-    backend_name: &str,
-) -> Element<'a, Message> {
+fn configure_shell_step<'a>(state: &'a OnboardingState, backend_name: BackendKind) -> Element<'a, Message> {
     let mut content = column![
         text("Configure Shell").size(28),
         Space::new().height(16),

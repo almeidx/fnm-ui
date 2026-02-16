@@ -1,5 +1,6 @@
 use iced::Task;
 
+use crate::backend_kind::BackendKind;
 use crate::message::Message;
 use crate::state::{AppState, OnboardingStep};
 
@@ -41,16 +42,16 @@ impl Versi {
         }
     }
 
-    pub(super) fn handle_onboarding_select_backend(&mut self, name: String) {
+    pub(super) fn handle_onboarding_select_backend(&mut self, kind: BackendKind) {
         if let AppState::Onboarding(state) = &mut self.state {
-            state.selected_backend = Some(name.clone());
+            state.selected_backend = Some(kind);
         }
-        self.settings.preferred_backend = Some(name.clone());
+        self.settings.preferred_backend = Some(kind);
         if let Err(e) = self.settings.save() {
             log::error!("Failed to save settings: {e}");
         }
 
-        if let Some(provider) = self.providers.get(name.as_str()) {
+        if let Some(provider) = self.providers.get(&kind) {
             self.provider = provider.clone();
         }
     }
@@ -101,7 +102,9 @@ impl Versi {
                 shell.error = None;
             }
 
-            let backend_opts = self.settings.shell_options_for(self.provider.name());
+            let backend_opts = self.settings.shell_options_for(
+                BackendKind::from_name(self.provider.name()).unwrap_or(BackendKind::DEFAULT),
+            );
             let options = versi_shell::ShellInitOptions {
                 use_on_cd: backend_opts.use_on_cd,
                 resolve_engines: backend_opts.resolve_engines,

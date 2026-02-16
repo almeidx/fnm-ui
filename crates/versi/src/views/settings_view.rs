@@ -1,6 +1,7 @@
 use iced::widget::{Space, button, column, container, row, scrollable, text, toggler, tooltip};
 use iced::{Alignment, Element, Length};
 
+use crate::backend_kind::BackendKind;
 use crate::icon;
 use crate::message::Message;
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
@@ -351,11 +352,11 @@ pub fn view<'a>(
 }
 
 fn engine_button<'a>(
-    name: &'static str,
+    kind: BackendKind,
     is_selected: bool,
     is_detected: bool,
 ) -> Element<'a, Message> {
-    let btn = button(text(name).size(13))
+    let btn = button(text(kind.as_str()).size(13))
         .style(if is_selected {
             styles::primary_button
         } else {
@@ -364,12 +365,11 @@ fn engine_button<'a>(
         .padding([10, 16]);
 
     if is_detected {
-        btn.on_press(Message::PreferredBackendChanged(name.to_string()))
-            .into()
+        btn.on_press(Message::PreferredBackendChanged(kind)).into()
     } else {
         tooltip(
             btn,
-            container(text(format!("{} is not installed", name)).size(12))
+            container(text(format!("{} is not installed", kind)).size(12))
                 .padding([4, 8])
                 .style(styles::tooltip_container),
             tooltip::Position::Bottom,
@@ -407,13 +407,13 @@ fn launch_at_login_row(settings: &AppSettings) -> Element<'_, Message> {
 }
 
 fn engine_selector<'a>(settings: &'a AppSettings, state: &'a MainState) -> Element<'a, Message> {
-    let preferred = settings.preferred_backend.as_deref().unwrap_or("fnm");
-    let fnm_detected = state.detected_backends.contains(&"fnm");
-    let nvm_detected = state.detected_backends.contains(&"nvm");
+    let preferred = settings.preferred_backend.unwrap_or(BackendKind::DEFAULT);
+    let fnm_detected = state.detected_backends.contains(&BackendKind::Fnm);
+    let nvm_detected = state.detected_backends.contains(&BackendKind::Nvm);
 
     row![
-        engine_button("fnm", preferred == "fnm", fnm_detected),
-        engine_button("nvm", preferred == "nvm", nvm_detected),
+        engine_button(BackendKind::Fnm, preferred == BackendKind::Fnm, fnm_detected),
+        engine_button(BackendKind::Nvm, preferred == BackendKind::Nvm, nvm_detected),
     ]
     .spacing(8)
     .into()

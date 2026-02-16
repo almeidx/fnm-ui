@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use versi_platform::AppPaths;
 
+use crate::backend_kind::BackendKind;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     #[serde(default)]
@@ -27,13 +29,17 @@ pub struct AppSettings {
     pub node_dist_mirror: Option<String>,
 
     #[serde(default)]
-    pub backend_shell_options: HashMap<String, ShellOptions>,
+    #[serde(
+        deserialize_with = "deserialize_backend_shell_options",
+        serialize_with = "serialize_backend_shell_options"
+    )]
+    pub backend_shell_options: HashMap<BackendKind, ShellOptions>,
 
     #[serde(default, skip_serializing)]
     shell_options: Option<ShellOptions>,
 
     #[serde(default)]
-    pub preferred_backend: Option<String>,
+    pub preferred_backend: Option<BackendKind>,
 
     #[serde(default)]
     pub debug_logging: bool,
@@ -145,6 +151,31 @@ fn default_retry_delays() -> Vec<u64> {
     vec![0, 2, 5, 15]
 }
 
+fn deserialize_backend_shell_options<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<BackendKind, ShellOptions>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = HashMap::<String, ShellOptions>::deserialize(deserializer)?;
+    Ok(raw
+        .into_iter()
+        .filter_map(|(name, options)| BackendKind::from_name(&name).map(|kind| (kind, options)))
+        .collect())
+}
+
+fn serialize_backend_shell_options<S>(
+    map: &HashMap<BackendKind, ShellOptions>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let raw: HashMap<&str, &ShellOptions> =
+        map.iter().map(|(kind, options)| (kind.as_str(), options)).collect();
+    raw.serialize(serializer)
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -196,7 +227,7 @@ impl AppSettings {
         {
             settings
                 .backend_shell_options
-                .insert("fnm".to_string(), legacy);
+                .insert(BackendKind::Fnm, legacy);
         }
 
         settings
@@ -211,17 +242,15 @@ impl AppSettings {
         Ok(())
     }
 
-    pub fn shell_options_for(&self, backend: &str) -> ShellOptions {
+    pub fn shell_options_for(&self, backend: BackendKind) -> ShellOptions {
         self.backend_shell_options
-            .get(backend)
+            .get(&backend)
             .cloned()
             .unwrap_or_default()
     }
 
-    pub fn shell_options_for_mut(&mut self, backend: &str) -> &mut ShellOptions {
-        self.backend_shell_options
-            .entry(backend.to_string())
-            .or_default()
+    pub fn shell_options_for_mut(&mut self, backend: BackendKind) -> &mut ShellOptions {
+        self.backend_shell_options.entry(backend).or_default()
     }
 }
 

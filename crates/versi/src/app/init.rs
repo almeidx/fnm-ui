@@ -8,6 +8,7 @@ use versi_backend::{BackendDetection, BackendProvider, VersionManager};
 use versi_platform::EnvironmentId;
 use versi_shell::detect_shells;
 
+use crate::backend_kind::BackendKind;
 use crate::message::{EnvironmentInfo, InitResult, Message};
 use crate::state::{
     AppState, BackendOption, EnvironmentState, MainState, OnboardingState, ShellConfigStatus,
@@ -47,9 +48,9 @@ impl Versi {
 
             onboarding.available_backends = self
                 .providers
-                .values()
-                .map(|p| BackendOption {
-                    name: p.name(),
+                .iter()
+                .map(|(kind, p)| BackendOption {
+                    kind: *kind,
                     display_name: p.display_name(),
                     detected: false,
                 })
@@ -60,9 +61,11 @@ impl Versi {
         }
 
         let native_env = result.environments.first();
-        let active_backend_name = native_env.map(|e| e.backend_name).unwrap_or("fnm");
+        let active_backend_name = native_env
+            .map(|e| e.backend_name)
+            .unwrap_or(BackendKind::DEFAULT);
 
-        if let Some(provider) = self.providers.get(active_backend_name) {
+        if let Some(provider) = self.providers.get(&active_backend_name) {
             self.provider = provider.clone();
         }
 
@@ -150,7 +153,7 @@ impl Versi {
 
             let provider = self
                 .providers
-                .get(env_backend_name)
+                .get(&env_backend_name)
                 .cloned()
                 .unwrap_or_else(|| self.provider.clone());
 
@@ -190,15 +193,18 @@ impl Versi {
 
 pub(super) async fn initialize(
     providers: Vec<Arc<dyn BackendProvider>>,
-    preferred: Option<String>,
+    preferred: Option<BackendKind>,
 ) -> InitResult {
     info!(
         "Initializing application with {} providers...",
         providers.len()
     );
 
-    let mut detections: Vec<(&'static str, BackendDetection)> = Vec::new();
+    let mut detections: Vec<(BackendKind, BackendDetection)> = Vec::new();
     for provider in &providers {
+        let Some(kind) = BackendKind::from_name(provider.name()) else {
+            continue;
+        };
         debug!("Detecting {} installation...", provider.name());
         let detection = provider.detect().await;
         info!(
@@ -208,18 +214,15 @@ pub(super) async fn initialize(
             detection.path,
             detection.version
         );
-        detections.push((provider.name(), detection));
+        detections.push((kind, detection));
     }
 
-    let preferred_name: &'static str = match preferred.as_deref() {
-        Some("nvm") => "nvm",
-        _ => "fnm",
-    };
+    let preferred_name = preferred.unwrap_or(BackendKind::DEFAULT);
 
-    let detected_backends: Vec<&'static str> = detections
+    let detected_backends: Vec<BackendKind> = detections
         .iter()
         .filter(|(_, det)| det.found)
-        .map(|(name, _)| *name)
+        .map(|(kind, _)| *kind)
         .collect();
 
     let chosen = detections
@@ -352,11 +355,11 @@ pub(super) async fn initialize(
 }
 
 #[cfg(windows)]
-fn determine_wsl_backend(path: &str, default_name: &'static str) -> &'static str {
+fn determine_wsl_backend(path: &str, default_name: BackendKind) -> BackendKind {
     if path.contains("nvm") {
-        "nvm"
+        BackendKind::Nvm
     } else if path.contains("fnm") {
-        "fnm"
+        BackendKind::Fnm
     } else {
         default_name
     }

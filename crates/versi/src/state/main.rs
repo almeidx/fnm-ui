@@ -5,6 +5,8 @@ use chrono::{DateTime, Utc};
 use versi_backend::{BackendUpdate, NodeVersion, RemoteVersion, VersionManager};
 use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 
+use crate::backend_kind::BackendKind;
+
 use super::{
     ContextMenu, EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast,
 };
@@ -33,8 +35,8 @@ pub struct MainState {
     pub view: MainViewKind,
     pub settings_state: SettingsModalState,
     pub hovered_version: Option<String>,
-    pub backend_name: &'static str,
-    pub detected_backends: Vec<&'static str>,
+    pub backend_name: BackendKind,
+    pub detected_backends: Vec<BackendKind>,
     pub refresh_rotation: f32,
     pub active_filters: HashSet<SearchFilter>,
     pub context_menu: Option<ContextMenu>,
@@ -78,7 +80,7 @@ impl MainState {
     pub fn new_with_environments(
         backend: Box<dyn VersionManager>,
         environments: Vec<EnvironmentState>,
-        backend_name: &'static str,
+        backend_name: BackendKind,
     ) -> Self {
         Self {
             environments,

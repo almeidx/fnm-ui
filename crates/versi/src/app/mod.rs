@@ -20,6 +20,7 @@ use iced::{Element, Subscription, Task, Theme};
 
 use versi_backend::BackendProvider;
 
+use crate::backend_kind::BackendKind;
 use crate::message::Message;
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{AppState, MainViewKind};
@@ -54,7 +55,7 @@ pub struct Versi {
     pub(crate) window_size: Option<iced::Size>,
     pub(crate) window_position: Option<iced::Point>,
     pub(crate) http_client: reqwest::Client,
-    pub(crate) providers: HashMap<&'static str, Arc<dyn BackendProvider>>,
+    pub(crate) providers: HashMap<BackendKind, Arc<dyn BackendProvider>>,
     pub(crate) provider: Arc<dyn BackendProvider>,
     pub(crate) system_theme_mode: iced::theme::Mode,
 }
@@ -76,12 +77,12 @@ impl Versi {
         let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
         let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
 
-        let mut providers: HashMap<&'static str, Arc<dyn BackendProvider>> = HashMap::new();
-        providers.insert(fnm_provider.name(), fnm_provider.clone());
-        providers.insert(nvm_provider.name(), nvm_provider.clone());
+        let mut providers: HashMap<BackendKind, Arc<dyn BackendProvider>> = HashMap::new();
+        providers.insert(BackendKind::Fnm, fnm_provider.clone());
+        providers.insert(BackendKind::Nvm, nvm_provider.clone());
 
-        let preferred = settings.preferred_backend.as_deref().unwrap_or("fnm");
-        let active_provider = providers.get(preferred).cloned().unwrap_or(fnm_provider);
+        let preferred = settings.preferred_backend.unwrap_or(BackendKind::DEFAULT);
+        let active_provider = providers.get(&preferred).cloned().unwrap_or(fnm_provider);
 
         let app = Self {
             state: AppState::Loading,
@@ -344,15 +345,15 @@ impl Versi {
                 Task::none()
             }
             Message::ShellOptionUseOnCdToggled(value) => {
-                let backend_name = self.active_backend_name();
-                self.settings.shell_options_for_mut(backend_name).use_on_cd = value;
+                let backend_kind = self.active_backend_kind();
+                self.settings.shell_options_for_mut(backend_kind).use_on_cd = value;
                 if let Err(e) = self.settings.save() {
                     log::error!("Failed to save settings: {e}");
                 }
                 self.update_shell_flags()
             }
             Message::ShellOptionResolveEnginesToggled(value) => {
-                let backend_name = self.active_backend_name();
+                let backend_name = self.active_backend_kind();
                 self.settings
                     .shell_options_for_mut(backend_name)
                     .resolve_engines = value;
@@ -362,7 +363,7 @@ impl Versi {
                 self.update_shell_flags()
             }
             Message::ShellOptionCorepackEnabledToggled(value) => {
-                let backend_name = self.active_backend_name();
+                let backend_name = self.active_backend_kind();
                 self.settings
                     .shell_options_for_mut(backend_name)
                     .corepack_enabled = value;
@@ -659,8 +660,7 @@ impl Versi {
             AppState::Onboarding(state) => {
                 let backend_name = state
                     .selected_backend
-                    .as_deref()
-                    .unwrap_or(self.provider.name());
+                    .unwrap_or(self.active_backend_kind());
                 views::onboarding::view(state, backend_name)
             }
             AppState::Main(state) => {
@@ -828,16 +828,16 @@ impl Versi {
         }
     }
 
-    fn handle_preferred_backend_changed(&mut self, name: String) -> Task<Message> {
-        self.settings.preferred_backend = Some(name.clone());
+    fn handle_preferred_backend_changed(&mut self, name: BackendKind) -> Task<Message> {
+        self.settings.preferred_backend = Some(name);
         if let Err(e) = self.settings.save() {
             log::error!("Failed to save settings: {e}");
         }
 
         if let AppState::Main(state) = &mut self.state {
-            let is_detected = state.detected_backends.contains(&name.as_str());
-            if is_detected && state.backend_name != name.as_str() {
-                if let Some(provider) = self.providers.get(name.as_str()) {
+            let is_detected = state.detected_backends.contains(&name);
+            if is_detected && state.backend_name != name {
+                if let Some(provider) = self.providers.get(&name) {
                     self.provider = provider.clone();
                 }
                 let all_providers = self.all_providers();
@@ -857,26 +857,26 @@ impl Versi {
         self.providers.values().cloned().collect()
     }
 
-    pub(crate) fn provider_for_name(&self, name: &str) -> Arc<dyn BackendProvider> {
+    pub(crate) fn provider_for_kind(&self, kind: BackendKind) -> Arc<dyn BackendProvider> {
         self.providers
-            .get(name)
+            .get(&kind)
             .cloned()
             .unwrap_or_else(|| self.provider.clone())
     }
 
     pub(crate) fn active_provider(&self) -> Arc<dyn BackendProvider> {
         if let AppState::Main(state) = &self.state {
-            self.provider_for_name(state.backend_name)
+            self.provider_for_kind(state.backend_name)
         } else {
             self.provider.clone()
         }
     }
 
-    pub(crate) fn active_backend_name(&self) -> &'static str {
+    pub(crate) fn active_backend_kind(&self) -> BackendKind {
         if let AppState::Main(state) = &self.state {
             state.backend_name
         } else {
-            self.provider.name()
+            BackendKind::from_name(self.provider.name()).unwrap_or(BackendKind::DEFAULT)
         }
     }
 }

@@ -3,6 +3,7 @@
 use iced::window;
 
 mod app;
+mod backend_kind;
 mod cache;
 mod icon;
 mod logging;

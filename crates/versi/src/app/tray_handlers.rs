@@ -63,7 +63,10 @@ impl Versi {
                 }
             }
             TrayMessage::SetDefault { env_index, version } => {
-                let mut switched_env: Option<(versi_platform::EnvironmentId, &'static str)> = None;
+                let mut switched_env: Option<(
+                    versi_platform::EnvironmentId,
+                    crate::backend_kind::BackendKind,
+                )> = None;
 
                 if let AppState::Main(state) = &mut self.state
                     && env_index != state.active_environment_idx
@@ -76,7 +79,7 @@ impl Versi {
                 }
 
                 if let Some((env_id, backend_name)) = switched_env {
-                    let env_provider = self.provider_for_name(backend_name);
+                    let env_provider = self.provider_for_kind(backend_name);
                     self.provider = env_provider.clone();
                     if let AppState::Main(state) = &mut self.state {
                         state.backend = create_backend_for_environment(

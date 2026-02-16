@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use versi_shell::ShellType;
 
+use crate::backend_kind::BackendKind;
+
 #[derive(Debug)]
 pub struct OnboardingState {
     pub step: OnboardingStep,
@@ -9,7 +11,7 @@ pub struct OnboardingState {
     pub install_error: Option<String>,
     pub detected_shells: Vec<ShellConfigStatus>,
     pub available_backends: Vec<BackendOption>,
-    pub selected_backend: Option<String>,
+    pub selected_backend: Option<BackendKind>,
 }
 
 impl OnboardingState {
@@ -45,7 +47,7 @@ pub struct ShellConfigStatus {
 
 #[derive(Debug, Clone)]
 pub struct BackendOption {
-    pub name: &'static str,
+    pub kind: BackendKind,
     pub display_name: &'static str,
     pub detected: bool,
 }

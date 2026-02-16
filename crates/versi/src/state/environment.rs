@@ -3,6 +3,8 @@ use std::collections::HashSet;
 use versi_backend::{InstalledVersion, NodeVersion, VersionGroup};
 use versi_platform::EnvironmentId;
 
+use crate::backend_kind::BackendKind;
+
 #[derive(Debug)]
 pub struct EnvironmentState {
     pub id: EnvironmentId,
@@ -11,7 +13,7 @@ pub struct EnvironmentState {
     pub installed_set: HashSet<String>,
     pub version_groups: Vec<VersionGroup>,
     pub default_version: Option<NodeVersion>,
-    pub backend_name: &'static str,
+    pub backend_name: BackendKind,
     pub backend_version: Option<String>,
     pub loading: bool,
     pub error: Option<String>,
@@ -21,7 +23,7 @@ pub struct EnvironmentState {
 impl EnvironmentState {
     pub fn new(
         id: EnvironmentId,
-        backend_name: &'static str,
+        backend_name: BackendKind,
         backend_version: Option<String>,
     ) -> Self {
         let name = id.display_name();
@@ -40,7 +42,7 @@ impl EnvironmentState {
         }
     }
 
-    pub fn unavailable(id: EnvironmentId, backend_name: &'static str, reason: &str) -> Self {
+    pub fn unavailable(id: EnvironmentId, backend_name: BackendKind, reason: &str) -> Self {
         let name = id.display_name();
         Self {
             id,

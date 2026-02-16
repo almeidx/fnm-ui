@@ -258,7 +258,7 @@ impl Versi {
         {
             let version = version.clone();
             let client = self.http_client.clone();
-            let provider = self.provider_for_name(state.backend_name);
+            let provider = self.provider_for_kind(state.backend_name);
             return Task::perform(
                 async move { provider.check_for_update(&client, &version).await },
                 Message::BackendUpdateChecked,

@@ -81,7 +81,7 @@ impl Versi {
 
             let env_provider = self
                 .providers
-                .get(env.backend_name)
+                .get(&env.backend_name)
                 .cloned()
                 .unwrap_or_else(|| self.provider.clone());
             self.provider = env_provider.clone();

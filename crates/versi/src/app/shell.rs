@@ -107,7 +107,7 @@ impl Versi {
         }
 
         if let Some(options) = first_detected_options {
-            let backend_name = self.active_backend_name();
+            let backend_name = self.active_backend_kind();
             let backend_opts = self.settings.shell_options_for_mut(backend_name);
             backend_opts.use_on_cd = options.use_on_cd;
             backend_opts.resolve_engines = options.resolve_engines;
@@ -130,7 +130,9 @@ impl Versi {
         }
 
         let provider = self.active_provider();
-        let backend_opts = self.settings.shell_options_for(provider.name());
+        let backend_opts = self
+            .settings
+            .shell_options_for(backend_kind_from_provider(&provider));
         let options = ShellInitOptions {
             use_on_cd: backend_opts.use_on_cd,
             resolve_engines: backend_opts.resolve_engines,
@@ -235,7 +237,9 @@ impl Versi {
 
     pub(super) fn update_shell_flags(&self) -> Task<Message> {
         let provider = self.active_provider();
-        let backend_opts = self.settings.shell_options_for(provider.name());
+        let backend_opts = self
+            .settings
+            .shell_options_for(backend_kind_from_provider(&provider));
         let options = ShellInitOptions {
             use_on_cd: backend_opts.use_on_cd,
             resolve_engines: backend_opts.resolve_engines,
@@ -268,4 +272,9 @@ impl Versi {
             |_| Message::ShellFlagsUpdated,
         )
     }
+}
+
+fn backend_kind_from_provider(provider: &std::sync::Arc<dyn versi_backend::BackendProvider>) -> crate::backend_kind::BackendKind {
+    crate::backend_kind::BackendKind::from_name(provider.name())
+        .unwrap_or(crate::backend_kind::BackendKind::DEFAULT)
 }
