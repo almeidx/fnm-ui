@@ -71,3 +71,18 @@ mod other_impl {
 pub use other_impl::{SingleInstance, bring_existing_window_to_front};
 #[cfg(windows)]
 pub use windows_impl::{SingleInstance, bring_existing_window_to_front};
+
+#[cfg(all(test, not(windows)))]
+mod tests {
+    use super::{SingleInstance, bring_existing_window_to_front};
+
+    #[test]
+    fn non_windows_acquire_returns_instance() {
+        assert!(SingleInstance::acquire().is_ok());
+    }
+
+    #[test]
+    fn non_windows_bring_existing_window_to_front_is_noop() {
+        bring_existing_window_to_front();
+    }
+}

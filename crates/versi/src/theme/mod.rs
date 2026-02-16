@@ -44,3 +44,42 @@ pub fn dark_theme() -> Theme {
         },
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::tahoe;
+
+    fn assert_close(actual: f32, expected: f32) {
+        assert!(
+            (actual - expected).abs() < 0.0001,
+            "expected {expected}, got {actual}"
+        );
+    }
+
+    #[test]
+    fn tahoe_radius_constants_are_stable() {
+        assert_close(tahoe::RADIUS_SM, 8.0);
+        assert_close(tahoe::RADIUS_MD, 12.0);
+        assert_close(tahoe::RADIUS_LG, 16.0);
+    }
+
+    #[test]
+    fn tahoe_card_background_uses_expected_light_color() {
+        let color = tahoe::card_bg(false);
+
+        assert_close(color.r, 1.0);
+        assert_close(color.g, 1.0);
+        assert_close(color.b, 1.0);
+        assert_close(color.a, 0.72);
+    }
+
+    #[test]
+    fn tahoe_card_background_uses_expected_dark_color() {
+        let color = tahoe::card_bg(true);
+
+        assert_close(color.r, 44.0 / 255.0);
+        assert_close(color.g, 44.0 / 255.0);
+        assert_close(color.b, 46.0 / 255.0);
+        assert_close(color.a, 0.72);
+    }
+}
