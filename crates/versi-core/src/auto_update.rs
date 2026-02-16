@@ -399,3 +399,76 @@ pub fn restart_app() -> Result<(), String> {
         .map_err(|e| format!("Failed to restart app: {e}"))?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write as _;
+
+    use super::extract_zip;
+
+    #[test]
+    fn extract_zip_expands_files_and_directories() {
+        let temp = tempfile::tempdir().expect("tempdir should be created");
+        let zip_path = temp.path().join("update.zip");
+        let extract_dir = temp.path().join("extract");
+
+        let zip_file = std::fs::File::create(&zip_path).expect("zip file should be created");
+        let mut writer = zip::ZipWriter::new(zip_file);
+        let options = zip::write::SimpleFileOptions::default().unix_permissions(0o644);
+        writer
+            .add_directory("nested/", options)
+            .expect("directory entry should be written");
+        writer
+            .start_file("nested/versi", options)
+            .expect("file entry should be started");
+        writer
+            .write_all(b"binary-content")
+            .expect("file entry should be written");
+        writer.finish().expect("zip archive should be finalized");
+
+        extract_zip(&zip_path, &extract_dir).expect("zip should extract");
+
+        let extracted = std::fs::read(extract_dir.join("nested/versi"))
+            .expect("extracted file should exist and be readable");
+        assert_eq!(extracted, b"binary-content");
+    }
+
+    #[test]
+    fn extract_zip_skips_unsafe_paths() {
+        let temp = tempfile::tempdir().expect("tempdir should be created");
+        let zip_path = temp.path().join("unsafe.zip");
+        let extract_dir = temp.path().join("extract");
+
+        let zip_file = std::fs::File::create(&zip_path).expect("zip file should be created");
+        let mut writer = zip::ZipWriter::new(zip_file);
+        let options = zip::write::SimpleFileOptions::default().unix_permissions(0o644);
+        writer
+            .start_file("../outside.txt", options)
+            .expect("unsafe file entry should be started");
+        writer
+            .write_all(b"should not be extracted")
+            .expect("unsafe file entry should be written");
+        writer.finish().expect("zip archive should be finalized");
+
+        extract_zip(&zip_path, &extract_dir).expect("zip extraction should not fail");
+
+        assert!(
+            !temp.path().join("outside.txt").exists(),
+            "unsafe path should not be extracted outside destination"
+        );
+        assert!(
+            !extract_dir.join("../outside.txt").exists(),
+            "unsafe relative extraction output should not exist"
+        );
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn apply_msi_reports_unsupported_on_non_windows() {
+        let result = super::apply_msi(std::path::Path::new("/tmp/update.msi"));
+        assert!(matches!(
+            result,
+            Err(ref message) if message == "MSI installation is only supported on Windows"
+        ));
+    }
+}
