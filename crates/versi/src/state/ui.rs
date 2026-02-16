@@ -89,7 +89,9 @@ mod tests {
         let stale = Toast {
             id: 2,
             message: "stale".to_string(),
-            created_at: Instant::now() - Duration::from_secs(2),
+            created_at: Instant::now()
+                .checked_sub(Duration::from_secs(2))
+                .expect("constructing stale toast timestamp should not underflow"),
         };
         assert!(stale.is_expired(1));
     }
