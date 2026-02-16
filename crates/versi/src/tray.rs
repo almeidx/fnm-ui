@@ -244,3 +244,85 @@ pub fn tray_subscription() -> Subscription<Message> {
         })
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+    use versi_platform::EnvironmentId;
+
+    use super::{TrayMenuData, TrayMessage, parse_menu_event};
+    use crate::backend_kind::BackendKind;
+    use crate::state::EnvironmentState;
+
+    fn installed(version: &str, is_default: bool) -> versi_backend::InstalledVersion {
+        versi_backend::InstalledVersion {
+            version: version.parse().expect("test version should parse"),
+            is_default,
+            lts_codename: None,
+            install_date: Some(Utc::now()),
+            disk_size: None,
+        }
+    }
+
+    #[test]
+    fn tray_menu_data_includes_only_available_environments_with_versions() {
+        let mut native = EnvironmentState::new(EnvironmentId::Native, BackendKind::Fnm, None);
+        native.available = true;
+        native.loading = false;
+        native.installed_versions = vec![installed("v20.11.0", true)];
+
+        let mut unavailable =
+            EnvironmentState::unavailable(EnvironmentId::Native, BackendKind::Fnm, "offline");
+        unavailable.installed_versions = vec![installed("v18.19.1", false)];
+
+        let mut empty = EnvironmentState::new(
+            EnvironmentId::Wsl {
+                distro: "Ubuntu".to_string(),
+                backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+            },
+            BackendKind::Nvm,
+            None,
+        );
+        empty.available = true;
+        empty.loading = false;
+        empty.installed_versions.clear();
+
+        let menu = TrayMenuData::from_environments(&[native, unavailable, empty], true);
+
+        assert!(menu.window_visible);
+        assert_eq!(menu.environments.len(), 1);
+        assert_eq!(menu.environments[0].env_index, 0);
+        assert_eq!(menu.environments[0].versions.len(), 1);
+        assert_eq!(menu.environments[0].versions[0].version, "v20.11.0");
+        assert!(menu.environments[0].versions[0].is_default);
+    }
+
+    #[test]
+    fn parse_menu_event_maps_actions_and_set_default_payload() {
+        assert!(matches!(
+            parse_menu_event("show_window"),
+            Some(TrayMessage::ShowWindow)
+        ));
+        assert!(matches!(
+            parse_menu_event("hide_window"),
+            Some(TrayMessage::HideWindow)
+        ));
+        assert!(matches!(
+            parse_menu_event("open_settings"),
+            Some(TrayMessage::OpenSettings)
+        ));
+        assert!(matches!(
+            parse_menu_event("open_about"),
+            Some(TrayMessage::OpenAbout)
+        ));
+        assert!(matches!(parse_menu_event("quit"), Some(TrayMessage::Quit)));
+
+        assert!(matches!(
+            parse_menu_event("set:2:v20.11.0"),
+            Some(TrayMessage::SetDefault { env_index: 2, version })
+                if version == "v20.11.0"
+        ));
+        assert!(parse_menu_event("set:abc:v20.11.0").is_none());
+        assert!(parse_menu_event("unknown").is_none());
+    }
+}
