@@ -533,3 +533,168 @@ pub(super) fn create_backend_for_environment(
         } => provider.create_manager_for_wsl(distro.clone(), backend_path.clone()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use versi_backend::{BackendDetection, BackendProvider};
+    use versi_platform::EnvironmentId;
+
+    use super::{
+        build_environment_states, choose_backend_detection, collect_detected_backends,
+        create_backend_for_environment, native_environment, no_backend_init_result,
+    };
+    use crate::backend_kind::BackendKind;
+    use crate::message::EnvironmentInfo;
+
+    fn detection(found: bool, path: Option<&str>) -> BackendDetection {
+        BackendDetection {
+            found,
+            path: path.map(PathBuf::from),
+            version: Some("1.0.0".to_string()),
+            in_path: true,
+            data_dir: None,
+        }
+    }
+
+    #[test]
+    fn collect_detected_backends_returns_only_found_entries() {
+        let detections = vec![
+            (BackendKind::Fnm, detection(true, Some("/usr/bin/fnm"))),
+            (BackendKind::Nvm, detection(false, None)),
+        ];
+
+        let detected = collect_detected_backends(&detections);
+
+        assert_eq!(detected, vec![BackendKind::Fnm]);
+    }
+
+    #[test]
+    fn choose_backend_detection_prefers_requested_backend() {
+        let detections = vec![
+            (BackendKind::Fnm, detection(true, Some("/usr/bin/fnm"))),
+            (BackendKind::Nvm, detection(true, Some("/usr/bin/nvm"))),
+        ];
+
+        let chosen =
+            choose_backend_detection(&detections, BackendKind::Nvm).expect("expected backend");
+
+        assert_eq!(chosen.0, BackendKind::Nvm);
+    }
+
+    #[test]
+    fn choose_backend_detection_falls_back_to_first_found_backend() {
+        let detections = vec![
+            (BackendKind::Fnm, detection(true, Some("/usr/bin/fnm"))),
+            (BackendKind::Nvm, detection(false, None)),
+        ];
+
+        let chosen =
+            choose_backend_detection(&detections, BackendKind::Nvm).expect("expected backend");
+
+        assert_eq!(chosen.0, BackendKind::Fnm);
+    }
+
+    #[test]
+    fn no_backend_init_result_marks_native_environment_unavailable() {
+        let result = no_backend_init_result(BackendKind::Nvm, vec![]);
+
+        assert!(!result.backend_found);
+        assert_eq!(result.environments.len(), 1);
+        assert_eq!(result.environments[0].id, EnvironmentId::Native);
+        assert!(!result.environments[0].available);
+        assert_eq!(
+            result.environments[0].unavailable_reason.as_deref(),
+            Some("No backend installed")
+        );
+    }
+
+    #[test]
+    fn build_environment_states_preserves_available_and_unavailable_entries() {
+        let init = crate::message::InitResult {
+            backend_found: true,
+            backend_path: Some(PathBuf::from("fnm")),
+            backend_dir: None,
+            backend_version: Some("1.38.0".to_string()),
+            environments: vec![
+                EnvironmentInfo {
+                    id: EnvironmentId::Native,
+                    backend_name: BackendKind::Fnm,
+                    backend_version: Some("1.38.0".to_string()),
+                    available: true,
+                    unavailable_reason: None,
+                },
+                EnvironmentInfo {
+                    id: EnvironmentId::Wsl {
+                        distro: "Ubuntu".to_string(),
+                        backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+                    },
+                    backend_name: BackendKind::Nvm,
+                    backend_version: None,
+                    available: false,
+                    unavailable_reason: Some("Not running".to_string()),
+                },
+            ],
+            detected_backends: vec![BackendKind::Fnm],
+        };
+
+        let states = build_environment_states(&init);
+
+        assert_eq!(states.len(), 2);
+        assert!(states[0].available);
+        assert!(states[0].error.is_none());
+        assert!(!states[1].available);
+        assert!(states[1].error.is_some());
+    }
+
+    #[test]
+    fn create_backend_for_environment_native_uses_detected_path() {
+        let provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
+
+        let manager = create_backend_for_environment(
+            &EnvironmentId::Native,
+            PathBuf::from("/custom/fnm").as_path(),
+            Some(&PathBuf::from("/custom/fnm-dir")),
+            &provider,
+        );
+
+        assert_eq!(manager.backend_info().path, PathBuf::from("/custom/fnm"));
+        assert_eq!(
+            manager.backend_info().data_dir,
+            Some(PathBuf::from("/custom/fnm-dir"))
+        );
+    }
+
+    #[test]
+    fn create_backend_for_environment_wsl_uses_wsl_backend_path() {
+        let provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
+        let env = EnvironmentId::Wsl {
+            distro: "Ubuntu".to_string(),
+            backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+        };
+
+        let manager = create_backend_for_environment(
+            &env,
+            PathBuf::from("ignored").as_path(),
+            None,
+            &provider,
+        );
+
+        assert_eq!(
+            manager.backend_info().path,
+            PathBuf::from("/home/user/.nvm/nvm.sh")
+        );
+    }
+
+    #[test]
+    fn native_environment_marks_environment_available() {
+        let env = native_environment(BackendKind::Fnm, Some("1.38.0".to_string()));
+
+        assert_eq!(env.id, EnvironmentId::Native);
+        assert_eq!(env.backend_name, BackendKind::Fnm);
+        assert!(env.available);
+        assert!(env.unavailable_reason.is_none());
+    }
+}
