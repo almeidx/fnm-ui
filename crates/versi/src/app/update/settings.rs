@@ -54,44 +54,21 @@ impl Versi {
             }
             Message::ThemeChanged(theme) => {
                 self.settings.theme = theme;
-                if let Err(e) = self.settings.save() {
-                    log::error!("Failed to save settings: {e}");
-                }
+                self.save_settings_with_log();
                 Ok(Task::none())
             }
             Message::ShellOptionUseOnCdToggled(value) => {
-                let backend_kind = self.active_backend_kind();
-                self.settings.shell_options_for_mut(backend_kind).use_on_cd = value;
-                if let Err(e) = self.settings.save() {
-                    log::error!("Failed to save settings: {e}");
-                }
-                Ok(self.update_shell_flags())
+                Ok(self.update_active_shell_options(|options| options.use_on_cd = value))
             }
             Message::ShellOptionResolveEnginesToggled(value) => {
-                let backend_name = self.active_backend_kind();
-                self.settings
-                    .shell_options_for_mut(backend_name)
-                    .resolve_engines = value;
-                if let Err(e) = self.settings.save() {
-                    log::error!("Failed to save settings: {e}");
-                }
-                Ok(self.update_shell_flags())
+                Ok(self.update_active_shell_options(|options| options.resolve_engines = value))
             }
             Message::ShellOptionCorepackEnabledToggled(value) => {
-                let backend_name = self.active_backend_kind();
-                self.settings
-                    .shell_options_for_mut(backend_name)
-                    .corepack_enabled = value;
-                if let Err(e) = self.settings.save() {
-                    log::error!("Failed to save settings: {e}");
-                }
-                Ok(self.update_shell_flags())
+                Ok(self.update_active_shell_options(|options| options.corepack_enabled = value))
             }
             Message::DebugLoggingToggled(value) => {
                 self.settings.debug_logging = value;
-                if let Err(e) = self.settings.save() {
-                    log::error!("Failed to save settings: {e}");
-                }
+                self.save_settings_with_log();
                 crate::logging::set_logging_enabled(value);
                 if value {
                     info!("Debug logging enabled");
@@ -130,9 +107,7 @@ impl Versi {
                 ))
             }
             Message::RevealSettingsFile => {
-                if let Err(e) = self.settings.save() {
-                    log::error!("Failed to save settings: {e}");
-                }
+                self.save_settings_with_log();
                 let Some(settings_path) = versi_platform::AppPaths::new()
                     .ok()
                     .map(|p| p.settings_file())
@@ -193,9 +168,7 @@ impl Versi {
             }
             Message::StartMinimizedToggled(value) => {
                 self.settings.start_minimized = value;
-                if let Err(e) = self.settings.save() {
-                    log::error!("Failed to save settings: {e}");
-                }
+                self.save_settings_with_log();
                 Ok(Task::none())
             }
             Message::LaunchAtLoginToggled(value) => {
@@ -203,9 +176,7 @@ impl Versi {
                 if let Err(e) = platform::set_launch_at_login(value) {
                     log::error!("Failed to set launch at login: {e}");
                 }
-                if let Err(e) = self.settings.save() {
-                    log::error!("Failed to save settings: {e}");
-                }
+                self.save_settings_with_log();
                 Ok(Task::none())
             }
             Message::SystemThemeChanged(mode) => {
@@ -213,6 +184,22 @@ impl Versi {
                 Ok(Task::none())
             }
             other => Err(Box::new(other)),
+        }
+    }
+
+    fn update_active_shell_options<F>(&mut self, update: F) -> Task<Message>
+    where
+        F: FnOnce(&mut crate::settings::ShellOptions),
+    {
+        let backend_kind = self.active_backend_kind();
+        update(self.settings.shell_options_for_mut(backend_kind));
+        self.save_settings_with_log();
+        self.update_shell_flags()
+    }
+
+    fn save_settings_with_log(&self) {
+        if let Err(e) = self.settings.save() {
+            log::error!("Failed to save settings: {e}");
         }
     }
 }

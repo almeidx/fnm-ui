@@ -475,7 +475,8 @@ mod tests {
             backend_path: "/home/user/.nvm/nvm.sh".to_string(),
         };
 
-        let _ = app.handle_environment_loaded(target_env.clone(), Err("backend unavailable".into()));
+        let _ =
+            app.handle_environment_loaded(target_env.clone(), Err("backend unavailable".into()));
 
         let AppState::Main(state) = &app.state else {
             panic!("expected main state");
