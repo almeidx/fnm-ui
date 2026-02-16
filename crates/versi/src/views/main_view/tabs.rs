@@ -5,7 +5,7 @@ use crate::message::Message;
 use crate::state::MainState;
 use crate::theme::styles;
 
-pub fn environment_tabs_view<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
+pub fn environment_tabs_view(state: &MainState) -> Option<Element<'_, Message>> {
     if state.environments.len() <= 1 {
         return None;
     }

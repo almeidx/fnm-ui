@@ -78,8 +78,7 @@ pub(super) fn filter_available_versions<'a>(
                 version_str.contains(query)
                     || v.lts_codename
                         .as_ref()
-                        .map(|c| c.to_lowercase().contains(&query_lower))
-                        .unwrap_or(false)
+                        .is_some_and(|c| c.to_lowercase().contains(&query_lower))
             })
             .collect();
 
@@ -121,17 +120,13 @@ pub(super) fn filter_available_versions<'a>(
                 return false;
             }
             if active_filters.contains(&SearchFilter::Eol) {
-                let is_eol = schedule
-                    .map(|s| !s.is_active(v.version.major))
-                    .unwrap_or(false);
+                let is_eol = schedule.is_some_and(|s| !s.is_active(v.version.major));
                 if !is_eol {
                     return false;
                 }
             }
             if active_filters.contains(&SearchFilter::Active) {
-                let is_active = schedule
-                    .map(|s| s.is_active(v.version.major))
-                    .unwrap_or(true);
+                let is_active = schedule.is_none_or(|s| s.is_active(v.version.major));
                 if !is_active {
                     return false;
                 }

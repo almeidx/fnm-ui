@@ -9,6 +9,7 @@ use crate::state::{MainState, SettingsModalState, ShellVerificationStatus};
 use crate::theme::styles;
 use crate::widgets::helpers::nav_icons;
 
+#[allow(clippy::too_many_lines)]
 pub fn view<'a>(
     settings_state: &'a SettingsModalState,
     settings: &'a AppSettings,
@@ -301,9 +302,9 @@ pub fn view<'a>(
         .unwrap_or_default();
     let log_size_text = match settings_state.log_file_size {
         Some(0) => "empty".to_string(),
-        Some(size) if size < 1024 => format!("{} B", size),
-        Some(size) if size < 1024 * 1024 => format!("{:.1} KB", size as f64 / 1024.0),
-        Some(size) => format!("{:.1} MB", size as f64 / (1024.0 * 1024.0)),
+        Some(size) if size < 1024 => format!("{size} B"),
+        Some(size) if size < 1024 * 1024 => format_tenths(size, 1024, "KB"),
+        Some(size) => format_tenths(size, 1024 * 1024, "MB"),
         None => "not found".to_string(),
     };
     content = content.push(
@@ -315,7 +316,7 @@ pub fn view<'a>(
                 .on_press(Message::CopyToClipboard(log_path))
                 .style(styles::link_button)
                 .padding(0),
-            text(format!(" ({})", log_size_text))
+            text(format!(" ({log_size_text})"))
                 .size(11)
                 .color(iced::Color::from_rgb8(142, 142, 147)),
         ]
@@ -369,7 +370,7 @@ fn engine_button<'a>(
     } else {
         tooltip(
             btn,
-            container(text(format!("{} is not installed", kind)).size(12))
+            container(text(format!("{kind} is not installed")).size(12))
                 .padding([4, 8])
                 .style(styles::tooltip_container),
             tooltip::Position::Bottom,
@@ -425,4 +426,11 @@ fn engine_selector<'a>(settings: &'a AppSettings, state: &'a MainState) -> Eleme
     ]
     .spacing(8)
     .into()
+}
+
+fn format_tenths(value: u64, unit: u64, suffix: &str) -> String {
+    let scaled = (u128::from(value) * 10 + u128::from(unit) / 2) / u128::from(unit);
+    let whole = scaled / 10;
+    let tenth = scaled % 10;
+    format!("{whole}.{tenth} {suffix}")
 }

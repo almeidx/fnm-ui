@@ -16,8 +16,7 @@ pub(super) fn available_version_row<'a>(
     let meta = ctx.metadata.and_then(|m| m.get(&version_str));
     let is_eol = ctx
         .schedule
-        .map(|s| !s.is_active(version.version.major))
-        .unwrap_or(false);
+        .is_some_and(|s| !s.is_active(version.version.major));
     let version_display = version_str.clone();
     let version_for_row_click = version_str.clone();
     let version_for_hover = version_str.clone();
@@ -69,7 +68,7 @@ pub(super) fn available_version_row<'a>(
         && !is_eol
     {
         badges = badges.push(
-            container(text(format!("LTS: {}", lts)).size(11))
+            container(text(format!("LTS: {lts}")).size(11))
                 .padding([2, 6])
                 .style(styles::badge_lts),
         );
@@ -81,7 +80,7 @@ pub(super) fn available_version_row<'a>(
                 .style(styles::badge_eol),
         );
     }
-    if meta.map(|m| m.security).unwrap_or(false) {
+    if meta.is_some_and(|m| m.security) {
         badges = badges.push(
             container(text("Security").size(11))
                 .padding([2, 6])

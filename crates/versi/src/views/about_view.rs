@@ -7,7 +7,7 @@ use crate::state::MainState;
 use crate::theme::styles;
 use crate::widgets::helpers::nav_icons;
 
-pub fn view<'a>(state: &'a MainState, has_tabs: bool) -> Element<'a, Message> {
+pub fn view(state: &MainState, has_tabs: bool) -> Element<'_, Message> {
     let header = row![
         text("About").size(14),
         Space::new().width(Length::Fill),

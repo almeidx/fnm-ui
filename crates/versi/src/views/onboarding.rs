@@ -6,7 +6,7 @@ use crate::message::Message;
 use crate::state::{OnboardingState, OnboardingStep};
 use crate::theme::styles;
 
-pub fn view<'a>(state: &'a OnboardingState, backend_name: BackendKind) -> Element<'a, Message> {
+pub fn view(state: &OnboardingState, backend_name: BackendKind) -> Element<'_, Message> {
     let content = match state.step {
         OnboardingStep::Welcome => welcome_step(backend_name),
         OnboardingStep::SelectBackend => select_backend_step(state),
@@ -34,7 +34,7 @@ pub fn view<'a>(state: &'a OnboardingState, backend_name: BackendKind) -> Elemen
     .into()
 }
 
-fn step_indicator<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
+fn step_indicator(state: &OnboardingState) -> Element<'_, Message> {
     let has_select = state.available_backends.len() > 1;
 
     let mut steps: Vec<(&str, OnboardingStep)> = vec![("Welcome", OnboardingStep::Welcome)];
@@ -112,8 +112,7 @@ fn welcome_step(backend_name: BackendKind) -> Element<'static, Message> {
         text("Versi helps you manage Node.js versions with a simple graphical interface.").size(16),
         Space::new().height(8),
         text(format!(
-            "We'll help you set up {} to get started.",
-            backend_name
+            "We'll help you set up {backend_name} to get started."
         ))
         .size(16),
     ]
@@ -121,7 +120,7 @@ fn welcome_step(backend_name: BackendKind) -> Element<'static, Message> {
     .into()
 }
 
-fn select_backend_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
+fn select_backend_step(state: &OnboardingState) -> Element<'_, Message> {
     let mut content = column![
         text("Choose an Engine").size(28),
         Space::new().height(16),
@@ -160,16 +159,15 @@ fn select_backend_step<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     content.into()
 }
 
-fn install_backend_step<'a>(
-    state: &'a OnboardingState,
+fn install_backend_step(
+    state: &OnboardingState,
     backend_name: BackendKind,
-) -> Element<'a, Message> {
+) -> Element<'_, Message> {
     let mut content = column![
-        text(format!("Install {}", backend_name)).size(28),
+        text(format!("Install {backend_name}")).size(28),
         Space::new().height(16),
         text(format!(
-            "{} needs to be installed on your system.",
-            backend_name
+            "{backend_name} needs to be installed on your system."
         ))
         .size(16),
     ]
@@ -177,7 +175,7 @@ fn install_backend_step<'a>(
 
     if state.backend_installing {
         content = content.push(
-            row![text(format!("Installing {}...", backend_name)).size(16),]
+            row![text(format!("Installing {backend_name}...")).size(16),]
                 .spacing(8)
                 .align_y(Alignment::Center),
         );
@@ -197,7 +195,7 @@ fn install_backend_step<'a>(
         content = content.push(
             column![
                 Space::new().height(24),
-                button(text(format!("Install {}", backend_name)).size(16))
+                button(text(format!("Install {backend_name}")).size(16))
                     .on_press(Message::OnboardingInstallBackend)
                     .style(styles::primary_button)
                     .padding([12, 24]),
@@ -209,16 +207,15 @@ fn install_backend_step<'a>(
     content.into()
 }
 
-fn configure_shell_step<'a>(
-    state: &'a OnboardingState,
+fn configure_shell_step(
+    state: &OnboardingState,
     backend_name: BackendKind,
-) -> Element<'a, Message> {
+) -> Element<'_, Message> {
     let mut content = column![
         text("Configure Shell").size(28),
         Space::new().height(16),
         text(format!(
-            "{} needs to be added to your shell configuration.",
-            backend_name
+            "{backend_name} needs to be added to your shell configuration."
         ))
         .size(16),
         Space::new().height(24),
@@ -235,7 +232,7 @@ fn configure_shell_step<'a>(
             } else if shell.configuring {
                 container(text("Configuring...").size(14))
             } else if let Some(error) = &shell.error {
-                container(text(format!("Error: {}", error)).size(14))
+                container(text(format!("Error: {error}")).size(14))
             } else if shell.config_path.is_none() {
                 container(
                     text("No config file")
@@ -261,14 +258,14 @@ fn configure_shell_step<'a>(
     content.into()
 }
 
-fn navigation_buttons<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
-    let back_button = if state.step != OnboardingStep::Welcome {
+fn navigation_buttons(state: &OnboardingState) -> Element<'_, Message> {
+    let back_button = if state.step == OnboardingStep::Welcome {
         button(text("Back"))
-            .on_press(Message::OnboardingBack)
             .style(styles::secondary_button)
             .padding([10, 20])
     } else {
         button(text("Back"))
+            .on_press(Message::OnboardingBack)
             .style(styles::secondary_button)
             .padding([10, 20])
     };
@@ -279,10 +276,10 @@ fn navigation_buttons<'a>(state: &'a OnboardingState) -> Element<'a, Message> {
     };
 
     let can_proceed = match state.step {
+        OnboardingStep::Welcome => true,
         OnboardingStep::SelectBackend => state.selected_backend.is_some(),
         OnboardingStep::InstallBackend => !state.backend_installing,
         OnboardingStep::ConfigureShell => state.detected_shells.iter().any(|s| s.configured),
-        _ => true,
     };
 
     let next_message = if state.step == OnboardingStep::ConfigureShell {

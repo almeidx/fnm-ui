@@ -7,7 +7,7 @@ use crate::state::{AppUpdateState, MainState};
 use crate::theme::styles;
 use crate::widgets::helpers::nav_icons;
 
-pub(super) fn header_view<'a>(state: &'a MainState) -> Element<'a, Message> {
+pub(super) fn header_view(state: &MainState) -> Element<'_, Message> {
     let env = state.active_environment();
 
     let subtitle = match &env.backend_version {
@@ -93,8 +93,9 @@ fn app_update_badge<'a>(
         }
         AppUpdateState::Downloading { downloaded, total } => {
             let label = if *total > 0 {
-                let pct = (*downloaded as f64 / *total as f64 * 100.0) as u32;
-                format!("Updating {}%", pct)
+                let pct = downloaded.saturating_mul(100) / *total;
+                let pct = pct.min(100);
+                format!("Updating {pct}%")
             } else {
                 "Updating...".to_string()
             };

@@ -14,9 +14,10 @@ use super::VersionListContext;
 use super::filter_version;
 use super::item::version_item_view;
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn version_group_view<'a>(
     group: &'a VersionGroup,
-    default: &'a Option<versi_backend::NodeVersion>,
+    default: Option<&'a versi_backend::NodeVersion>,
     search_query: &'a str,
     update_available: Option<String>,
     active_filters: &'a HashSet<SearchFilter>,
@@ -26,11 +27,8 @@ pub(super) fn version_group_view<'a>(
     let has_default = group
         .versions
         .iter()
-        .any(|v| default.as_ref().map(|d| d == &v.version).unwrap_or(false));
-    let is_eol = ctx
-        .schedule
-        .map(|s| !s.is_active(group.major))
-        .unwrap_or(false);
+        .any(|v| default.is_some_and(|d| d == &v.version));
+    let is_eol = ctx.schedule.is_some_and(|s| !s.is_active(group.major));
 
     let chevron = if group.is_expanded {
         icon::chevron_down(12.0)
@@ -84,7 +82,7 @@ pub(super) fn version_group_view<'a>(
     if let Some(new_version) = update_available {
         let version_to_install = new_version.clone();
         header_actions = header_actions.push(
-            button(container(text(format!("{} available", new_version)).size(10)).padding([2, 6]))
+            button(container(text(format!("{new_version} available")).size(10)).padding([2, 6]))
                 .on_press(Message::StartInstall(version_to_install))
                 .style(styles::update_badge_button)
                 .padding([0, 4]),

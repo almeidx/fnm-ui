@@ -3,6 +3,7 @@ use iced::{Background, Border, Color, Shadow, Theme};
 
 use super::{darken, lighten};
 
+#[derive(Clone, Copy)]
 struct TintedStyle {
     text: Color,
     bg: Color,
@@ -312,7 +313,7 @@ pub fn active_tab_button(theme: &Theme, status: button::Status) -> button::Style
     };
 
     match status {
-        button::Status::Active => base,
+        button::Status::Active | button::Status::Disabled => base,
         button::Status::Hovered => button::Style {
             background: Some(Background::Color(lighten(palette.primary, 0.05))),
             ..base
@@ -321,7 +322,6 @@ pub fn active_tab_button(theme: &Theme, status: button::Status) -> button::Style
             background: Some(Background::Color(darken(palette.primary, 0.05))),
             ..base
         },
-        button::Status::Disabled => base,
     }
 }
 
@@ -353,7 +353,7 @@ pub fn inactive_tab_button(theme: &Theme, status: button::Status) -> button::Sty
     };
 
     match status {
-        button::Status::Active => base,
+        button::Status::Active | button::Status::Disabled => base,
         button::Status::Hovered => button::Style {
             background: Some(Background::Color(hover_bg)),
             ..base
@@ -366,7 +366,6 @@ pub fn inactive_tab_button(theme: &Theme, status: button::Status) -> button::Sty
             })),
             ..base
         },
-        button::Status::Disabled => base,
     }
 }
 
@@ -491,7 +490,7 @@ pub fn banner_button_info(theme: &Theme, status: button::Status) -> button::Styl
     };
 
     match status {
-        button::Status::Active => base,
+        button::Status::Active | button::Status::Disabled => base,
         button::Status::Hovered => button::Style {
             background: Some(Background::Color(Color {
                 a: 0.18,
@@ -506,7 +505,6 @@ pub fn banner_button_info(theme: &Theme, status: button::Status) -> button::Styl
             })),
             ..base
         },
-        button::Status::Disabled => base,
     }
 }
 
@@ -527,7 +525,7 @@ pub fn banner_button_warning(theme: &Theme, status: button::Status) -> button::S
     };
 
     match status {
-        button::Status::Active => base,
+        button::Status::Active | button::Status::Disabled => base,
         button::Status::Hovered => button::Style {
             background: Some(Background::Color(Color { a: 0.18, ..warning })),
             ..base
@@ -536,7 +534,6 @@ pub fn banner_button_warning(theme: &Theme, status: button::Status) -> button::S
             background: Some(Background::Color(Color { a: 0.25, ..warning })),
             ..base
         },
-        button::Status::Disabled => base,
     }
 }
 

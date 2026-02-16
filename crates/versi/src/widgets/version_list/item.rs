@@ -9,15 +9,13 @@ use crate::theme::styles;
 
 use super::VersionListContext;
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn version_item_view<'a>(
     version: &'a InstalledVersion,
-    default: &'a Option<versi_backend::NodeVersion>,
+    default: Option<&'a versi_backend::NodeVersion>,
     ctx: &VersionListContext<'a>,
 ) -> Element<'a, Message> {
-    let is_default = default
-        .as_ref()
-        .map(|d| d == &version.version)
-        .unwrap_or(false);
+    let is_default = default.is_some_and(|d| d == &version.version);
 
     let version_str = version.version.to_string();
     let meta = ctx.metadata.and_then(|m| m.get(&version_str));
@@ -50,7 +48,7 @@ pub(super) fn version_item_view<'a>(
 
     if let Some(lts) = &version.lts_codename {
         row_content = row_content.push(
-            container(text(format!("LTS: {}", lts)).size(11))
+            container(text(format!("LTS: {lts}")).size(11))
                 .padding([2, 6])
                 .style(styles::badge_lts),
         );
@@ -64,7 +62,7 @@ pub(super) fn version_item_view<'a>(
         );
     }
 
-    if meta.map(|m| m.security).unwrap_or(false) {
+    if meta.is_some_and(|m| m.security) {
         row_content = row_content.push(
             container(text("Security").size(11))
                 .padding([2, 6])
@@ -165,12 +163,19 @@ pub(super) fn format_bytes(bytes: u64) -> String {
     const GB: u64 = MB * 1024;
 
     if bytes >= GB {
-        format!("{:.1} GB", bytes as f64 / GB as f64)
+        format_tenths(bytes, GB, "GB")
     } else if bytes >= MB {
-        format!("{:.1} MB", bytes as f64 / MB as f64)
+        format_tenths(bytes, MB, "MB")
     } else if bytes >= KB {
-        format!("{:.1} KB", bytes as f64 / KB as f64)
+        format_tenths(bytes, KB, "KB")
     } else {
-        format!("{} B", bytes)
+        format!("{bytes} B")
     }
+}
+
+fn format_tenths(value: u64, unit: u64, suffix: &str) -> String {
+    let scaled = (u128::from(value) * 10 + u128::from(unit) / 2) / u128::from(unit);
+    let whole = scaled / 10;
+    let tenth = scaled % 10;
+    format!("{whole}.{tenth} {suffix}")
 }

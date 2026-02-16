@@ -11,7 +11,7 @@ use crate::widgets::helpers::styled_tooltip;
 
 pub const SEARCH_INPUT_ID: &str = "search-input";
 
-pub(super) fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> {
+pub(super) fn search_bar_view(state: &MainState) -> Element<'_, Message> {
     let input = text_input(
         "Search versions (e.g., '22', 'lts', 'lts/iron', 'latest')...",
         &state.search_query,
@@ -47,7 +47,7 @@ pub(super) fn search_bar_view<'a>(state: &'a MainState) -> Element<'a, Message> 
     .into()
 }
 
-fn chip_button<'a>(label: &'a str, filter: SearchFilter, active: bool) -> Element<'a, Message> {
+fn chip_button(label: &str, filter: SearchFilter, active: bool) -> Element<'_, Message> {
     let style = if active {
         styles::filter_chip_active as fn(&iced::Theme, button::Status) -> button::Style
     } else {

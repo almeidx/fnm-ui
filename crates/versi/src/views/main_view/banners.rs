@@ -6,7 +6,8 @@ use crate::message::Message;
 use crate::state::{MainState, NetworkStatus};
 use crate::theme::styles;
 
-pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a, Message>> {
+#[allow(clippy::too_many_lines)]
+pub(super) fn contextual_banners(state: &MainState) -> Option<Element<'_, Message>> {
     let env = state.active_environment();
     let schedule = state.available_versions.schedule.as_ref();
 
@@ -40,8 +41,7 @@ pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a,
                 button(
                     row![
                         text(format!(
-                            "Using cached data{} \u{2014} could not refresh from network",
-                            age_text
+                            "Using cached data{age_text} \u{2014} could not refresh from network"
                         ))
                         .size(13),
                         Space::new().width(Length::Fill),
@@ -130,15 +130,13 @@ pub(super) fn contextual_banners<'a>(state: &'a MainState) -> Option<Element<'a,
         banners.push(btn.into());
     }
 
-    let eol_count = schedule
-        .map(|s| {
-            env.version_groups
-                .iter()
-                .filter(|g| !s.is_active(g.major))
-                .map(|g| g.versions.len())
-                .sum::<usize>()
-        })
-        .unwrap_or(0);
+    let eol_count = schedule.map_or(0, |s| {
+        env.version_groups
+            .iter()
+            .filter(|g| !s.is_active(g.major))
+            .map(|g| g.versions.len())
+            .sum::<usize>()
+    });
 
     if eol_count > 0 {
         banners.push(
@@ -180,14 +178,14 @@ fn format_relative_time(timestamp: DateTime<Utc>) -> String {
     if minutes < 1 {
         "just now".to_string()
     } else if minutes < 60 {
-        format!("{}m ago", minutes)
+        format!("{minutes}m ago")
     } else {
         let hours = delta.num_hours();
         if hours < 24 {
-            format!("{}h ago", hours)
+            format!("{hours}h ago")
         } else {
             let days = delta.num_days();
-            format!("{}d ago", days)
+            format!("{days}d ago")
         }
     }
 }

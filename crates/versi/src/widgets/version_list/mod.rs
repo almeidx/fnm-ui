@@ -40,13 +40,13 @@ fn filter_group(
     }
 
     if active_filters.contains(&SearchFilter::Eol) {
-        let is_eol = schedule.map(|s| !s.is_active(group.major)).unwrap_or(false);
+        let is_eol = schedule.is_some_and(|s| !s.is_active(group.major));
         if !is_eol {
             return false;
         }
     }
     if active_filters.contains(&SearchFilter::Active) {
-        let is_active = schedule.map(|s| s.is_active(group.major)).unwrap_or(true);
+        let is_active = schedule.is_none_or(|s| s.is_active(group.major));
         if !is_active {
             return false;
         }
@@ -69,8 +69,7 @@ fn filter_group(
                 version_str.contains(query)
                     || v.lts_codename
                         .as_ref()
-                        .map(|c| c.to_lowercase().contains(&query_lower))
-                        .unwrap_or(false)
+                        .is_some_and(|c| c.to_lowercase().contains(&query_lower))
             }
         });
     }
@@ -80,8 +79,7 @@ fn filter_group(
         version_str.contains(query)
             || v.lts_codename
                 .as_ref()
-                .map(|c| c.to_lowercase().contains(&query_lower))
-                .unwrap_or(false)
+                .is_some_and(|c| c.to_lowercase().contains(&query_lower))
     })
 }
 
@@ -105,8 +103,7 @@ fn filter_version(
             || version
                 .lts_codename
                 .as_ref()
-                .map(|c| c.to_lowercase().contains(&query_lower))
-                .unwrap_or(false)
+                .is_some_and(|c| c.to_lowercase().contains(&query_lower))
     };
 
     if !text_match {
@@ -120,17 +117,13 @@ fn filter_version(
         return false;
     }
     if active_filters.contains(&SearchFilter::Eol) {
-        let is_eol = schedule
-            .map(|s| !s.is_active(version.version.major))
-            .unwrap_or(false);
+        let is_eol = schedule.is_some_and(|s| !s.is_active(version.version.major));
         if !is_eol {
             return false;
         }
     }
     if active_filters.contains(&SearchFilter::Active) {
-        let is_active = schedule
-            .map(|s| s.is_active(version.version.major))
-            .unwrap_or(true);
+        let is_active = schedule.is_none_or(|s| s.is_active(version.version.major));
         if !is_active {
             return false;
         }
@@ -139,6 +132,7 @@ fn filter_version(
     true
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn view<'a>(
     env: &'a EnvironmentState,
     search_query: &'a str,
@@ -186,7 +180,7 @@ pub fn view<'a>(
         .filter(|g| filter_group(g, search_query, active_filters, ctx.schedule))
         .collect();
 
-    let default_version = &env.default_version;
+    let default_version = env.default_version.as_ref();
 
     let mut content_items: Vec<Element<Message>> = Vec::new();
 
@@ -229,7 +223,7 @@ pub fn view<'a>(
 
             if alias_resolved.is_some() {
                 card_items.push(
-                    text(format!("\"{}\" resolves to:", search_query))
+                    text(format!("\"{search_query}\" resolves to:"))
                         .size(12)
                         .color(iced::Color::from_rgb8(142, 142, 147))
                         .into(),
@@ -257,7 +251,7 @@ pub fn view<'a>(
                 if search_query.is_empty() {
                     text("Install your first Node.js version by searching above.").size(14)
                 } else {
-                    text(format!("No versions match '{}'", search_query)).size(14)
+                    text(format!("No versions match '{search_query}'")).size(14)
                 },
             ]
             .spacing(8)

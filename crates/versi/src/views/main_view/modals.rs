@@ -30,7 +30,7 @@ fn version_preview_list(labels: Vec<String>, preview_limit: usize) -> Element<'s
 pub(super) fn modal_overlay<'a>(
     content: Element<'a, Message>,
     modal: &'a Modal,
-    _state: &'a MainState,
+    state: &'a MainState,
     settings: &'a AppSettings,
 ) -> Element<'a, Message> {
     let preview_limit = settings.modal_preview_limit;
@@ -57,7 +57,7 @@ pub(super) fn modal_overlay<'a>(
         Modal::ConfirmUninstallDefault { version } => confirm_uninstall_default_view(version),
         Modal::KeyboardShortcuts => keyboard_shortcuts_view(),
         Modal::VersionDetail { version } => {
-            version_detail_view(version, _state.available_versions.metadata.as_ref(), _state)
+            version_detail_view(version, state.available_versions.metadata.as_ref(), state)
         }
     };
 
@@ -100,7 +100,7 @@ fn confirm_bulk_update_view(
 ) -> Element<'_, Message> {
     let labels: Vec<String> = versions
         .iter()
-        .map(|(from, to)| format!("{} \u{2192} {}", from, to))
+        .map(|(from, to)| format!("{from} \u{2192} {to}"))
         .collect();
 
     column![
@@ -136,7 +136,7 @@ fn confirm_bulk_uninstall_eol_view(
     versions: &[String],
     preview_limit: usize,
 ) -> Element<'_, Message> {
-    let labels: Vec<String> = versions.iter().map(|v| format!("Node {}", v)).collect();
+    let labels: Vec<String> = versions.iter().map(|v| format!("Node {v}")).collect();
 
     column![
         text("Remove All EOL Versions?").size(20),
@@ -176,10 +176,10 @@ fn confirm_bulk_uninstall_major_view(
     versions: &[String],
     preview_limit: usize,
 ) -> Element<'_, Message> {
-    let labels: Vec<String> = versions.iter().map(|v| format!("Node {}", v)).collect();
+    let labels: Vec<String> = versions.iter().map(|v| format!("Node {v}")).collect();
 
     column![
-        text(format!("Remove All Node {}.x Versions?", major)).size(20),
+        text(format!("Remove All Node {major}.x Versions?")).size(20),
         Space::new().height(12),
         text(format!(
             "This will uninstall {} version(s):",
@@ -213,10 +213,10 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
     keeping: &'a str,
     preview_limit: usize,
 ) -> Element<'a, Message> {
-    let labels: Vec<String> = versions.iter().map(|v| format!("Node {}", v)).collect();
+    let labels: Vec<String> = versions.iter().map(|v| format!("Node {v}")).collect();
 
     column![
-        text(format!("Clean Up Node {}.x Versions?", major)).size(20),
+        text(format!("Clean Up Node {major}.x Versions?")).size(20),
         Space::new().height(12),
         text(format!(
             "This will uninstall {} older version(s):",
@@ -226,7 +226,7 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
         Space::new().height(8),
         version_preview_list(labels, preview_limit),
         Space::new().height(8),
-        text(format!("Node {} will be kept.", keeping))
+        text(format!("Node {keeping} will be kept."))
             .size(12)
             .color(iced::Color::from_rgb8(52, 199, 89)),
         Space::new().height(24),
@@ -253,8 +253,7 @@ fn confirm_uninstall_default_view(version: &str) -> Element<'_, Message> {
         text("Uninstall Default Version?").size(20),
         Space::new().height(12),
         text(format!(
-            "Node {} is your current default version. Uninstalling it will leave no default set.",
-            version
+            "Node {version} is your current default version. Uninstalling it will leave no default set."
         ))
         .size(14),
         Space::new().height(24),
@@ -284,7 +283,7 @@ fn version_detail_view<'a>(
     let muted = iced::Color::from_rgb8(142, 142, 147);
     let meta = metadata.and_then(|m| m.get(version));
 
-    let mut content = column![text(format!("Node {}", version)).size(20),].spacing(4);
+    let mut content = column![text(format!("Node {version}")).size(20),].spacing(4);
 
     content = content.push(Space::new().height(12));
 
@@ -308,7 +307,7 @@ fn version_detail_view<'a>(
 
         if let Some(lts) = lookup_lts(version, state) {
             badge_row = badge_row.push(
-                container(text(format!("LTS: {}", lts)).size(11))
+                container(text(format!("LTS: {lts}")).size(11))
                     .padding([2, 6])
                     .style(styles::badge_lts),
             );
@@ -391,12 +390,12 @@ fn keyboard_shortcuts_view() -> Element<'static, Message> {
     let mod_key = "Ctrl+";
 
     let shortcuts = [
-        (format!("{}K", mod_key), "Search versions"),
-        (format!("{}R", mod_key), "Refresh"),
-        (format!("{},", mod_key), "Settings"),
-        (format!("{}W", mod_key), "Close window"),
-        (format!("{}Tab", mod_key), "Next environment"),
-        (format!("{}Shift+Tab", mod_key), "Previous environment"),
+        (format!("{mod_key}K"), "Search versions"),
+        (format!("{mod_key}R"), "Refresh"),
+        (format!("{mod_key},"), "Settings"),
+        (format!("{mod_key}W"), "Close window"),
+        (format!("{mod_key}Tab"), "Next environment"),
+        (format!("{mod_key}Shift+Tab"), "Previous environment"),
         ("\u{2191}/\u{2193}".to_string(), "Navigate versions"),
         ("Enter".to_string(), "Install / set default"),
         ("Esc".to_string(), "Close modal"),

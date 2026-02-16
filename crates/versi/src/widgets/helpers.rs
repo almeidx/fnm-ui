@@ -23,10 +23,10 @@ pub fn styled_tooltip<'a>(
 }
 
 pub fn nav_icons<'a>(active_view: &MainViewKind, refresh_rotation: f32) -> Element<'a, Message> {
-    let refresh_icon = if refresh_rotation != 0.0 {
-        icon::refresh_spinning(16.0, refresh_rotation)
-    } else {
+    let refresh_icon = if refresh_rotation == 0.0 {
         icon::refresh(16.0)
+    } else {
+        icon::refresh_spinning(16.0, refresh_rotation)
     };
 
     let settings_style = if *active_view == MainViewKind::Settings {

@@ -39,7 +39,7 @@ pub fn view<'a>(
         .into()
 }
 
-fn toast_view<'a>(toast: &'a Toast) -> Element<'a, Message> {
+fn toast_view(toast: &Toast) -> Element<'_, Message> {
     let close_icon: Element<'_, Message> = icon::close(14.0)
         .style(|_theme: &iced::Theme, _status| iced::widget::svg::Style {
             color: Some(iced::Color::WHITE),
