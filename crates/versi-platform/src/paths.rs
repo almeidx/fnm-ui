@@ -7,6 +7,11 @@ pub struct AppPaths {
 }
 
 impl AppPaths {
+    /// Build application paths for the current platform.
+    ///
+    /// # Errors
+    /// Returns an error when a required base directory (for example the user
+    /// home/config/cache/data directory) cannot be determined.
     pub fn new() -> Result<Self, String> {
         #[cfg(target_os = "macos")]
         {
@@ -64,6 +69,10 @@ impl AppPaths {
         self.data_dir.join("debug.log")
     }
 
+    /// Ensure all application directories exist on disk.
+    ///
+    /// # Errors
+    /// Returns an error if any directory cannot be created.
     pub fn ensure_dirs(&self) -> std::io::Result<()> {
         std::fs::create_dir_all(&self.config_dir)?;
         std::fs::create_dir_all(&self.cache_dir)?;

@@ -19,6 +19,10 @@ pub enum ApplyResult {
     ExitForInstaller,
 }
 
+/// Download and apply a packaged Versi update.
+///
+/// # Errors
+/// Returns an error when downloading, extracting, or applying the update fails.
 pub async fn download_and_apply(
     client: &reqwest::Client,
     download_url: &str,
@@ -352,6 +356,10 @@ pub fn cleanup_old_app_bundle() {
 }
 
 #[cfg(target_os = "macos")]
+/// Restart the current application bundle.
+///
+/// # Errors
+/// Returns an error if the running app bundle cannot be located or reopened.
 pub fn restart_app() -> Result<(), String> {
     let bundle = current_app_bundle()?;
     std::process::Command::new("open")
@@ -362,6 +370,11 @@ pub fn restart_app() -> Result<(), String> {
 }
 
 #[cfg(not(target_os = "macos"))]
+/// Restart the current executable.
+///
+/// # Errors
+/// Returns an error if the current executable path cannot be resolved or a new
+/// process cannot be spawned.
 pub fn restart_app() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| format!("Failed to get current exe: {e}"))?;
 

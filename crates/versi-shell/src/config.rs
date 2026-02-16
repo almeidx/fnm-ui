@@ -24,6 +24,10 @@ pub struct ShellConfig {
 }
 
 impl ShellConfig {
+    /// Load an existing shell config file or initialize an empty config model.
+    ///
+    /// # Errors
+    /// Returns an error if the config file exists but cannot be read.
     pub fn load(shell_type: ShellType, config_path: PathBuf) -> Result<Self, ConfigError> {
         let content = if config_path.exists() {
             fs::read_to_string(&config_path)?
@@ -104,6 +108,11 @@ impl ShellConfig {
         }
     }
 
+    /// Persist an edit to disk and update in-memory content.
+    ///
+    /// # Errors
+    /// Returns an error if parent directories cannot be created or writing the
+    /// file fails.
     pub fn apply_edit(&mut self, edit: &ShellConfigEdit) -> Result<(), ConfigError> {
         if let Some(parent) = self.config_path.parent() {
             fs::create_dir_all(parent)?;

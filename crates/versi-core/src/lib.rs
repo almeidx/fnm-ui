@@ -1,5 +1,3 @@
-#![allow(clippy::missing_errors_doc)]
-
 pub mod auto_update;
 pub mod commands;
 mod metadata;

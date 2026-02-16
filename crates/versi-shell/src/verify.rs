@@ -203,6 +203,11 @@ async fn wsl_functional_test(shell_type: &ShellType, distro: &str, backend_binar
 }
 
 #[cfg(target_os = "windows")]
+/// Configure shell initialization inside a WSL distribution.
+///
+/// # Errors
+/// Returns an error if the target shell is unsupported, or if reading/updating
+/// the remote config file fails.
 pub async fn configure_wsl_shell_config(
     shell_type: &ShellType,
     distro: &str,
@@ -332,6 +337,10 @@ pub async fn verify_wsl_shell_config(
 }
 
 #[cfg(not(target_os = "windows"))]
+/// Configure shell initialization inside a WSL distribution.
+///
+/// # Errors
+/// Always returns an error on non-Windows platforms because WSL is unavailable.
 pub async fn configure_wsl_shell_config(
     _shell_type: &ShellType,
     _distro: &str,

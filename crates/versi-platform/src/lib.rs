@@ -1,5 +1,3 @@
-#![allow(clippy::missing_errors_doc)]
-
 mod commands;
 mod environment;
 mod paths;

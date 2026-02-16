@@ -95,6 +95,10 @@ impl NvmClient {
         }
     }
 
+    /// List installed Node.js versions managed by this `nvm` environment.
+    ///
+    /// # Errors
+    /// Returns an error if invoking `nvm list` fails.
     pub async fn list_installed(&self) -> Result<Vec<InstalledVersion>, NvmError> {
         let output = self.execute(&["list"]).await?;
         Ok(if self.is_windows() {
@@ -104,6 +108,10 @@ impl NvmClient {
         })
     }
 
+    /// List remote Node.js versions available for installation.
+    ///
+    /// # Errors
+    /// Returns an error if invoking the remote listing command fails.
     pub async fn list_remote(&self) -> Result<Vec<RemoteVersion>, NvmError> {
         if self.is_windows() {
             let output = self.execute(&["list", "available"]).await?;
@@ -114,6 +122,10 @@ impl NvmClient {
         }
     }
 
+    /// List remote LTS Node.js versions available for installation.
+    ///
+    /// # Errors
+    /// Returns an error if remote version listing fails.
     pub async fn list_remote_lts(&self) -> Result<Vec<RemoteVersion>, NvmError> {
         if self.is_windows() {
             let all = self.list_remote().await?;
@@ -127,6 +139,10 @@ impl NvmClient {
         }
     }
 
+    /// Return the currently active Node.js version.
+    ///
+    /// # Errors
+    /// Returns an error if the command fails or the version output is invalid.
     pub async fn current(&self) -> Result<Option<NodeVersion>, NvmError> {
         let output = self.execute(&["current"]).await?;
         let output = output.trim().trim_start_matches('v');
@@ -141,6 +157,10 @@ impl NvmClient {
             .map_err(|e: versi_backend::VersionParseError| NvmError::ParseError(e.to_string()))
     }
 
+    /// Return the configured default Node.js version, if any.
+    ///
+    /// # Errors
+    /// Returns an error if querying installed/default versions fails.
     pub async fn default_version(&self) -> Result<Option<NodeVersion>, NvmError> {
         if self.is_windows() {
             let versions = self.list_installed().await?;
@@ -178,16 +198,28 @@ impl NvmClient {
         }
     }
 
+    /// Install a Node.js version.
+    ///
+    /// # Errors
+    /// Returns an error if the install command fails.
     pub async fn install(&self, version: &str) -> Result<(), NvmError> {
         self.execute(&["install", version]).await?;
         Ok(())
     }
 
+    /// Uninstall a Node.js version.
+    ///
+    /// # Errors
+    /// Returns an error if the uninstall command fails.
     pub async fn uninstall(&self, version: &str) -> Result<(), NvmError> {
         self.execute(&["uninstall", version]).await?;
         Ok(())
     }
 
+    /// Set the default Node.js version.
+    ///
+    /// # Errors
+    /// Returns an error if the platform-specific default-setting command fails.
     pub async fn set_default(&self, version: &str) -> Result<(), NvmError> {
         if self.is_windows() {
             self.execute(&["use", version]).await?;
@@ -197,11 +229,19 @@ impl NvmClient {
         Ok(())
     }
 
+    /// Activate a Node.js version for the current shell context.
+    ///
+    /// # Errors
+    /// Returns an error if the `nvm use` command fails.
     pub async fn use_version(&self, version: &str) -> Result<(), NvmError> {
         self.execute(&["use", version]).await?;
         Ok(())
     }
 
+    /// Return the installed `nvm` tool version string.
+    ///
+    /// # Errors
+    /// Returns an error if querying `nvm --version` fails.
     pub async fn version(&self) -> Result<String, NvmError> {
         if self.is_windows() {
             let output = self.execute(&["version"]).await?;

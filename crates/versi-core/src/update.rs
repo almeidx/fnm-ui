@@ -45,6 +45,11 @@ pub fn asset_name(version: &str) -> Option<String> {
     Some(name)
 }
 
+/// Check GitHub releases for a newer Versi version.
+///
+/// # Errors
+/// Returns an error when the update API request fails or the release response
+/// cannot be parsed.
 pub async fn check_for_update(
     client: &reqwest::Client,
     current_version: &str,

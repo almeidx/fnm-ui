@@ -26,6 +26,10 @@ struct RawEntry {
     openssl: Option<String>,
 }
 
+/// Fetch Node.js version metadata from `nodejs.org`.
+///
+/// # Errors
+/// Returns an error when the remote metadata cannot be fetched or parsed.
 pub async fn fetch_version_metadata(
     client: &reqwest::Client,
 ) -> Result<HashMap<String, VersionMeta>, String> {

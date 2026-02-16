@@ -69,6 +69,10 @@ impl ReleaseSchedule {
     }
 }
 
+/// Fetch and parse the Node.js release schedule.
+///
+/// # Errors
+/// Returns an error when the schedule cannot be downloaded or deserialized.
 pub async fn fetch_release_schedule(client: &reqwest::Client) -> Result<ReleaseSchedule, String> {
     let response = client
         .get(SCHEDULE_URL)
