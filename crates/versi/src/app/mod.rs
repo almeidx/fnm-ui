@@ -340,8 +340,9 @@ impl Versi {
                 Task::none()
             }
             Message::ShellOptionUseOnCdToggled(value) => {
+                let backend_name = self.active_backend_name();
                 self.settings
-                    .shell_options_for_mut(self.provider.name())
+                    .shell_options_for_mut(backend_name)
                     .use_on_cd = value;
                 if let Err(e) = self.settings.save() {
                     log::error!("Failed to save settings: {e}");
@@ -349,8 +350,9 @@ impl Versi {
                 self.update_shell_flags()
             }
             Message::ShellOptionResolveEnginesToggled(value) => {
+                let backend_name = self.active_backend_name();
                 self.settings
-                    .shell_options_for_mut(self.provider.name())
+                    .shell_options_for_mut(backend_name)
                     .resolve_engines = value;
                 if let Err(e) = self.settings.save() {
                     log::error!("Failed to save settings: {e}");
@@ -358,8 +360,9 @@ impl Versi {
                 self.update_shell_flags()
             }
             Message::ShellOptionCorepackEnabledToggled(value) => {
+                let backend_name = self.active_backend_name();
                 self.settings
-                    .shell_options_for_mut(self.provider.name())
+                    .shell_options_for_mut(backend_name)
                     .corepack_enabled = value;
                 if let Err(e) = self.settings.save() {
                     log::error!("Failed to save settings: {e}");
@@ -923,5 +926,28 @@ impl Versi {
 
     pub(crate) fn all_providers(&self) -> Vec<Arc<dyn BackendProvider>> {
         self.providers.values().cloned().collect()
+    }
+
+    pub(crate) fn provider_for_name(&self, name: &str) -> Arc<dyn BackendProvider> {
+        self.providers
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| self.provider.clone())
+    }
+
+    pub(crate) fn active_provider(&self) -> Arc<dyn BackendProvider> {
+        if let AppState::Main(state) = &self.state {
+            self.provider_for_name(state.backend_name)
+        } else {
+            self.provider.clone()
+        }
+    }
+
+    pub(crate) fn active_backend_name(&self) -> &'static str {
+        if let AppState::Main(state) = &self.state {
+            state.backend_name
+        } else {
+            self.provider.name()
+        }
     }
 }

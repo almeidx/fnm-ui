@@ -63,18 +63,29 @@ impl Versi {
                 }
             }
             TrayMessage::SetDefault { env_index, version } => {
+                let mut switched_env: Option<(versi_platform::EnvironmentId, &'static str)> = None;
+
                 if let AppState::Main(state) = &mut self.state
                     && env_index != state.active_environment_idx
+                    && let Some(env) = state.environments.get(env_index)
                 {
                     state.active_environment_idx = env_index;
-                    let env = &state.environments[env_index];
-                    let env_id = env.id.clone();
-                    state.backend = create_backend_for_environment(
-                        &env_id,
-                        &self.backend_path,
-                        &self.backend_dir,
-                        &self.provider,
-                    );
+                    state.backend_name = env.backend_name;
+                    state.backend_update = None;
+                    switched_env = Some((env.id.clone(), env.backend_name));
+                }
+
+                if let Some((env_id, backend_name)) = switched_env {
+                    let env_provider = self.provider_for_name(backend_name);
+                    self.provider = env_provider.clone();
+                    if let AppState::Main(state) = &mut self.state {
+                        state.backend = create_backend_for_environment(
+                            &env_id,
+                            &self.backend_path,
+                            &self.backend_dir,
+                            &env_provider,
+                        );
+                    }
                 }
                 self.handle_set_default(version)
             }

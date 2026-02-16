@@ -84,6 +84,7 @@ impl Versi {
                 .get(env.backend_name)
                 .cloned()
                 .unwrap_or_else(|| self.provider.clone());
+            self.provider = env_provider.clone();
 
             let new_backend = create_backend_for_environment(
                 &env_id,
