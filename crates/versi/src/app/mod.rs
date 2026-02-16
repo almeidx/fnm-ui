@@ -357,7 +357,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    use versi_backend::{BackendDetection, BackendProvider};
+    use versi_backend::{BackendDetection, BackendProvider, InstalledVersion, NodeVersion};
     use versi_platform::EnvironmentId;
 
     use super::{Versi, should_dismiss_context_menu};
@@ -465,5 +465,66 @@ mod tests {
             state.operation_queue.exclusive_op,
             Some(Operation::SetDefault { ref version }) if version == "20.11.0"
         ));
+    }
+
+    #[test]
+    fn environment_load_failure_sets_error_on_target_environment() {
+        let mut app = test_app_with_two_environments();
+        let target_env = EnvironmentId::Wsl {
+            distro: "Ubuntu".to_string(),
+            backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+        };
+
+        let _ = app.handle_environment_loaded(target_env.clone(), Err("backend unavailable".into()));
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+
+        let failed_env = state
+            .environments
+            .iter()
+            .find(|env| env.id == target_env)
+            .expect("expected target environment");
+        assert!(!failed_env.loading);
+        assert_eq!(failed_env.error.as_deref(), Some("backend unavailable"));
+
+        let native_env = state
+            .environments
+            .iter()
+            .find(|env| env.id == EnvironmentId::Native)
+            .expect("expected native environment");
+        assert!(native_env.error.is_none());
+    }
+
+    #[test]
+    fn environment_load_success_clears_previous_error() {
+        let mut app = test_app_with_two_environments();
+        let target_env = EnvironmentId::Native;
+
+        let _ = app.handle_environment_loaded(target_env.clone(), Err("timed out".into()));
+        let _ = app.handle_environment_loaded(
+            target_env.clone(),
+            Ok(vec![InstalledVersion {
+                version: NodeVersion::new(20, 11, 0),
+                is_default: true,
+                lts_codename: None,
+                install_date: None,
+                disk_size: None,
+            }]),
+        );
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        let env = state
+            .environments
+            .iter()
+            .find(|env| env.id == target_env)
+            .expect("expected native environment");
+        assert!(!env.loading);
+        assert!(env.error.is_none());
+        assert_eq!(env.default_version, Some(NodeVersion::new(20, 11, 0)));
+        assert!(env.installed_set.contains("v20.11.0"));
     }
 }
