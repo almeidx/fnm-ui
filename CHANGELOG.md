@@ -3,6 +3,97 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.10.0] - 2026-02-16
+
+- refactor(errors): add structured app errors for settings and fetch flows
+- refactor(version-list): extract group/query predicates with tests
+- refactor(async): cancel stale environment and version fetch tasks
+- refactor(state): use typed installed version sets
+- refactor(search): unify query engine across state and widgets
+- refactor(widgets): extract nav state helpers with tests
+- refactor(version-list): extract row action and badge logic
+- refactor(search): extract chip state helpers and add tests
+- docs(crates): expand public crate-level API docs
+- refactor(operations): extract queue and toast helpers
+- refactor(tray): split tray event handlers into helpers
+- refactor(errors): use structured shell and backend variants
+- test(state): cover network status and navigation queries
+- test(update): cover context-menu dismissal rules
+- test(tray-handlers): cover tray event state transitions
+- test(tray): cover menu shaping and event parsing
+- test(shell): verify status mapping and backend kind
+- test(auto-update): cover update-state transitions
+- test(onboarding): cover state transitions and shell mapping
+- test(init): cover backend selection helpers
+- test(app): cover window lifecycle state transitions
+- fix(widget): honor version filter limit and add coverage
+- test(app): cover remote, schedule, and metadata update handlers
+- chore: fix formatting
+- test(app): cover environment filters and operation queueing
+- test(app): add dispatch coverage for update routing modules
+- test(linux): avoid identical match arms in wayland fallback test
+- fix(linux): satisfy wayland env lookup fn lifetime bounds
+- docs: refresh README and AI guide for current architecture
+- style: format rust sources after test expansion
+- test: address strict clippy lints in new tests
+- test(app): cover bulk operation version selection logic
+- test(app): add coverage for theme and single-instance helpers
+- test(core): cover auto-update zip extraction helpers
+- test(shell): cover verify path selection and wsl guards
+- test(app): add cache and logging helper coverage
+- test(backends): add error and provider coverage for nvm/backend
+- test(ui): cover version size formatting helpers
+- test(app): add coverage for async helpers and wayland detection
+- test(state): cover constructors and environment state updates
+- test(app): add unit coverage for settings and error types
+- test(core): add metadata mapping unit tests
+- test(fnm): add coverage for provider, detection, and update logic
+- test(platform): cover environment and path helpers
+- test(backend): cover version manager trait defaults
+- chore: fix formatting
+- fix: satisfy strict clippy warnings on linux platform
+- refactor: store window geometry positions as floats
+- docs: add errors sections for public result APIs
+- refactor: split large settings and version list views
+- refactor: split init and update dispatch handlers
+- chore: enable workspace pedantic clippy by default
+- refactor: clean pedantic warnings in views and widgets
+- refactor: tighten pedantic compliance in app core
+- chore: clean pedantic warnings in backend crates
+- fix(version-list): remove label-only hover affordance
+- fix(version-list): make full row left-clickable
+- test(operations): add generated invariant checks for queue draining
+- test: cover settings file IO and shell config edit flows
+- chore(format): normalize windows overlay icon call formatting
+- perf(cache): reduce cloning in latest-by-major recomputation
+- refactor(windows): remove unwraps in overlay icon path
+- refactor(platform): split platform helpers into per-OS modules
+- refactor(app): extract shared async timeout and retry helpers
+- fix(async): guard environment and version fetches by request sequence
+- refactor(state): store AppError in UI state
+- refactor(app): propagate AppError across remaining message flows
+- refactor(message): box heavy update payload variants
+- refactor(app): introduce typed AppError for core operation flows
+- test(app): add update dispatcher routing coverage
+- refactor(settings): deduplicate settings save and shell option updates
+- chore(clippy): box forwarded messages in update dispatch
+- test(environment): cover load failure and recovery paths
+- refactor(app): split update dispatcher by domain
+- chore(clippy): satisfy strict warnings and format touched code
+- refactor(app): move message dispatcher out of app/mod.rs
+- fix(environment): surface version load failures instead of swallowing
+- test(app): add cross-environment tray/backend regression coverage
+- refactor(app): replace raw backend strings with typed BackendKind
+- refactor(app): extract settings IO handlers and add dispatcher tests
+- fix(nvm): execute commands with argv instead of string parsing
+- fix(init): remove leaked fallback string in WSL backend detection
+- fix(shell): write WSL shell config changes to target distro
+- fix(app): keep active provider aligned with selected environment
+- refactor: reduce parameter threading and deduplicate styles
+- feat: add right-click context menu on version rows
+- deps: Update Rust crate zip to v8 (#67)
+
+
 ## [0.9.0] - 2026-02-15
 
 - feat: add version detail modal with inline release metadata
