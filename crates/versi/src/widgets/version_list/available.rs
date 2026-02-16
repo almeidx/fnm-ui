@@ -8,6 +8,149 @@ use crate::theme::styles;
 
 use super::VersionListContext;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VersionRowAction {
+    Installing,
+    Queued,
+    Installed,
+    Uninstall,
+    Install,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RowActivity {
+    Active,
+    Pending,
+    Idle,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InstallState {
+    Installed,
+    NotInstalled,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HoverState {
+    Hovered,
+    NotHovered,
+}
+
+fn resolve_version_row_action(
+    activity: RowActivity,
+    install_state: InstallState,
+    hover_state: HoverState,
+) -> VersionRowAction {
+    if activity == RowActivity::Active {
+        return VersionRowAction::Installing;
+    }
+    if activity == RowActivity::Pending {
+        return VersionRowAction::Queued;
+    }
+    if install_state == InstallState::Installed {
+        return if hover_state == HoverState::Hovered {
+            VersionRowAction::Uninstall
+        } else {
+            VersionRowAction::Installed
+        };
+    }
+    VersionRowAction::Install
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VersionBadgeKind {
+    Lts,
+    Eol,
+    Security,
+}
+
+fn version_badge_kinds(has_lts: bool, is_eol: bool, has_security: bool) -> Vec<VersionBadgeKind> {
+    let mut badges = Vec::new();
+    if has_lts && !is_eol {
+        badges.push(VersionBadgeKind::Lts);
+    }
+    if is_eol {
+        badges.push(VersionBadgeKind::Eol);
+    }
+    if has_security {
+        badges.push(VersionBadgeKind::Security);
+    }
+    badges
+}
+
+fn action_button<'a>(
+    action: VersionRowAction,
+    version_for_install: String,
+    version_for_uninstall: String,
+    version_for_hover: String,
+) -> Element<'a, Message> {
+    match action {
+        VersionRowAction::Installing => button(text("Installing...").size(12))
+            .style(styles::primary_button)
+            .padding([6, 12])
+            .into(),
+        VersionRowAction::Queued => button(text("Queued").size(12))
+            .style(styles::secondary_button)
+            .padding([6, 12])
+            .into(),
+        VersionRowAction::Install => button(text("Install").size(12))
+            .on_press(Message::StartInstall(version_for_install))
+            .style(styles::primary_button)
+            .padding([6, 12])
+            .into(),
+        VersionRowAction::Installed | VersionRowAction::Uninstall => {
+            let btn = match action {
+                VersionRowAction::Uninstall => button(text("Uninstall").size(12))
+                    .on_press(Message::RequestUninstall(version_for_uninstall))
+                    .style(styles::danger_button)
+                    .padding([6, 12]),
+                VersionRowAction::Installed => button(text("Installed").size(12))
+                    .style(styles::secondary_button)
+                    .padding([6, 12]),
+                _ => unreachable!(),
+            };
+            mouse_area(btn)
+                .on_enter(Message::VersionRowHovered(Some(version_for_hover)))
+                .on_exit(Message::VersionRowHovered(None))
+                .into()
+        }
+    }
+}
+
+fn version_badges(
+    version: &RemoteVersion,
+    is_eol: bool,
+    has_security: bool,
+) -> Element<'_, Message> {
+    let mut badges = row![].spacing(6).align_y(Alignment::Center);
+    for badge_kind in version_badge_kinds(version.lts_codename.is_some(), is_eol, has_security) {
+        badges = match badge_kind {
+            VersionBadgeKind::Lts => {
+                if let Some(lts) = &version.lts_codename {
+                    badges.push(
+                        container(text(format!("LTS: {lts}")).size(11))
+                            .padding([2, 6])
+                            .style(styles::badge_lts),
+                    )
+                } else {
+                    badges
+                }
+            }
+            VersionBadgeKind::Eol => badges.push(
+                container(text("End-of-Life").size(11))
+                    .padding([2, 6])
+                    .style(styles::badge_eol),
+            ),
+            VersionBadgeKind::Security => badges.push(
+                container(text("Security").size(11))
+                    .padding([2, 6])
+                    .style(styles::badge_security),
+            ),
+        };
+    }
+    badges.into()
+}
+
 pub(super) fn available_version_row<'a>(
     version: &'a RemoteVersion,
     ctx: &VersionListContext<'a>,
@@ -21,6 +164,8 @@ pub(super) fn available_version_row<'a>(
     let version_for_row_click = version_str.clone();
     let version_for_hover = version_str.clone();
     let version_for_ctx = version_str.clone();
+    let version_for_install = version_str.clone();
+    let version_for_uninstall = version_str.clone();
     let is_installed = ctx.installed_set.contains(&version_str);
 
     let is_active = ctx.operation_queue.is_current_version(&version_str);
@@ -30,63 +175,32 @@ pub(super) fn available_version_row<'a>(
         .as_ref()
         .is_some_and(|h| h == &version_str);
 
-    let action_button: Element<Message> = if is_active {
-        button(text("Installing...").size(12))
-            .style(styles::primary_button)
-            .padding([6, 12])
-            .into()
+    let activity = if is_active {
+        RowActivity::Active
     } else if is_pending {
-        button(text("Queued").size(12))
-            .style(styles::secondary_button)
-            .padding([6, 12])
-            .into()
-    } else if is_installed {
-        let btn = if is_button_hovered {
-            button(text("Uninstall").size(12))
-                .on_press(Message::RequestUninstall(version_str))
-                .style(styles::danger_button)
-                .padding([6, 12])
-        } else {
-            button(text("Installed").size(12))
-                .style(styles::secondary_button)
-                .padding([6, 12])
-        };
-        mouse_area(btn)
-            .on_enter(Message::VersionRowHovered(Some(version_for_hover)))
-            .on_exit(Message::VersionRowHovered(None))
-            .into()
+        RowActivity::Pending
     } else {
-        button(text("Install").size(12))
-            .on_press(Message::StartInstall(version_str))
-            .style(styles::primary_button)
-            .padding([6, 12])
-            .into()
+        RowActivity::Idle
     };
-
-    let mut badges = row![].spacing(6).align_y(Alignment::Center);
-    if let Some(lts) = &version.lts_codename
-        && !is_eol
-    {
-        badges = badges.push(
-            container(text(format!("LTS: {lts}")).size(11))
-                .padding([2, 6])
-                .style(styles::badge_lts),
-        );
-    }
-    if is_eol {
-        badges = badges.push(
-            container(text("End-of-Life").size(11))
-                .padding([2, 6])
-                .style(styles::badge_eol),
-        );
-    }
-    if meta.is_some_and(|m| m.security) {
-        badges = badges.push(
-            container(text("Security").size(11))
-                .padding([2, 6])
-                .style(styles::badge_security),
-        );
-    }
+    let install_state = if is_installed {
+        InstallState::Installed
+    } else {
+        InstallState::NotInstalled
+    };
+    let hover_state = if is_button_hovered {
+        HoverState::Hovered
+    } else {
+        HoverState::NotHovered
+    };
+    let action = resolve_version_row_action(activity, install_state, hover_state);
+    let has_security = meta.is_some_and(|m| m.security);
+    let action_button = action_button(
+        action,
+        version_for_install,
+        version_for_uninstall,
+        version_for_hover,
+    );
+    let badges = version_badges(version, is_eol, has_security);
 
     let date_text: Element<Message> = if let Some(date) = meta.map(|m| m.date.as_str()) {
         text(date)
@@ -118,4 +232,81 @@ pub(super) fn available_version_row<'a>(
             is_default: false,
         })
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        HoverState, InstallState, RowActivity, VersionBadgeKind, VersionRowAction,
+        resolve_version_row_action, version_badge_kinds,
+    };
+
+    #[test]
+    fn row_action_prioritizes_active_then_pending() {
+        assert_eq!(
+            resolve_version_row_action(
+                RowActivity::Active,
+                InstallState::Installed,
+                HoverState::Hovered
+            ),
+            VersionRowAction::Installing
+        );
+        assert_eq!(
+            resolve_version_row_action(
+                RowActivity::Pending,
+                InstallState::Installed,
+                HoverState::Hovered
+            ),
+            VersionRowAction::Queued
+        );
+    }
+
+    #[test]
+    fn row_action_handles_installed_hover_state() {
+        assert_eq!(
+            resolve_version_row_action(
+                RowActivity::Idle,
+                InstallState::Installed,
+                HoverState::Hovered
+            ),
+            VersionRowAction::Uninstall
+        );
+        assert_eq!(
+            resolve_version_row_action(
+                RowActivity::Idle,
+                InstallState::Installed,
+                HoverState::NotHovered
+            ),
+            VersionRowAction::Installed
+        );
+    }
+
+    #[test]
+    fn row_action_falls_back_to_install_for_uninstalled_versions() {
+        assert_eq!(
+            resolve_version_row_action(
+                RowActivity::Idle,
+                InstallState::NotInstalled,
+                HoverState::NotHovered
+            ),
+            VersionRowAction::Install
+        );
+    }
+
+    #[test]
+    fn badge_kinds_include_lts_and_security_when_supported() {
+        assert_eq!(
+            version_badge_kinds(true, false, true),
+            vec![VersionBadgeKind::Lts, VersionBadgeKind::Security]
+        );
+    }
+
+    #[test]
+    fn badge_kinds_hide_lts_for_eol_and_keep_order() {
+        assert_eq!(
+            version_badge_kinds(true, true, true),
+            vec![VersionBadgeKind::Eol, VersionBadgeKind::Security]
+        );
+        assert!(version_badge_kinds(false, false, false).is_empty());
+    }
 }
