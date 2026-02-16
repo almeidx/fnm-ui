@@ -13,3 +13,6 @@ thiserror.workspace = true
 dirs.workspace = true
 which.workspace = true
 log.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

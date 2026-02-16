@@ -23,15 +23,7 @@ impl Versi {
                     .save_file()
                     .await;
                 match dialog {
-                    Some(handle) => {
-                        let content = serde_json::to_string_pretty(&settings)
-                            .map_err(|e| AppError::message(e.to_string()))?;
-                        let path = handle.path().to_path_buf();
-                        tokio::fs::write(&path, content)
-                            .await
-                            .map_err(|e| AppError::message(e.to_string()))?;
-                        Ok(path)
-                    }
+                    Some(handle) => export_settings_to_path(&settings, handle.path()).await,
                     None => Err(AppError::from(SETTINGS_DIALOG_CANCELLED)),
                 }
             },
@@ -65,11 +57,7 @@ impl Versi {
                     .await;
                 match dialog {
                     Some(handle) => {
-                        let content = tokio::fs::read_to_string(handle.path())
-                            .await
-                            .map_err(|e| AppError::message(e.to_string()))?;
-                        let imported: crate::settings::AppSettings = serde_json::from_str(&content)
-                            .map_err(|e| AppError::message(e.to_string()))?;
+                        let imported = import_settings_from_path(handle.path()).await?;
                         imported
                             .save()
                             .map_err(|e| AppError::message(e.to_string()))?;
@@ -107,4 +95,76 @@ impl Versi {
 
 fn is_settings_dialog_cancelled(error: &AppError) -> bool {
     matches!(error, AppError::Message(message) if message == SETTINGS_DIALOG_CANCELLED)
+}
+
+async fn export_settings_to_path(
+    settings: &crate::settings::AppSettings,
+    path: &std::path::Path,
+) -> Result<std::path::PathBuf, AppError> {
+    let content =
+        serde_json::to_string_pretty(settings).map_err(|e| AppError::message(e.to_string()))?;
+    tokio::fs::write(path, content)
+        .await
+        .map_err(|e| AppError::message(e.to_string()))?;
+    Ok(path.to_path_buf())
+}
+
+async fn import_settings_from_path(
+    path: &std::path::Path,
+) -> Result<crate::settings::AppSettings, AppError> {
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .map_err(|e| AppError::message(e.to_string()))?;
+    serde_json::from_str(&content).map_err(|e| AppError::message(e.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::tempdir;
+
+    use super::{export_settings_to_path, import_settings_from_path};
+    use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
+
+    #[tokio::test]
+    async fn export_then_import_roundtrips_settings_file() {
+        let temp_dir = tempdir().expect("create temp dir");
+        let export_path = temp_dir.path().join("settings.json");
+
+        let mut settings = AppSettings::default();
+        settings.theme = ThemeSetting::Dark;
+        settings.tray_behavior = TrayBehavior::AlwaysRunning;
+        settings.start_minimized = true;
+        settings.fetch_timeout_secs = 42;
+        settings.retry_delays_secs = vec![0, 1, 2];
+
+        export_settings_to_path(&settings, &export_path)
+            .await
+            .expect("export settings");
+        let imported = import_settings_from_path(&export_path)
+            .await
+            .expect("import settings");
+
+        assert!(matches!(imported.theme, ThemeSetting::Dark));
+        assert!(matches!(
+            imported.tray_behavior,
+            TrayBehavior::AlwaysRunning
+        ));
+        assert!(imported.start_minimized);
+        assert_eq!(imported.fetch_timeout_secs, 42);
+        assert_eq!(imported.retry_delays_secs, vec![0, 1, 2]);
+    }
+
+    #[tokio::test]
+    async fn import_settings_rejects_invalid_json() {
+        let temp_dir = tempdir().expect("create temp dir");
+        let import_path = temp_dir.path().join("broken-settings.json");
+        tokio::fs::write(&import_path, "{not valid json")
+            .await
+            .expect("write invalid payload");
+
+        let error = import_settings_from_path(&import_path)
+            .await
+            .expect_err("expected parse failure");
+        assert!(matches!(error, crate::error::AppError::Message(_)));
+    }
 }
