@@ -145,18 +145,34 @@ pub(crate) fn set_update_badge(visible: bool) {
             )?);
             ptr::write_bytes(mask_bits_ptr as *mut u8, 0, pixels.len());
 
+            let mask_bitmap = guard
+                .mask_bitmap
+                .as_ref()
+                .copied()
+                .ok_or_else(|| std::io::Error::other("failed to create mask bitmap"))?;
+            let color_bitmap = guard
+                .color_bitmap
+                .as_ref()
+                .copied()
+                .ok_or_else(|| std::io::Error::other("failed to create color bitmap"))?;
+
             let icon_info = ICONINFO {
                 fIcon: true.into(),
                 xHotspot: 0,
                 yHotspot: 0,
-                hbmMask: guard.mask_bitmap.as_ref().copied().unwrap(),
-                hbmColor: guard.color_bitmap.as_ref().copied().unwrap(),
+                hbmMask: mask_bitmap,
+                hbmColor: color_bitmap,
             };
 
             guard.icon = Some(CreateIconIndirect(&icon_info)?);
+            let icon = guard
+                .icon
+                .as_ref()
+                .copied()
+                .ok_or_else(|| std::io::Error::other("failed to create overlay icon"))?;
             let result = taskbar.SetOverlayIcon(
                 hwnd,
-                guard.icon.as_ref().copied().unwrap(),
+                icon,
                 w!("Update available"),
             );
 
