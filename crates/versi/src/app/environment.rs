@@ -149,13 +149,13 @@ impl Versi {
                         debug!("Fetching installed versions for {env_id:?}...");
                         let result = tokio::select! {
                             () = cancel_token.cancelled() => {
-                                Err(AppError::message("Loading versions cancelled"))
+                                Err(AppError::operation_cancelled("Loading versions"))
                             }
                             result = run_with_timeout(
                                 fetch_timeout,
                                 "Loading versions",
                                 backend.list_installed(),
-                                |error| AppError::message(format!("Failed to load versions: {error}")),
+                                |error| AppError::environment_load_failed(error.to_string()),
                             ) => result
                         };
 
@@ -212,13 +212,13 @@ impl Versi {
                 async move {
                     let result = tokio::select! {
                         () = cancel_token.cancelled() => {
-                            Err(AppError::message("Loading versions cancelled"))
+                            Err(AppError::operation_cancelled("Loading versions"))
                         }
                         result = run_with_timeout(
                             fetch_timeout,
                             "Loading versions",
                             backend.list_installed(),
-                            |error| AppError::message(format!("Failed to load versions: {error}")),
+                            |error| AppError::environment_load_failed(error.to_string()),
                         ) => result
                     };
                     (env_id, request_seq, result)

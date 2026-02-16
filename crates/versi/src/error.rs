@@ -20,6 +20,25 @@ pub enum AppError {
         backend: &'static str,
         details: String,
     },
+    SettingsDialogCancelled,
+    SettingsExportFailed {
+        action: &'static str,
+        details: String,
+    },
+    SettingsImportFailed {
+        action: &'static str,
+        details: String,
+    },
+    OperationCancelled {
+        operation: &'static str,
+    },
+    EnvironmentLoadFailed {
+        details: String,
+    },
+    VersionFetchFailed {
+        resource: &'static str,
+        details: String,
+    },
 }
 
 impl AppError {
@@ -57,6 +76,41 @@ impl AppError {
             details: details.into(),
         }
     }
+
+    pub fn settings_dialog_cancelled() -> Self {
+        Self::SettingsDialogCancelled
+    }
+
+    pub fn settings_export_failed(action: &'static str, details: impl Into<String>) -> Self {
+        Self::SettingsExportFailed {
+            action,
+            details: details.into(),
+        }
+    }
+
+    pub fn settings_import_failed(action: &'static str, details: impl Into<String>) -> Self {
+        Self::SettingsImportFailed {
+            action,
+            details: details.into(),
+        }
+    }
+
+    pub fn operation_cancelled(operation: &'static str) -> Self {
+        Self::OperationCancelled { operation }
+    }
+
+    pub fn environment_load_failed(details: impl Into<String>) -> Self {
+        Self::EnvironmentLoadFailed {
+            details: details.into(),
+        }
+    }
+
+    pub fn version_fetch_failed(resource: &'static str, details: impl Into<String>) -> Self {
+        Self::VersionFetchFailed {
+            resource,
+            details: details.into(),
+        }
+    }
 }
 
 impl From<String> for AppError {
@@ -89,6 +143,20 @@ impl std::fmt::Display for AppError {
             } => write!(f, "{shell} shell {action} failed: {details}"),
             Self::BackendInstallFailed { backend, details } => {
                 write!(f, "Failed to install backend {backend}: {details}")
+            }
+            Self::SettingsDialogCancelled => write!(f, "Cancelled"),
+            Self::SettingsExportFailed { action, details } => {
+                write!(f, "Settings export {action} failed: {details}")
+            }
+            Self::SettingsImportFailed { action, details } => {
+                write!(f, "Settings import {action} failed: {details}")
+            }
+            Self::OperationCancelled { operation } => write!(f, "{operation} cancelled"),
+            Self::EnvironmentLoadFailed { details } => {
+                write!(f, "Failed to load versions: {details}")
+            }
+            Self::VersionFetchFailed { resource, details } => {
+                write!(f, "{resource} fetch failed: {details}")
             }
         }
     }
@@ -173,6 +241,74 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "Failed to install backend fnm: network unavailable"
+        );
+    }
+
+    #[test]
+    fn settings_and_cancellation_constructors_are_structured() {
+        let cancelled = AppError::settings_dialog_cancelled();
+        let export = AppError::settings_export_failed("write file", "permission denied");
+        let import = AppError::settings_import_failed("parse json", "invalid type");
+        let op_cancelled = AppError::operation_cancelled("Remote versions fetch");
+
+        assert_eq!(cancelled, AppError::SettingsDialogCancelled);
+        assert_eq!(
+            export,
+            AppError::SettingsExportFailed {
+                action: "write file",
+                details: "permission denied".to_string()
+            }
+        );
+        assert_eq!(
+            import,
+            AppError::SettingsImportFailed {
+                action: "parse json",
+                details: "invalid type".to_string()
+            }
+        );
+        assert_eq!(
+            op_cancelled,
+            AppError::OperationCancelled {
+                operation: "Remote versions fetch"
+            }
+        );
+        assert_eq!(cancelled.to_string(), "Cancelled");
+        assert_eq!(
+            export.to_string(),
+            "Settings export write file failed: permission denied"
+        );
+        assert_eq!(
+            import.to_string(),
+            "Settings import parse json failed: invalid type"
+        );
+        assert_eq!(op_cancelled.to_string(), "Remote versions fetch cancelled");
+    }
+
+    #[test]
+    fn fetch_and_environment_error_constructors_include_context() {
+        let env_load = AppError::environment_load_failed("backend unavailable");
+        let fetch = AppError::version_fetch_failed("Release schedule", "network timeout");
+
+        assert_eq!(
+            env_load,
+            AppError::EnvironmentLoadFailed {
+                details: "backend unavailable".to_string()
+            }
+        );
+        assert_eq!(
+            fetch,
+            AppError::VersionFetchFailed {
+                resource: "Release schedule",
+                details: "network timeout".to_string()
+            }
+        );
+        assert_eq!(
+            env_load.to_string(),
+            "Failed to load versions: backend unavailable"
+        );
+        assert_eq!(
+            fetch.to_string(),
+            "Release schedule fetch failed: network timeout"
         );
     }
 }

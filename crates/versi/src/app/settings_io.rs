@@ -10,8 +10,6 @@ use crate::state::AppState;
 
 use super::Versi;
 
-const SETTINGS_DIALOG_CANCELLED: &str = "Cancelled";
-
 impl Versi {
     pub(super) fn handle_export_settings(&self) -> Task<Message> {
         let settings = self.settings.clone();
@@ -24,7 +22,7 @@ impl Versi {
                     .await;
                 match dialog {
                     Some(handle) => export_settings_to_path(&settings, handle.path()).await,
-                    None => Err(AppError::from(SETTINGS_DIALOG_CANCELLED)),
+                    None => Err(AppError::settings_dialog_cancelled()),
                 }
             },
             Message::SettingsExported,
@@ -58,12 +56,12 @@ impl Versi {
                 match dialog {
                     Some(handle) => {
                         let imported = import_settings_from_path(handle.path()).await?;
-                        imported
-                            .save()
-                            .map_err(|e| AppError::message(e.to_string()))?;
+                        imported.save().map_err(|error| {
+                            AppError::settings_import_failed("save", error.to_string())
+                        })?;
                         Ok(())
                     }
-                    None => Err(AppError::from(SETTINGS_DIALOG_CANCELLED)),
+                    None => Err(AppError::settings_dialog_cancelled()),
                 }
             },
             Message::SettingsImported,
@@ -94,18 +92,18 @@ impl Versi {
 }
 
 fn is_settings_dialog_cancelled(error: &AppError) -> bool {
-    matches!(error, AppError::Message(message) if message == SETTINGS_DIALOG_CANCELLED)
+    matches!(error, AppError::SettingsDialogCancelled)
 }
 
 async fn export_settings_to_path(
     settings: &crate::settings::AppSettings,
     path: &std::path::Path,
 ) -> Result<std::path::PathBuf, AppError> {
-    let content =
-        serde_json::to_string_pretty(settings).map_err(|e| AppError::message(e.to_string()))?;
+    let content = serde_json::to_string_pretty(settings)
+        .map_err(|error| AppError::settings_export_failed("serialize", error.to_string()))?;
     tokio::fs::write(path, content)
         .await
-        .map_err(|e| AppError::message(e.to_string()))?;
+        .map_err(|error| AppError::settings_export_failed("write", error.to_string()))?;
     Ok(path.to_path_buf())
 }
 
@@ -114,8 +112,9 @@ async fn import_settings_from_path(
 ) -> Result<crate::settings::AppSettings, AppError> {
     let content = tokio::fs::read_to_string(path)
         .await
-        .map_err(|e| AppError::message(e.to_string()))?;
-    serde_json::from_str(&content).map_err(|e| AppError::message(e.to_string()))
+        .map_err(|error| AppError::settings_import_failed("read", error.to_string()))?;
+    serde_json::from_str(&content)
+        .map_err(|error| AppError::settings_import_failed("parse", error.to_string()))
 }
 
 #[cfg(test)]
@@ -165,6 +164,12 @@ mod tests {
         let error = import_settings_from_path(&import_path)
             .await
             .expect_err("expected parse failure");
-        assert!(matches!(error, crate::error::AppError::Message(_)));
+        assert!(matches!(
+            error,
+            crate::error::AppError::SettingsImportFailed {
+                action: "parse",
+                ..
+            }
+        ));
     }
 }

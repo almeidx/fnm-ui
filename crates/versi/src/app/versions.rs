@@ -42,7 +42,7 @@ impl Versi {
                 async move {
                     tokio::select! {
                         () = cancel_token.cancelled() => {
-                            Err(AppError::message("Remote versions fetch cancelled"))
+                            Err(AppError::operation_cancelled("Remote versions fetch"))
                         }
                         result = retry_with_delays("Remote versions fetch", &retry_delays, || {
                             let backend = backend.clone();
@@ -51,7 +51,7 @@ impl Versi {
                                     fetch_timeout,
                                     "Fetch remote versions",
                                     backend.list_remote(),
-                                    |error| AppError::message(error.to_string()),
+                                    |error| AppError::version_fetch_failed("Remote versions", error.to_string()),
                                 )
                                 .await
                             }
@@ -145,14 +145,14 @@ impl Versi {
                 async move {
                     tokio::select! {
                         () = cancel_token.cancelled() => {
-                            Err(AppError::message("Release schedule fetch cancelled"))
+                            Err(AppError::operation_cancelled("Release schedule fetch"))
                         }
                         result = retry_with_delays("Release schedule fetch", &retry_delays, || {
                             let client = client.clone();
                             async move {
                                 fetch_release_schedule(&client)
                                     .await
-                                    .map_err(AppError::message)
+                                    .map_err(|error| AppError::version_fetch_failed("Release schedule", error))
                             }
                         }) => result
                     }
@@ -226,14 +226,14 @@ impl Versi {
                 async move {
                     tokio::select! {
                         () = cancel_token.cancelled() => {
-                            Err(AppError::message("Version metadata fetch cancelled"))
+                            Err(AppError::operation_cancelled("Version metadata fetch"))
                         }
                         result = retry_with_delays("Version metadata fetch", &retry_delays, || {
                             let client = client.clone();
                             async move {
                                 fetch_version_metadata(&client)
                                     .await
-                                    .map_err(AppError::message)
+                                    .map_err(|error| AppError::version_fetch_failed("Version metadata", error))
                             }
                         }) => result
                     }
