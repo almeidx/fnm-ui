@@ -140,10 +140,43 @@ impl Versi {
         let marker = provider.shell_config_marker().to_string();
         let label = provider.shell_config_label().to_string();
 
+        #[cfg(target_os = "windows")]
+        let active_env_id = if let AppState::Main(state) = &self.state {
+            Some(state.active_environment().id.clone())
+        } else {
+            None
+        };
+
         let shell_type_for_callback = shell_type.clone();
         Task::perform(
             async move {
                 use versi_shell::{ShellConfig, get_or_create_config_path};
+
+                #[cfg(target_os = "windows")]
+                if let Some(EnvironmentId::Wsl { distro, .. }) = active_env_id {
+                    let init_command = provider
+                        .create_manager(&versi_backend::BackendDetection {
+                            found: true,
+                            path: None,
+                            version: None,
+                            in_path: true,
+                            data_dir: None,
+                        })
+                        .shell_init_command(shell_type.shell_arg(), &options)
+                        .ok_or_else(|| "Shell not supported".to_string())?;
+
+                    versi_shell::configure_wsl_shell_config(
+                        &shell_type,
+                        &distro,
+                        &marker,
+                        &label,
+                        &init_command,
+                        &options,
+                    )
+                    .await?;
+
+                    return Ok::<_, String>(());
+                }
 
                 let config_path = get_or_create_config_path(&shell_type)
                     .ok_or_else(|| "No config file path found".to_string())?;

@@ -5,6 +5,11 @@ use tokio::process::Command;
 use versi_backend::ShellInitOptions;
 use versi_platform::HideWindow;
 
+#[cfg(target_os = "windows")]
+use std::process::Stdio;
+#[cfg(target_os = "windows")]
+use tokio::io::AsyncWriteExt;
+
 #[derive(Debug, Clone)]
 pub enum VerificationResult {
     Configured(Option<ShellInitOptions>),
@@ -196,6 +201,125 @@ async fn wsl_functional_test(shell_type: &ShellType, distro: &str, backend_binar
         .unwrap_or(false)
 }
 
+#[cfg(target_os = "windows")]
+pub async fn configure_wsl_shell_config(
+    shell_type: &ShellType,
+    distro: &str,
+    marker: &str,
+    label: &str,
+    init_command: &str,
+    options: &ShellInitOptions,
+) -> Result<(), String> {
+    let config_path = wsl_config_path(shell_type)?;
+    let content = read_wsl_config_file(distro, config_path).await?;
+    let mut config = ShellConfig {
+        shell_type: shell_type.clone(),
+        config_path: PathBuf::from(config_path),
+        content,
+    };
+
+    let edit = if config.has_init(marker) {
+        config.update_flags(marker, options)
+    } else {
+        config.add_init(init_command, label)
+    };
+
+    if edit.has_changes() {
+        write_wsl_config_file(distro, config_path, &edit.modified).await?;
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn wsl_config_path(shell_type: &ShellType) -> Result<&'static str, String> {
+    match shell_type {
+        ShellType::Bash => Ok("$HOME/.bashrc"),
+        ShellType::Zsh => Ok("$HOME/.zshrc"),
+        ShellType::Fish => Ok("$HOME/.config/fish/config.fish"),
+        _ => Err("Shell not supported in WSL".to_string()),
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn read_wsl_config_file(distro: &str, config_path: &str) -> Result<String, String> {
+    let output = Command::new("wsl.exe")
+        .args([
+            "-d",
+            distro,
+            "--",
+            "sh",
+            "-c",
+            "config=\"$1\"; if [ -f \"$config\" ]; then cat \"$config\"; fi",
+            "sh",
+            config_path,
+        ])
+        .hide_window()
+        .output()
+        .await
+        .map_err(|e| format!("Failed to read WSL config: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            "Failed to read WSL config".to_string()
+        } else {
+            stderr
+        });
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[cfg(target_os = "windows")]
+async fn write_wsl_config_file(
+    distro: &str,
+    config_path: &str,
+    content: &str,
+) -> Result<(), String> {
+    let mut child = Command::new("wsl.exe")
+        .args([
+            "-d",
+            distro,
+            "--",
+            "sh",
+            "-c",
+            "config=\"$1\"; mkdir -p \"$(dirname \"$config\")\"; cat > \"$config\"",
+            "sh",
+            config_path,
+        ])
+        .hide_window()
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to open WSL config for writing: {e}"))?;
+
+    let Some(mut stdin) = child.stdin.take() else {
+        return Err("Failed to write WSL config: stdin unavailable".to_string());
+    };
+    stdin
+        .write_all(content.as_bytes())
+        .await
+        .map_err(|e| format!("Failed to write WSL config content: {e}"))?;
+    drop(stdin);
+
+    let output = child
+        .wait_with_output()
+        .await
+        .map_err(|e| format!("Failed to finalize WSL config write: {e}"))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(if stderr.is_empty() {
+            "Failed to write WSL config".to_string()
+        } else {
+            stderr
+        })
+    }
+}
+
 #[cfg(not(target_os = "windows"))]
 pub async fn verify_wsl_shell_config(
     _shell_type: &ShellType,
@@ -204,4 +328,16 @@ pub async fn verify_wsl_shell_config(
     _backend_binary: &str,
 ) -> VerificationResult {
     VerificationResult::Error("WSL is only available on Windows".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub async fn configure_wsl_shell_config(
+    _shell_type: &ShellType,
+    _distro: &str,
+    _marker: &str,
+    _label: &str,
+    _init_command: &str,
+    _options: &ShellInitOptions,
+) -> Result<(), String> {
+    Err("WSL is only available on Windows".to_string())
 }
