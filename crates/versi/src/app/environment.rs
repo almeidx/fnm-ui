@@ -16,6 +16,7 @@ use crate::message::Message;
 use crate::state::{AppState, MainViewKind, SearchFilter};
 
 use super::Versi;
+use super::async_helpers::run_with_timeout;
 use super::init::create_backend_for_environment;
 
 impl Versi {
@@ -138,19 +139,13 @@ impl Versi {
                 Task::perform(
                     async move {
                         debug!("Fetching installed versions for {:?}...", env_id);
-                        let result =
-                            match tokio::time::timeout(fetch_timeout, backend.list_installed())
-                                .await
-                            {
-                                Ok(Ok(versions)) => Ok(versions),
-                                Ok(Err(error)) => Err(AppError::message(format!(
-                                    "Failed to load versions: {error}"
-                                ))),
-                                Err(_) => Err(AppError::timeout(
-                                    "Loading versions",
-                                    fetch_timeout.as_secs(),
-                                )),
-                            };
+                        let result = run_with_timeout(
+                            fetch_timeout,
+                            "Loading versions",
+                            backend.list_installed(),
+                            |error| AppError::message(format!("Failed to load versions: {error}")),
+                        )
+                        .await;
 
                         if let Ok(versions) = &result {
                             debug!(
@@ -198,17 +193,13 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let result =
-                        match tokio::time::timeout(fetch_timeout, backend.list_installed()).await {
-                            Ok(Ok(versions)) => Ok(versions),
-                            Ok(Err(error)) => Err(AppError::message(format!(
-                                "Failed to load versions: {error}"
-                            ))),
-                            Err(_) => Err(AppError::timeout(
-                                "Loading versions",
-                                fetch_timeout.as_secs(),
-                            )),
-                        };
+                    let result = run_with_timeout(
+                        fetch_timeout,
+                        "Loading versions",
+                        backend.list_installed(),
+                        |error| AppError::message(format!("Failed to load versions: {error}")),
+                    )
+                    .await;
                     (env_id, request_seq, result)
                 },
                 |(env_id, request_seq, result)| Message::EnvironmentLoaded {

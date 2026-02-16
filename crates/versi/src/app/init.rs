@@ -16,6 +16,7 @@ use crate::state::{
 };
 
 use super::Versi;
+use super::async_helpers::run_with_timeout;
 
 impl Versi {
     pub(super) fn handle_initialized(&mut self, result: InitResult) -> Task<Message> {
@@ -176,17 +177,13 @@ impl Versi {
             let fetch_timeout = std::time::Duration::from_secs(self.settings.fetch_timeout_secs);
             load_tasks.push(Task::perform(
                 async move {
-                    let result =
-                        match tokio::time::timeout(fetch_timeout, backend.list_installed()).await {
-                            Ok(Ok(versions)) => Ok(versions),
-                            Ok(Err(error)) => Err(AppError::message(format!(
-                                "Failed to load versions: {error}"
-                            ))),
-                            Err(_) => Err(AppError::timeout(
-                                "Loading versions",
-                                fetch_timeout.as_secs(),
-                            )),
-                        };
+                    let result = run_with_timeout(
+                        fetch_timeout,
+                        "Loading versions",
+                        backend.list_installed(),
+                        |error| AppError::message(format!("Failed to load versions: {error}")),
+                    )
+                    .await;
                     (env_id, request_seq, result)
                 },
                 move |(env_id, request_seq, result)| Message::EnvironmentLoaded {

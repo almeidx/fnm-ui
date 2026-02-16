@@ -16,6 +16,7 @@ use crate::message::Message;
 use crate::state::AppState;
 
 use super::Versi;
+use super::async_helpers::{retry_with_delays, run_with_timeout};
 
 impl Versi {
     pub(super) fn handle_fetch_remote_versions(&mut self) -> Task<Message> {
@@ -34,31 +35,19 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let mut last_err = AppError::message("Unknown error");
-                    for (attempt, &delay) in retry_delays.iter().enumerate() {
-                        if delay > 0 {
-                            tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                    retry_with_delays("Remote versions fetch", &retry_delays, || {
+                        let backend = backend.clone();
+                        async move {
+                            run_with_timeout(
+                                fetch_timeout,
+                                "Fetch remote versions",
+                                backend.list_remote(),
+                                |error| AppError::message(error.to_string()),
+                            )
+                            .await
                         }
-                        match tokio::time::timeout(fetch_timeout, backend.list_remote()).await {
-                            Err(_) => {
-                                last_err = AppError::timeout(
-                                    "Fetch remote versions",
-                                    fetch_timeout.as_secs(),
-                                );
-                                debug!("Remote versions fetch attempt {} timed out", attempt + 1,);
-                            }
-                            Ok(Ok(versions)) => return Ok(versions),
-                            Ok(Err(e)) => {
-                                last_err = AppError::message(e.to_string());
-                                debug!(
-                                    "Remote versions fetch attempt {} failed: {}",
-                                    attempt + 1,
-                                    last_err,
-                                );
-                            }
-                        }
-                    }
-                    Err(last_err)
+                    })
+                    .await
                 },
                 move |result| Message::RemoteVersionsFetched {
                     request_seq,
@@ -139,24 +128,15 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let mut last_err = AppError::message("Unknown error");
-                    for (attempt, &delay) in retry_delays.iter().enumerate() {
-                        if delay > 0 {
-                            tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                    retry_with_delays("Release schedule fetch", &retry_delays, || {
+                        let client = client.clone();
+                        async move {
+                            fetch_release_schedule(&client)
+                                .await
+                                .map_err(AppError::message)
                         }
-                        match fetch_release_schedule(&client).await {
-                            Ok(schedule) => return Ok(schedule),
-                            Err(e) => {
-                                last_err = AppError::message(e);
-                                debug!(
-                                    "Release schedule fetch attempt {} failed: {}",
-                                    attempt + 1,
-                                    last_err,
-                                );
-                            }
-                        }
-                    }
-                    Err(last_err)
+                    })
+                    .await
                 },
                 move |result| Message::ReleaseScheduleFetched {
                     request_seq,
@@ -219,24 +199,15 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let mut last_err = AppError::message("Unknown error");
-                    for (attempt, &delay) in retry_delays.iter().enumerate() {
-                        if delay > 0 {
-                            tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                    retry_with_delays("Version metadata fetch", &retry_delays, || {
+                        let client = client.clone();
+                        async move {
+                            fetch_version_metadata(&client)
+                                .await
+                                .map_err(AppError::message)
                         }
-                        match fetch_version_metadata(&client).await {
-                            Ok(metadata) => return Ok(metadata),
-                            Err(e) => {
-                                last_err = AppError::message(e);
-                                debug!(
-                                    "Version metadata fetch attempt {} failed: {}",
-                                    attempt + 1,
-                                    last_err,
-                                );
-                            }
-                        }
-                    }
-                    Err(last_err)
+                    })
+                    .await
                 },
                 move |result| Message::VersionMetadataFetched {
                     request_seq,

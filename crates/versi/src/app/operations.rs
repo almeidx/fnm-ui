@@ -12,6 +12,7 @@ use crate::message::Message;
 use crate::state::{AppState, Modal, Operation, OperationRequest, Toast};
 
 use super::Versi;
+use super::async_helpers::run_with_timeout;
 
 impl Versi {
     pub(super) fn handle_close_modal(&mut self) {
@@ -51,14 +52,16 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    match tokio::time::timeout(timeout, backend.install(&version)).await {
-                        Ok(Ok(())) => (version, true, None),
-                        Ok(Err(e)) => (version, false, Some(AppError::message(e.to_string()))),
-                        Err(_) => (
-                            version,
-                            false,
-                            Some(AppError::timeout("Installation", timeout.as_secs())),
-                        ),
+                    match run_with_timeout(
+                        timeout,
+                        "Installation",
+                        backend.install(&version),
+                        |e| AppError::message(e.to_string()),
+                    )
+                    .await
+                    {
+                        Ok(()) => (version, true, None),
+                        Err(error) => (version, false, Some(error)),
                     }
                 },
                 |(version, success, error)| Message::InstallComplete {
@@ -155,16 +158,16 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    match tokio::time::timeout(timeout, backend.uninstall(&version_clone)).await {
-                        Ok(Ok(())) => (version_clone, true, None),
-                        Ok(Err(e)) => {
-                            (version_clone, false, Some(AppError::message(e.to_string())))
-                        }
-                        Err(_) => (
-                            version_clone,
-                            false,
-                            Some(AppError::timeout("Uninstall", timeout.as_secs())),
-                        ),
+                    match run_with_timeout(
+                        timeout,
+                        "Uninstall",
+                        backend.uninstall(&version_clone),
+                        |e| AppError::message(e.to_string()),
+                    )
+                    .await
+                    {
+                        Ok(()) => (version_clone, true, None),
+                        Err(error) => (version_clone, false, Some(error)),
                     }
                 },
                 |(version, success, error)| Message::UninstallComplete {
@@ -233,13 +236,16 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    match tokio::time::timeout(timeout, backend.set_default(&version)).await {
-                        Ok(Ok(())) => (true, None),
-                        Ok(Err(e)) => (false, Some(AppError::message(e.to_string()))),
-                        Err(_) => (
-                            false,
-                            Some(AppError::timeout("Set default", timeout.as_secs())),
-                        ),
+                    match run_with_timeout(
+                        timeout,
+                        "Set default",
+                        backend.set_default(&version),
+                        |e| AppError::message(e.to_string()),
+                    )
+                    .await
+                    {
+                        Ok(()) => (true, None),
+                        Err(error) => (false, Some(error)),
                     }
                 },
                 |(success, error)| Message::DefaultChanged { success, error },

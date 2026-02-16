@@ -1,3 +1,4 @@
+mod async_helpers;
 mod auto_update;
 mod bulk_operations;
 mod environment;
