@@ -25,6 +25,41 @@ pub struct VersionListContext<'a> {
     pub installed_set: &'a HashSet<NodeVersion>,
 }
 
+fn matches_query(
+    version: &NodeVersion,
+    lts_codename: Option<&String>,
+    query: &str,
+    query_lower: &str,
+) -> bool {
+    if query_lower == "lts" {
+        return lts_codename.is_some();
+    }
+
+    let version_str = version.to_string();
+    version_str.contains(query)
+        || lts_codename.is_some_and(|codename| codename.to_lowercase().contains(query_lower))
+}
+
+fn passes_release_filters(
+    major: u32,
+    active_filters: &HashSet<SearchFilter>,
+    schedule: Option<&ReleaseSchedule>,
+) -> bool {
+    if active_filters.contains(&SearchFilter::Eol) {
+        let is_eol = schedule.is_some_and(|s| !s.is_active(major));
+        if !is_eol {
+            return false;
+        }
+    }
+    if active_filters.contains(&SearchFilter::Active) {
+        let is_active = schedule.is_none_or(|s| s.is_active(major));
+        if !is_active {
+            return false;
+        }
+    }
+    true
+}
+
 fn filter_group(
     group: &VersionGroup,
     query: &str,
@@ -39,17 +74,8 @@ fn filter_group(
         return false;
     }
 
-    if active_filters.contains(&SearchFilter::Eol) {
-        let is_eol = schedule.is_some_and(|s| !s.is_active(group.major));
-        if !is_eol {
-            return false;
-        }
-    }
-    if active_filters.contains(&SearchFilter::Active) {
-        let is_active = schedule.is_none_or(|s| s.is_active(group.major));
-        if !is_active {
-            return false;
-        }
+    if !passes_release_filters(group.major, active_filters, schedule) {
+        return false;
     }
 
     let query_lower = query.to_lowercase();
@@ -64,23 +90,15 @@ fn filter_group(
 
     if active_filters.contains(&SearchFilter::Lts) {
         return group.versions.iter().any(|v| {
-            v.lts_codename.is_some() && {
-                let version_str = v.version.to_string();
-                version_str.contains(query)
-                    || v.lts_codename
-                        .as_ref()
-                        .is_some_and(|c| c.to_lowercase().contains(&query_lower))
-            }
+            v.lts_codename.is_some()
+                && matches_query(&v.version, v.lts_codename.as_ref(), query, &query_lower)
         });
     }
 
-    group.versions.iter().any(|v| {
-        let version_str = v.version.to_string();
-        version_str.contains(query)
-            || v.lts_codename
-                .as_ref()
-                .is_some_and(|c| c.to_lowercase().contains(&query_lower))
-    })
+    group
+        .versions
+        .iter()
+        .any(|v| matches_query(&v.version, v.lts_codename.as_ref(), query, &query_lower))
 }
 
 fn filter_version(
@@ -95,16 +113,12 @@ fn filter_version(
 
     let query_lower = query.to_lowercase();
 
-    let text_match = if query_lower == "lts" {
-        version.lts_codename.is_some()
-    } else {
-        let version_str = version.version.to_string();
-        version_str.contains(query)
-            || version
-                .lts_codename
-                .as_ref()
-                .is_some_and(|c| c.to_lowercase().contains(&query_lower))
-    };
+    let text_match = matches_query(
+        &version.version,
+        version.lts_codename.as_ref(),
+        query,
+        &query_lower,
+    );
 
     if !text_match {
         return false;
@@ -116,17 +130,8 @@ fn filter_version(
     if active_filters.contains(&SearchFilter::NotInstalled) {
         return false;
     }
-    if active_filters.contains(&SearchFilter::Eol) {
-        let is_eol = schedule.is_some_and(|s| !s.is_active(version.version.major));
-        if !is_eol {
-            return false;
-        }
-    }
-    if active_filters.contains(&SearchFilter::Active) {
-        let is_active = schedule.is_none_or(|s| s.is_active(version.version.major));
-        if !is_active {
-            return false;
-        }
+    if !passes_release_filters(version.version.major, active_filters, schedule) {
+        return false;
     }
 
     true
@@ -324,4 +329,107 @@ fn empty_versions_view(search_query: &str) -> Element<'_, Message> {
     .center_y(Length::Fill)
     .height(Length::Fill)
     .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::{matches_query, passes_release_filters, update_available_for_group};
+    use crate::state::SearchFilter;
+    use versi_backend::{InstalledVersion, NodeVersion, VersionGroup};
+
+    fn installed(version: &str) -> InstalledVersion {
+        InstalledVersion {
+            version: version.parse().expect("test version should parse"),
+            is_default: false,
+            lts_codename: Some("Iron".to_string()),
+            install_date: None,
+            disk_size: None,
+        }
+    }
+
+    fn schedule_with_eol_major(eol_major: u32) -> versi_core::ReleaseSchedule {
+        serde_json::from_value(serde_json::json!({
+            "versions": {
+                format!("{eol_major}"): {
+                    "start": "2020-01-01",
+                    "end": "2021-01-01"
+                },
+                "22": {
+                    "start": "2024-04-23",
+                    "lts": "2024-10-29",
+                    "maintenance": "2026-10-20",
+                    "end": "2027-04-30",
+                    "codename": "Jod"
+                }
+            }
+        }))
+        .expect("schedule fixture should deserialize")
+    }
+
+    #[test]
+    fn matches_query_handles_versions_and_lts_codenames() {
+        let version = NodeVersion::new(22, 11, 0);
+        assert!(matches_query(
+            &version,
+            Some(&"Jod".to_string()),
+            "22",
+            "22"
+        ));
+        assert!(matches_query(
+            &version,
+            Some(&"Jod".to_string()),
+            "jod",
+            "jod"
+        ));
+        assert!(matches_query(
+            &version,
+            Some(&"Jod".to_string()),
+            "lts",
+            "lts"
+        ));
+        assert!(!matches_query(&version, None, "lts", "lts"));
+    }
+
+    #[test]
+    fn release_filters_respect_eol_and_active_flags() {
+        let schedule = schedule_with_eol_major(20);
+        assert!(passes_release_filters(22, &HashSet::new(), Some(&schedule)));
+        assert!(!passes_release_filters(
+            22,
+            &HashSet::from([SearchFilter::Eol]),
+            Some(&schedule)
+        ));
+        assert!(!passes_release_filters(
+            20,
+            &HashSet::from([SearchFilter::Active]),
+            Some(&schedule)
+        ));
+        assert!(passes_release_filters(
+            20,
+            &HashSet::from([SearchFilter::Eol]),
+            Some(&schedule)
+        ));
+    }
+
+    #[test]
+    fn update_available_for_group_returns_newer_version_only() {
+        let group = VersionGroup::from_versions(vec![installed("v22.1.0"), installed("v22.0.0")])
+            .into_iter()
+            .find(|g| g.major == 22)
+            .expect("major group should exist");
+
+        let latest = std::collections::HashMap::from([
+            (22, NodeVersion::new(22, 2, 0)),
+            (20, NodeVersion::new(20, 11, 0)),
+        ]);
+        assert_eq!(
+            update_available_for_group(&group, &latest),
+            Some("v22.2.0".to_string())
+        );
+
+        let latest_equal = std::collections::HashMap::from([(22, NodeVersion::new(22, 1, 0))]);
+        assert_eq!(update_available_for_group(&group, &latest_equal), None);
+    }
 }

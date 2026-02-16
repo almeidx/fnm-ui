@@ -14,6 +14,42 @@ use super::VersionListContext;
 use super::filter_version;
 use super::item::version_item_view;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HeaderBadgeKind {
+    Lts,
+    Eol,
+    Default,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GroupExpansion {
+    Expanded,
+    Collapsed,
+}
+
+fn group_header_badges(
+    has_lts: bool,
+    has_default: bool,
+    is_eol: bool,
+    expansion: GroupExpansion,
+) -> Vec<HeaderBadgeKind> {
+    let mut badges = Vec::new();
+    if has_lts {
+        badges.push(HeaderBadgeKind::Lts);
+    }
+    if is_eol {
+        badges.push(HeaderBadgeKind::Eol);
+    }
+    if has_default && matches!(expansion, GroupExpansion::Collapsed) {
+        badges.push(HeaderBadgeKind::Default);
+    }
+    badges
+}
+
+fn show_bulk_actions(is_expanded: bool, version_count: usize) -> bool {
+    is_expanded && version_count > 1
+}
+
 pub(super) fn version_group_view<'a>(
     group: &'a VersionGroup,
     default: Option<&'a versi_backend::NodeVersion>,
@@ -77,26 +113,29 @@ fn group_header_row(
     .spacing(8)
     .align_y(Alignment::Center);
 
-    if has_lts {
-        header_row = header_row.push(
-            container(text("LTS").size(10))
-                .padding([2, 6])
-                .style(styles::badge_lts),
-        );
-    }
-    if is_eol {
-        header_row = header_row.push(
-            container(text("End-of-Life").size(10))
-                .padding([2, 6])
-                .style(styles::badge_eol),
-        );
-    }
-    if has_default && !group.is_expanded {
-        header_row = header_row.push(
-            container(text("default").size(10))
-                .padding([2, 6])
-                .style(styles::badge_default),
-        );
+    let expansion = if group.is_expanded {
+        GroupExpansion::Expanded
+    } else {
+        GroupExpansion::Collapsed
+    };
+    for badge in group_header_badges(has_lts, has_default, is_eol, expansion) {
+        header_row = match badge {
+            HeaderBadgeKind::Lts => header_row.push(
+                container(text("LTS").size(10))
+                    .padding([2, 6])
+                    .style(styles::badge_lts),
+            ),
+            HeaderBadgeKind::Eol => header_row.push(
+                container(text("End-of-Life").size(10))
+                    .padding([2, 6])
+                    .style(styles::badge_eol),
+            ),
+            HeaderBadgeKind::Default => header_row.push(
+                container(text("default").size(10))
+                    .padding([2, 6])
+                    .style(styles::badge_default),
+            ),
+        };
     }
     header_row
 }
@@ -117,7 +156,7 @@ fn group_header_actions(
         );
     }
 
-    if group.is_expanded && group.versions.len() > 1 {
+    if show_bulk_actions(group.is_expanded, group.versions.len()) {
         actions = actions.push(
             button(text("Keep Latest").size(10))
                 .on_press(Message::RequestBulkUninstallMajorExceptLatest { major: group.major })
@@ -169,4 +208,40 @@ fn expanded_group_view<'a>(
     .style(styles::card_container)
     .padding(12)
     .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{GroupExpansion, HeaderBadgeKind, group_header_badges, show_bulk_actions};
+
+    #[test]
+    fn group_header_badges_include_default_only_when_collapsed() {
+        assert_eq!(
+            group_header_badges(true, true, false, GroupExpansion::Collapsed),
+            vec![HeaderBadgeKind::Lts, HeaderBadgeKind::Default]
+        );
+        assert_eq!(
+            group_header_badges(true, true, false, GroupExpansion::Expanded),
+            vec![HeaderBadgeKind::Lts]
+        );
+    }
+
+    #[test]
+    fn group_header_badges_keep_lts_eol_order() {
+        assert_eq!(
+            group_header_badges(true, false, true, GroupExpansion::Collapsed),
+            vec![HeaderBadgeKind::Lts, HeaderBadgeKind::Eol]
+        );
+        assert_eq!(
+            group_header_badges(false, false, false, GroupExpansion::Collapsed),
+            vec![]
+        );
+    }
+
+    #[test]
+    fn bulk_actions_require_expanded_group_with_multiple_versions() {
+        assert!(!show_bulk_actions(false, 5));
+        assert!(!show_bulk_actions(true, 1));
+        assert!(show_bulk_actions(true, 2));
+    }
 }
