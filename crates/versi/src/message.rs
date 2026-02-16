@@ -7,6 +7,7 @@ use versi_platform::EnvironmentId;
 use versi_shell::ShellType;
 
 use crate::backend_kind::BackendKind;
+use crate::error::AppError;
 use crate::settings::TrayBehavior;
 use crate::state::SearchFilter;
 use crate::tray::TrayMessage;
@@ -21,7 +22,7 @@ pub enum Message {
     SelectPreviousEnvironment,
     EnvironmentLoaded {
         env_id: EnvironmentId,
-        result: Result<Vec<InstalledVersion>, String>,
+        result: Result<Vec<InstalledVersion>, AppError>,
     },
     RefreshEnvironment,
     FocusSearch,
@@ -45,7 +46,7 @@ pub enum Message {
     InstallComplete {
         version: String,
         success: bool,
-        error: Option<String>,
+        error: Option<AppError>,
     },
 
     RequestUninstall(String),
@@ -53,7 +54,7 @@ pub enum Message {
     UninstallComplete {
         version: String,
         success: bool,
-        error: Option<String>,
+        error: Option<AppError>,
     },
 
     RequestBulkUpdateMajors,
@@ -77,7 +78,7 @@ pub enum Message {
     SetDefault(String),
     DefaultChanged {
         success: bool,
-        error: Option<String>,
+        error: Option<AppError>,
     },
 
     ToastDismiss(usize),

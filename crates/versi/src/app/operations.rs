@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use iced::Task;
 
+use crate::error::AppError;
 use crate::message::Message;
 use crate::state::{AppState, Modal, Operation, OperationRequest, Toast};
 
@@ -52,8 +53,12 @@ impl Versi {
                 async move {
                     match tokio::time::timeout(timeout, backend.install(&version)).await {
                         Ok(Ok(())) => (version, true, None),
-                        Ok(Err(e)) => (version, false, Some(e.to_string())),
-                        Err(_) => (version, false, Some("Installation timed out".to_string())),
+                        Ok(Err(e)) => (version, false, Some(AppError::message(e.to_string()))),
+                        Err(_) => (
+                            version,
+                            false,
+                            Some(AppError::timeout("Installation", timeout.as_secs())),
+                        ),
                     }
                 },
                 |(version, success, error)| Message::InstallComplete {
@@ -70,7 +75,7 @@ impl Versi {
         &mut self,
         version: String,
         success: bool,
-        error: Option<String>,
+        error: Option<AppError>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.remove_completed_install(&version);
@@ -82,7 +87,9 @@ impl Versi {
                     format!(
                         "Failed to install Node {}: {}",
                         version,
-                        error.unwrap_or_default()
+                        error
+                            .map(|e| e.to_string())
+                            .unwrap_or_else(|| "unknown error".to_string())
                     ),
                 ));
             }
@@ -150,11 +157,13 @@ impl Versi {
                 async move {
                     match tokio::time::timeout(timeout, backend.uninstall(&version_clone)).await {
                         Ok(Ok(())) => (version_clone, true, None),
-                        Ok(Err(e)) => (version_clone, false, Some(e.to_string())),
+                        Ok(Err(e)) => {
+                            (version_clone, false, Some(AppError::message(e.to_string())))
+                        }
                         Err(_) => (
                             version_clone,
                             false,
-                            Some("Uninstall timed out".to_string()),
+                            Some(AppError::timeout("Uninstall", timeout.as_secs())),
                         ),
                     }
                 },
@@ -172,7 +181,7 @@ impl Versi {
         &mut self,
         version: String,
         success: bool,
-        error: Option<String>,
+        error: Option<AppError>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.complete_exclusive();
@@ -184,7 +193,9 @@ impl Versi {
                     format!(
                         "Failed to uninstall Node {}: {}",
                         version,
-                        error.unwrap_or_default()
+                        error
+                            .map(|e| e.to_string())
+                            .unwrap_or_else(|| "unknown error".to_string())
                     ),
                 ));
             }
@@ -224,8 +235,8 @@ impl Versi {
                 async move {
                     match tokio::time::timeout(timeout, backend.set_default(&version)).await {
                         Ok(Ok(())) => (true, None),
-                        Ok(Err(e)) => (false, Some(e.to_string())),
-                        Err(_) => (false, Some("Set default timed out".to_string())),
+                        Ok(Err(e)) => (false, Some(AppError::message(e.to_string()))),
+                        Err(_) => (false, Some(AppError::timeout("Set default", timeout.as_secs()))),
                     }
                 },
                 |(success, error)| Message::DefaultChanged { success, error },
@@ -237,7 +248,7 @@ impl Versi {
     pub(super) fn handle_default_changed(
         &mut self,
         success: bool,
-        error: Option<String>,
+        error: Option<AppError>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             state.operation_queue.complete_exclusive();
@@ -246,7 +257,12 @@ impl Versi {
                 let toast_id = state.next_toast_id();
                 state.add_toast(Toast::error(
                     toast_id,
-                    format!("Failed to set default: {}", error.unwrap_or_default()),
+                    format!(
+                        "Failed to set default: {}",
+                        error
+                            .map(|e| e.to_string())
+                            .unwrap_or_else(|| "unknown error".to_string())
+                    ),
                 ));
             }
         }

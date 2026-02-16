@@ -11,6 +11,7 @@ use iced::Task;
 
 use versi_platform::EnvironmentId;
 
+use crate::error::AppError;
 use crate::message::Message;
 use crate::state::{AppState, MainViewKind, SearchFilter};
 
@@ -21,7 +22,7 @@ impl Versi {
     pub(super) fn handle_environment_loaded(
         &mut self,
         env_id: EnvironmentId,
-        result: Result<Vec<versi_backend::InstalledVersion>, String>,
+        result: Result<Vec<versi_backend::InstalledVersion>, AppError>,
     ) -> Task<Message> {
         match &result {
             Ok(versions) => {
@@ -49,7 +50,7 @@ impl Versi {
                 Ok(versions) => env.update_versions(versions),
                 Err(error) => {
                     env.loading = false;
-                    env.error = Some(error);
+                    env.error = Some(error.to_string());
                 }
             }
         }
@@ -130,11 +131,12 @@ impl Versi {
                                 .await
                             {
                                 Ok(Ok(versions)) => Ok(versions),
-                                Ok(Err(error)) => Err(format!("Failed to load versions: {error}")),
-                                Err(_) => Err(format!(
-                                    "Loading versions timed out after {}s",
-                                    fetch_timeout.as_secs()
-                                )),
+                                Ok(Err(error)) => {
+                                    Err(AppError::message(format!("Failed to load versions: {error}")))
+                                }
+                                Err(_) => {
+                                    Err(AppError::timeout("Loading versions", fetch_timeout.as_secs()))
+                                }
                             };
 
                         if let Ok(versions) = &result {
@@ -180,11 +182,12 @@ impl Versi {
                     let result =
                         match tokio::time::timeout(fetch_timeout, backend.list_installed()).await {
                             Ok(Ok(versions)) => Ok(versions),
-                            Ok(Err(error)) => Err(format!("Failed to load versions: {error}")),
-                            Err(_) => Err(format!(
-                                "Loading versions timed out after {}s",
-                                fetch_timeout.as_secs()
-                            )),
+                            Ok(Err(error)) => {
+                                Err(AppError::message(format!("Failed to load versions: {error}")))
+                            }
+                            Err(_) => {
+                                Err(AppError::timeout("Loading versions", fetch_timeout.as_secs()))
+                            }
                         };
                     (env_id, result)
                 },

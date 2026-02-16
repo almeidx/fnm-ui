@@ -9,6 +9,7 @@ use versi_platform::EnvironmentId;
 use versi_shell::detect_shells;
 
 use crate::backend_kind::BackendKind;
+use crate::error::AppError;
 use crate::message::{EnvironmentInfo, InitResult, Message};
 use crate::state::{
     AppState, BackendOption, EnvironmentState, MainState, OnboardingState, ShellConfigStatus,
@@ -166,11 +167,12 @@ impl Versi {
                     let result =
                         match tokio::time::timeout(fetch_timeout, backend.list_installed()).await {
                             Ok(Ok(versions)) => Ok(versions),
-                            Ok(Err(error)) => Err(format!("Failed to load versions: {error}")),
-                            Err(_) => Err(format!(
-                                "Loading versions timed out after {}s",
-                                fetch_timeout.as_secs()
-                            )),
+                            Ok(Err(error)) => {
+                                Err(AppError::message(format!("Failed to load versions: {error}")))
+                            }
+                            Err(_) => {
+                                Err(AppError::timeout("Loading versions", fetch_timeout.as_secs()))
+                            }
                         };
                     (env_id, result)
                 },
