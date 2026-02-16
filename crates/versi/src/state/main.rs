@@ -6,6 +6,7 @@ use versi_backend::{BackendUpdate, NodeVersion, RemoteVersion, VersionManager};
 use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 
 use crate::backend_kind::BackendKind;
+use crate::error::AppError;
 
 use super::{
     ContextMenu, EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast,
@@ -54,7 +55,7 @@ pub enum AppUpdateState {
     Extracting,
     Applying,
     RestartRequired,
-    Failed(String),
+    Failed(AppError),
 }
 
 impl std::fmt::Debug for MainState {
@@ -204,9 +205,9 @@ pub struct VersionCache {
     pub latest_by_major: HashMap<u32, NodeVersion>,
     pub fetched_at: Option<Instant>,
     pub loading: bool,
-    pub error: Option<String>,
+    pub error: Option<AppError>,
     pub schedule: Option<ReleaseSchedule>,
-    pub schedule_error: Option<String>,
+    pub schedule_error: Option<AppError>,
     pub metadata: Option<HashMap<String, VersionMeta>>,
     pub loaded_from_disk: bool,
     pub disk_cached_at: Option<DateTime<Utc>>,

@@ -236,7 +236,10 @@ impl Versi {
                     match tokio::time::timeout(timeout, backend.set_default(&version)).await {
                         Ok(Ok(())) => (true, None),
                         Ok(Err(e)) => (false, Some(AppError::message(e.to_string()))),
-                        Err(_) => (false, Some(AppError::timeout("Set default", timeout.as_secs()))),
+                        Err(_) => (
+                            false,
+                            Some(AppError::timeout("Set default", timeout.as_secs())),
+                        ),
                     }
                 },
                 |(success, error)| Message::DefaultChanged { success, error },

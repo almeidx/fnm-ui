@@ -48,7 +48,10 @@ impl Versi {
             && let AppState::Main(state) = &mut self.state
         {
             let id = state.next_toast_id();
-            state.add_toast(crate::state::Toast::error(id, format!("Export failed: {}", e)));
+            state.add_toast(crate::state::Toast::error(
+                id,
+                format!("Export failed: {}", e),
+            ));
         }
         Task::none()
     }
@@ -65,8 +68,8 @@ impl Versi {
                         let content = tokio::fs::read_to_string(handle.path())
                             .await
                             .map_err(|e| AppError::message(e.to_string()))?;
-                        let imported: crate::settings::AppSettings =
-                            serde_json::from_str(&content).map_err(|e| AppError::message(e.to_string()))?;
+                        let imported: crate::settings::AppSettings = serde_json::from_str(&content)
+                            .map_err(|e| AppError::message(e.to_string()))?;
                         imported
                             .save()
                             .map_err(|e| AppError::message(e.to_string()))?;
@@ -79,7 +82,10 @@ impl Versi {
         )
     }
 
-    pub(super) fn handle_settings_imported(&mut self, result: Result<(), AppError>) -> Task<Message> {
+    pub(super) fn handle_settings_imported(
+        &mut self,
+        result: Result<(), AppError>,
+    ) -> Task<Message> {
         match result {
             Ok(()) => {
                 self.settings = crate::settings::AppSettings::load();
@@ -87,7 +93,10 @@ impl Versi {
             Err(e) if !is_settings_dialog_cancelled(&e) => {
                 if let AppState::Main(state) = &mut self.state {
                     let id = state.next_toast_id();
-                    state.add_toast(crate::state::Toast::error(id, format!("Import failed: {}", e)));
+                    state.add_toast(crate::state::Toast::error(
+                        id,
+                        format!("Import failed: {}", e),
+                    ));
                 }
             }
             _ => {}

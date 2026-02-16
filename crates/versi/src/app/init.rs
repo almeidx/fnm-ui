@@ -167,12 +167,13 @@ impl Versi {
                     let result =
                         match tokio::time::timeout(fetch_timeout, backend.list_installed()).await {
                             Ok(Ok(versions)) => Ok(versions),
-                            Ok(Err(error)) => {
-                                Err(AppError::message(format!("Failed to load versions: {error}")))
-                            }
-                            Err(_) => {
-                                Err(AppError::timeout("Loading versions", fetch_timeout.as_secs()))
-                            }
+                            Ok(Err(error)) => Err(AppError::message(format!(
+                                "Failed to load versions: {error}"
+                            ))),
+                            Err(_) => Err(AppError::timeout(
+                                "Loading versions",
+                                fetch_timeout.as_secs(),
+                            )),
                         };
                     (env_id, result)
                 },

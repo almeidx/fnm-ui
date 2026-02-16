@@ -38,8 +38,10 @@ impl Versi {
                         }
                         match tokio::time::timeout(fetch_timeout, backend.list_remote()).await {
                             Err(_) => {
-                                last_err =
-                                    AppError::timeout("Fetch remote versions", fetch_timeout.as_secs());
+                                last_err = AppError::timeout(
+                                    "Fetch remote versions",
+                                    fetch_timeout.as_secs(),
+                                );
                                 debug!("Remote versions fetch attempt {} timed out", attempt + 1,);
                             }
                             Ok(Ok(versions)) => return Ok(versions),
@@ -104,7 +106,7 @@ impl Versi {
                     });
                 }
                 Err(error) => {
-                    state.available_versions.error = Some(error.to_string());
+                    state.available_versions.error = Some(error);
                 }
             }
         }
@@ -167,7 +169,7 @@ impl Versi {
                 }
                 Err(error) => {
                     debug!("Release schedule fetch failed: {}", error);
-                    state.available_versions.schedule_error = Some(error.to_string());
+                    state.available_versions.schedule_error = Some(error);
                 }
             }
         }

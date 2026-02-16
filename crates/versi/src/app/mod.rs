@@ -313,10 +313,9 @@ impl Versi {
                 let all_providers = self.all_providers();
                 let preferred = self.settings.preferred_backend;
                 self.state = AppState::Loading;
-                return Task::perform(
-                    init::initialize(all_providers, preferred),
-                    |result| Message::Initialized(Box::new(result)),
-                );
+                return Task::perform(init::initialize(all_providers, preferred), |result| {
+                    Message::Initialized(Box::new(result))
+                });
             }
         }
 
@@ -362,6 +361,7 @@ mod tests {
 
     use super::{Versi, should_dismiss_context_menu};
     use crate::backend_kind::BackendKind;
+    use crate::error::AppError;
     use crate::message::Message;
     use crate::settings::AppSettings;
     use crate::state::{AppState, EnvironmentState, MainState, MainViewKind, Modal, Operation};
@@ -488,7 +488,10 @@ mod tests {
             .find(|env| env.id == target_env)
             .expect("expected target environment");
         assert!(!failed_env.loading);
-        assert_eq!(failed_env.error.as_deref(), Some("backend unavailable"));
+        assert_eq!(
+            failed_env.error,
+            Some(AppError::message("backend unavailable"))
+        );
 
         let native_env = state
             .environments

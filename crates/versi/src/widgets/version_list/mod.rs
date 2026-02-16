@@ -164,7 +164,7 @@ pub fn view<'a>(
         return container(
             column![
                 text("Error loading versions").size(16),
-                text(error).size(14),
+                text(error.to_string()).size(14),
                 Space::new().height(16),
                 button(text("Retry"))
                     .on_press(Message::RefreshEnvironment)

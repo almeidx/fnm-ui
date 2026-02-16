@@ -87,7 +87,7 @@ impl Versi {
                     state.step = OnboardingStep::ConfigureShell;
                 }
                 Err(error) => {
-                    state.install_error = Some(error.to_string());
+                    state.install_error = Some(error);
                 }
             }
         }
@@ -128,9 +128,8 @@ impl Versi {
                     let config_path = get_or_create_config_path(&shell_type)
                         .ok_or_else(|| AppError::message("No config file path found"))?;
 
-                    let mut config =
-                        ShellConfig::load(shell_type, config_path)
-                            .map_err(|e| AppError::message(e.to_string()))?;
+                    let mut config = ShellConfig::load(shell_type, config_path)
+                        .map_err(|e| AppError::message(e.to_string()))?;
 
                     if config.has_init(&backend_marker) {
                         let edit = config.update_flags(&backend_marker, &options);
@@ -178,7 +177,7 @@ impl Versi {
                             shell.error = None;
                         }
                         Err(error) => {
-                            shell.error = Some(error.to_string());
+                            shell.error = Some(error.clone());
                         }
                     }
                     break;

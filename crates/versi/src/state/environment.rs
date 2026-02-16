@@ -4,6 +4,7 @@ use versi_backend::{InstalledVersion, NodeVersion, VersionGroup};
 use versi_platform::EnvironmentId;
 
 use crate::backend_kind::BackendKind;
+use crate::error::AppError;
 
 #[derive(Debug)]
 pub struct EnvironmentState {
@@ -16,7 +17,7 @@ pub struct EnvironmentState {
     pub backend_name: BackendKind,
     pub backend_version: Option<String>,
     pub loading: bool,
-    pub error: Option<String>,
+    pub error: Option<AppError>,
     pub available: bool,
 }
 
@@ -54,7 +55,7 @@ impl EnvironmentState {
             backend_name,
             backend_version: None,
             loading: false,
-            error: Some(reason.to_string()),
+            error: Some(AppError::message(reason)),
             available: false,
         }
     }

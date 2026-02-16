@@ -71,7 +71,9 @@ impl Versi {
                         Err(e) => Err(AppError::message(format!("Update task panicked: {e}"))),
                     };
 
-                    let _ = sender.send(Message::AppUpdateComplete(Box::new(result))).await;
+                    let _ = sender
+                        .send(Message::AppUpdateComplete(Box::new(result)))
+                        .await;
                 },
             ),
             std::convert::identity,
@@ -109,7 +111,7 @@ impl Versi {
                     return iced::exit();
                 }
                 Err(e) => {
-                    state.app_update_state = AppUpdateState::Failed(e.to_string());
+                    state.app_update_state = AppUpdateState::Failed(e);
                 }
             }
         }
@@ -120,7 +122,8 @@ impl Versi {
         info!("Restarting app for update");
         if let Err(e) = versi_core::auto_update::restart_app() {
             if let AppState::Main(state) = &mut self.state {
-                state.app_update_state = AppUpdateState::Failed(format!("Restart failed: {e}"));
+                state.app_update_state =
+                    AppUpdateState::Failed(AppError::message(format!("Restart failed: {e}")));
             }
             return Task::none();
         }

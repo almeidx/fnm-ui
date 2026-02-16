@@ -133,7 +133,7 @@ fn app_update_badge<'a>(
                         .on_press(Message::StartAppUpdate)
                         .style(styles::app_update_button)
                         .padding(0),
-                    container(text(err.clone()).size(12))
+                    container(text(err.to_string()).size(12))
                         .padding([4, 8])
                         .style(styles::tooltip_container),
                     tooltip::Position::Bottom,

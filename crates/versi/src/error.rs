@@ -1,7 +1,10 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppError {
     Message(String),
-    Timeout { operation: &'static str, seconds: u64 },
+    Timeout {
+        operation: &'static str,
+        seconds: u64,
+    },
 }
 
 impl AppError {

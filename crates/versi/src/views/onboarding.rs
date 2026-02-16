@@ -185,7 +185,7 @@ fn install_backend_step<'a>(
         content = content.push(
             column![
                 text("Installation failed:").size(16),
-                text(error).size(14),
+                text(error.to_string()).size(14),
                 Space::new().height(16),
                 button(text("Retry"))
                     .on_press(Message::OnboardingInstallBackend)

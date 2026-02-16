@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use versi_shell::ShellType;
 
 use crate::backend_kind::BackendKind;
+use crate::error::AppError;
 
 #[derive(Debug)]
 pub struct OnboardingState {
     pub step: OnboardingStep,
     pub backend_installing: bool,
-    pub install_error: Option<String>,
+    pub install_error: Option<AppError>,
     pub detected_shells: Vec<ShellConfigStatus>,
     pub available_backends: Vec<BackendOption>,
     pub selected_backend: Option<BackendKind>,
@@ -42,7 +43,7 @@ pub struct ShellConfigStatus {
     pub configured: bool,
     pub config_path: Option<PathBuf>,
     pub configuring: bool,
-    pub error: Option<String>,
+    pub error: Option<AppError>,
 }
 
 #[derive(Debug, Clone)]

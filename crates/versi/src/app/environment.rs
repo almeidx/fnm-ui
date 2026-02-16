@@ -50,7 +50,7 @@ impl Versi {
                 Ok(versions) => env.update_versions(versions),
                 Err(error) => {
                     env.loading = false;
-                    env.error = Some(error.to_string());
+                    env.error = Some(error);
                 }
             }
         }
@@ -131,12 +131,13 @@ impl Versi {
                                 .await
                             {
                                 Ok(Ok(versions)) => Ok(versions),
-                                Ok(Err(error)) => {
-                                    Err(AppError::message(format!("Failed to load versions: {error}")))
-                                }
-                                Err(_) => {
-                                    Err(AppError::timeout("Loading versions", fetch_timeout.as_secs()))
-                                }
+                                Ok(Err(error)) => Err(AppError::message(format!(
+                                    "Failed to load versions: {error}"
+                                ))),
+                                Err(_) => Err(AppError::timeout(
+                                    "Loading versions",
+                                    fetch_timeout.as_secs(),
+                                )),
                             };
 
                         if let Ok(versions) = &result {
@@ -182,12 +183,13 @@ impl Versi {
                     let result =
                         match tokio::time::timeout(fetch_timeout, backend.list_installed()).await {
                             Ok(Ok(versions)) => Ok(versions),
-                            Ok(Err(error)) => {
-                                Err(AppError::message(format!("Failed to load versions: {error}")))
-                            }
-                            Err(_) => {
-                                Err(AppError::timeout("Loading versions", fetch_timeout.as_secs()))
-                            }
+                            Ok(Err(error)) => Err(AppError::message(format!(
+                                "Failed to load versions: {error}"
+                            ))),
+                            Err(_) => Err(AppError::timeout(
+                                "Loading versions",
+                                fetch_timeout.as_secs(),
+                            )),
                         };
                     (env_id, result)
                 },
