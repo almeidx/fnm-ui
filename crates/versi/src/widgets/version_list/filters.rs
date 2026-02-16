@@ -99,7 +99,7 @@ pub(super) fn filter_available_versions<'a>(
 
         let mut r: Vec<&RemoteVersion> = latest_by_minor.into_values().collect();
         r.sort_by(|a, b| b.version.cmp(&a.version));
-        r.truncate(20);
+        r.truncate(limit);
         r
     };
 
@@ -136,4 +136,94 @@ pub(super) fn filter_available_versions<'a>(
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::{filter_available_versions, resolve_alias};
+    use crate::state::SearchFilter;
+
+    fn remote(version: &str, lts_codename: Option<&str>) -> versi_backend::RemoteVersion {
+        versi_backend::RemoteVersion {
+            version: version.parse().expect("test version should parse"),
+            lts_codename: lts_codename.map(str::to_string),
+            is_latest: false,
+        }
+    }
+
+    fn schedule_with_eol_major(eol_major: u32) -> versi_core::ReleaseSchedule {
+        serde_json::from_value(serde_json::json!({
+            "versions": {
+                format!("{eol_major}"): {
+                    "start": "2020-01-01",
+                    "end": "2021-01-01"
+                },
+                "22": {
+                    "start": "2024-04-23",
+                    "lts": "2024-10-29",
+                    "maintenance": "2026-10-20",
+                    "end": "2027-04-30",
+                    "codename": "Jod"
+                }
+            }
+        }))
+        .expect("schedule fixture should deserialize")
+    }
+
+    #[test]
+    fn resolve_alias_latest_returns_highest_version() {
+        let versions = vec![remote("v20.11.0", None), remote("v22.1.0", Some("Jod"))];
+
+        let resolved = resolve_alias(&versions, "latest").expect("latest alias should resolve");
+
+        assert_eq!(resolved.version.to_string(), "v22.1.0");
+    }
+
+    #[test]
+    fn resolve_alias_lts_codename_is_case_insensitive() {
+        let versions = vec![
+            remote("v20.11.0", Some("Iron")),
+            remote("v20.12.0", Some("Iron")),
+            remote("v22.1.0", Some("Jod")),
+        ];
+
+        let resolved = resolve_alias(&versions, "lts/iron").expect("lts codename should resolve");
+
+        assert_eq!(resolved.version.to_string(), "v20.12.0");
+    }
+
+    #[test]
+    fn non_lts_query_honors_limit_argument() {
+        let versions = vec![
+            remote("v22.3.0", None),
+            remote("v22.2.0", None),
+            remote("v22.1.0", None),
+        ];
+
+        let filtered =
+            filter_available_versions(&versions, "v22", 2, &HashSet::new(), &HashSet::new(), None);
+
+        assert_eq!(filtered.len(), 2);
+        assert_eq!(filtered[0].version.to_string(), "v22.3.0");
+        assert_eq!(filtered[1].version.to_string(), "v22.2.0");
+    }
+
+    #[test]
+    fn active_filters_installed_and_eol_are_applied() {
+        let versions = vec![
+            remote("v22.1.0", Some("Jod")),
+            remote("v20.11.0", Some("Iron")),
+        ];
+        let installed = HashSet::from(["v20.11.0".to_string()]);
+        let filters = HashSet::from([SearchFilter::Installed, SearchFilter::Eol]);
+        let schedule = schedule_with_eol_major(20);
+
+        let filtered =
+            filter_available_versions(&versions, "v", 10, &filters, &installed, Some(&schedule));
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].version.to_string(), "v20.11.0");
+    }
 }
