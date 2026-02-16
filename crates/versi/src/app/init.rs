@@ -1,6 +1,4 @@
 use log::{debug, info, trace};
-#[cfg(windows)]
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -281,9 +279,6 @@ pub(super) async fn initialize(
             distros.iter().map(|d| &d.name).collect::<Vec<_>>()
         );
 
-        let provider_map: HashMap<&str, &Arc<dyn BackendProvider>> =
-            providers.iter().map(|p| (p.name(), p)).collect();
-
         for distro in distros {
             if !distro.is_running {
                 info!(
@@ -301,7 +296,7 @@ pub(super) async fn initialize(
                     unavailable_reason: Some("Not running".to_string()),
                 });
             } else if let Some(bp) = distro.backend_path {
-                let wsl_backend_name = determine_wsl_backend(&bp, &provider_map, preferred_name);
+                let wsl_backend_name = determine_wsl_backend(&bp, preferred_name);
                 info!(
                     "Adding WSL environment: {} ({} at {})",
                     distro.name, wsl_backend_name, bp
@@ -357,19 +352,13 @@ pub(super) async fn initialize(
 }
 
 #[cfg(windows)]
-fn determine_wsl_backend<'a>(
-    path: &str,
-    _providers: &HashMap<&str, &Arc<dyn BackendProvider>>,
-    default_name: &'a str,
-) -> &'static str {
+fn determine_wsl_backend(path: &str, default_name: &'static str) -> &'static str {
     if path.contains("nvm") {
         "nvm"
     } else if path.contains("fnm") {
         "fnm"
     } else {
-        // Leak is safe here: only "fnm" or "nvm" literals in practice
-        let leaked: &'static str = default_name.to_string().leak();
-        leaked
+        default_name
     }
 }
 
