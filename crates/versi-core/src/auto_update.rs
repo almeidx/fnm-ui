@@ -37,7 +37,9 @@ pub async fn download_and_apply(
     info!("Downloading update from {download_url}");
     download_file(client, download_url, &download_path, &progress).await?;
 
-    let is_msi = file_name.ends_with(".msi");
+    let is_msi = Path::new(file_name)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("msi"));
 
     if is_msi {
         let _ = progress.send(UpdateProgress::Applying).await;
@@ -96,7 +98,7 @@ async fn download_file(
         .await
         .map_err(|e| format!("Failed to flush download file: {e}"))?;
 
-    info!("Download complete: {} bytes", downloaded);
+    info!("Download complete: {downloaded} bytes");
     Ok(())
 }
 

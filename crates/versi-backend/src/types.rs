@@ -11,6 +11,7 @@ pub struct NodeVersion {
 }
 
 impl NodeVersion {
+    #[must_use]
     pub fn new(major: u32, minor: u32, patch: u32) -> Self {
         Self {
             major,
@@ -19,6 +20,7 @@ impl NodeVersion {
         }
     }
 
+    #[must_use]
     pub fn major_group(&self) -> u32 {
         self.major
     }
@@ -65,8 +67,7 @@ impl FromStr for NodeVersion {
 
         if parts.len() < 3 {
             return Err(VersionParseError(format!(
-                "Expected X.Y.Z format, got: {}",
-                s
+                "Expected X.Y.Z format, got: {s}"
             )));
         }
 
@@ -108,6 +109,7 @@ pub struct VersionGroup {
 }
 
 impl VersionGroup {
+    #[must_use]
     pub fn from_versions(versions: Vec<InstalledVersion>) -> Vec<Self> {
         use std::collections::BTreeMap;
 

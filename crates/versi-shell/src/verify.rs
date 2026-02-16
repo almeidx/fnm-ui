@@ -46,7 +46,7 @@ pub async fn verify_shell_config(
 }
 
 async fn functional_test(shell_type: &ShellType, backend_binary: &str) -> bool {
-    let version_cmd = format!("{} --version", backend_binary);
+    let version_cmd = format!("{backend_binary} --version");
     match shell_type {
         ShellType::Bash => Command::new("bash")
             .args(["-i", "-c", &version_cmd])
@@ -91,6 +91,7 @@ pub fn get_config_path_for_shell(shell_type: &ShellType) -> Option<PathBuf> {
     shell_type.config_files().into_iter().find(|p| p.exists())
 }
 
+#[must_use]
 pub fn get_or_create_config_path(shell_type: &ShellType) -> Option<PathBuf> {
     if let Some(existing) = get_config_path_for_shell(shell_type) {
         return Some(existing);

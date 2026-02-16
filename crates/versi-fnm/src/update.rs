@@ -7,17 +7,14 @@ pub async fn check_for_fnm_update(
     client: &reqwest::Client,
     current_version: &str,
 ) -> Result<Option<BackendUpdate>, String> {
-    let url = format!(
-        "https://api.github.com/repos/{}/releases/latest",
-        FNM_GITHUB_REPO
-    );
+    let url = format!("https://api.github.com/repos/{FNM_GITHUB_REPO}/releases/latest");
 
     let response = client
         .get(&url)
         .header("User-Agent", "versi")
         .send()
         .await
-        .map_err(|e| format!("Failed to check for fnm update: {}", e))?;
+        .map_err(|e| format!("Failed to check for fnm update: {e}"))?;
 
     if !response.status().is_success() {
         return Ok(None);
@@ -26,7 +23,7 @@ pub async fn check_for_fnm_update(
     let release: GitHubRelease = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse fnm update response: {}", e))?;
+        .map_err(|e| format!("Failed to parse fnm update response: {e}"))?;
 
     let latest = release
         .tag_name

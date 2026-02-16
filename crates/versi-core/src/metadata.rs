@@ -33,12 +33,12 @@ pub async fn fetch_version_metadata(
         .get(INDEX_URL)
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch version metadata: {}", e))?;
+        .map_err(|e| format!("Failed to fetch version metadata: {e}"))?;
 
     let entries: Vec<RawEntry> = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse version metadata: {}", e))?;
+        .map_err(|e| format!("Failed to parse version metadata: {e}"))?;
 
     let map = entries
         .into_iter()

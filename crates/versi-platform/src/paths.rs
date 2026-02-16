@@ -49,14 +49,17 @@ impl AppPaths {
         }
     }
 
+    #[must_use]
     pub fn settings_file(&self) -> PathBuf {
         self.config_dir.join("settings.json")
     }
 
+    #[must_use]
     pub fn version_cache_file(&self) -> PathBuf {
         self.cache_dir.join("versions.json")
     }
 
+    #[must_use]
     pub fn log_file(&self) -> PathBuf {
         self.data_dir.join("debug.log")
     }

@@ -1,4 +1,5 @@
 use crate::detect::ShellType;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -37,10 +38,12 @@ impl ShellConfig {
         })
     }
 
+    #[must_use]
     pub fn has_init(&self, marker: &str) -> bool {
         self.content.contains(marker)
     }
 
+    #[must_use]
     pub fn detect_options(&self, marker: &str) -> Option<ShellInitOptions> {
         if !self.has_init(marker) {
             return None;
@@ -54,7 +57,7 @@ impl ShellConfig {
     }
 
     pub fn add_init(&mut self, init_command: &str, label: &str) -> ShellConfigEdit {
-        let addition = format!("\n# {}\n{}\n", label, init_command);
+        let addition = format!("\n# {label}\n{init_command}\n");
         let modified = format!("{}{}", self.content, addition);
 
         ShellConfigEdit {
@@ -87,10 +90,10 @@ impl ShellConfig {
 
             if enabled && !has_flag {
                 modified = Self::add_flag_to_init(&modified, marker, flag);
-                changes.push(format!("Added {}", flag));
+                changes.push(format!("Added {flag}"));
             } else if !enabled && has_flag {
                 modified = Self::remove_flag_from_init(&modified, marker, flag);
-                changes.push(format!("Removed {}", flag));
+                changes.push(format!("Removed {flag}"));
             }
         }
 
@@ -107,7 +110,7 @@ impl ShellConfig {
         }
 
         fs::write(&self.config_path, &edit.modified)?;
-        self.content = edit.modified.clone();
+        self.content.clone_from(&edit.modified);
 
         Ok(())
     }
@@ -116,7 +119,7 @@ impl ShellConfig {
         let mut result = String::new();
         for line in content.lines() {
             if line.contains(marker) && !line.contains(flag) {
-                let modified_line = line.replacen(marker, &format!("{} {}", marker, flag), 1);
+                let modified_line = line.replacen(marker, &format!("{marker} {flag}"), 1);
                 result.push_str(&modified_line);
             } else {
                 result.push_str(line);
@@ -134,8 +137,8 @@ impl ShellConfig {
         for line in content.lines() {
             if line.contains(marker) && line.contains(flag) {
                 let modified_line = line
-                    .replace(&format!("{} ", flag), "")
-                    .replace(&format!(" {}", flag), "")
+                    .replace(&format!("{flag} "), "")
+                    .replace(&format!(" {flag}"), "")
                     .replace(flag, "");
                 result.push_str(&modified_line);
             } else {
@@ -157,10 +160,12 @@ pub struct ShellConfigEdit {
 }
 
 impl ShellConfigEdit {
+    #[must_use]
     pub fn has_changes(&self) -> bool {
         !self.changes.is_empty()
     }
 
+    #[must_use]
     pub fn diff_preview(&self) -> String {
         if !self.has_changes() {
             return "No changes needed.".to_string();
@@ -169,7 +174,7 @@ impl ShellConfigEdit {
         let mut preview = String::new();
 
         for change in &self.changes {
-            preview.push_str(&format!("+ {}\n", change));
+            let _ = writeln!(preview, "+ {change}");
         }
 
         preview
@@ -329,7 +334,7 @@ mod tests {
     #[test]
     fn test_shell_config_edit_has_changes() {
         let edit = ShellConfigEdit {
-            original: "".to_string(),
+            original: String::new(),
             modified: "new".to_string(),
             changes: vec!["Added something".to_string()],
         };
@@ -349,7 +354,7 @@ mod tests {
     #[test]
     fn test_diff_preview_with_changes() {
         let edit = ShellConfigEdit {
-            original: "".to_string(),
+            original: String::new(),
             modified: "new".to_string(),
             changes: vec!["Added fnm".to_string()],
         };
@@ -360,8 +365,8 @@ mod tests {
     #[test]
     fn test_diff_preview_no_changes() {
         let edit = ShellConfigEdit {
-            original: "".to_string(),
-            modified: "".to_string(),
+            original: String::new(),
+            modified: String::new(),
             changes: vec![],
         };
         let preview = edit.diff_preview();

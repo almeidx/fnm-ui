@@ -1,5 +1,6 @@
 use versi_backend::{InstalledVersion, RemoteVersion};
 
+#[must_use]
 pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
     output
         .lines()
@@ -30,6 +31,7 @@ pub fn parse_installed_versions(output: &str) -> Vec<InstalledVersion> {
         .collect()
 }
 
+#[must_use]
 pub fn parse_remote_versions(output: &str) -> Vec<RemoteVersion> {
     output
         .lines()

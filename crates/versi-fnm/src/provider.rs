@@ -12,6 +12,7 @@ use crate::update::check_for_fnm_update;
 pub struct FnmProvider;
 
 impl FnmProvider {
+    #[must_use]
     pub fn new() -> Self {
         Self
     }
@@ -27,11 +28,11 @@ impl BackendProvider for FnmProvider {
         "fnm (Fast Node Manager)"
     }
 
-    fn shell_config_marker(&self) -> &str {
+    fn shell_config_marker(&self) -> &'static str {
         "fnm env"
     }
 
-    fn shell_config_label(&self) -> &str {
+    fn shell_config_label(&self) -> &'static str {
         "fnm (Fast Node Manager)"
     }
 

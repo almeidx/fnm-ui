@@ -49,17 +49,14 @@ pub async fn check_for_update(
     client: &reqwest::Client,
     current_version: &str,
 ) -> Result<Option<AppUpdate>, String> {
-    let url = format!(
-        "https://api.github.com/repos/{}/releases/latest",
-        GITHUB_REPO
-    );
+    let url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
 
     let response = client
         .get(&url)
         .header("User-Agent", "versi")
         .send()
         .await
-        .map_err(|e| format!("Failed to check for app update: {}", e))?;
+        .map_err(|e| format!("Failed to check for app update: {e}"))?;
 
     if !response.status().is_success() {
         return Ok(None);
@@ -68,7 +65,7 @@ pub async fn check_for_update(
     let release: GitHubRelease = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse app update response: {}", e))?;
+        .map_err(|e| format!("Failed to parse app update response: {e}"))?;
 
     let latest = release
         .tag_name
@@ -100,6 +97,7 @@ pub async fn check_for_update(
     }
 }
 
+#[must_use]
 pub fn is_newer_version(latest: &str, current: &str) -> bool {
     let parse_version = |v: &str| -> Option<(u32, u32, u32)> {
         let parts: Vec<&str> = v.split('.').collect();

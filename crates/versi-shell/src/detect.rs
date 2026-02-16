@@ -12,6 +12,7 @@ pub enum ShellType {
 }
 
 impl ShellType {
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             ShellType::Bash => "Bash",
@@ -22,6 +23,7 @@ impl ShellType {
         }
     }
 
+    #[must_use]
     pub fn shell_arg(&self) -> &'static str {
         match self {
             ShellType::Bash => "bash",
@@ -32,6 +34,7 @@ impl ShellType {
         }
     }
 
+    #[must_use]
     pub fn config_files(&self) -> Vec<PathBuf> {
         let home = dirs::home_dir().unwrap_or_default();
 
@@ -73,10 +76,12 @@ pub struct ShellInfo {
     pub is_configured: bool,
 }
 
+#[must_use]
 pub fn detect_shells() -> Vec<ShellInfo> {
     detect_native_shells()
 }
 
+#[must_use]
 pub fn detect_native_shells() -> Vec<ShellInfo> {
     let mut shells = Vec::new();
 
@@ -218,6 +223,7 @@ pub fn detect_wsl_shells(distro: &str) -> Vec<ShellInfo> {
 }
 
 #[cfg(not(target_os = "windows"))]
+#[must_use]
 pub fn detect_wsl_shells(_distro: &str) -> Vec<ShellInfo> {
     Vec::new()
 }

@@ -17,30 +17,34 @@ pub enum NvmEnvironment {
     Wsl { distro: String, nvm_dir: String },
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct NvmClient {
     pub environment: NvmEnvironment,
 }
 
 impl NvmClient {
+    #[must_use]
     pub fn unix(nvm_dir: PathBuf) -> Self {
         Self {
             environment: NvmEnvironment::Unix { nvm_dir },
         }
     }
 
+    #[must_use]
     pub fn windows(nvm_exe: PathBuf) -> Self {
         Self {
             environment: NvmEnvironment::Windows { nvm_exe },
         }
     }
 
+    #[must_use]
     pub fn wsl(distro: String, nvm_dir: String) -> Self {
         Self {
             environment: NvmEnvironment::Wsl { distro, nvm_dir },
         }
     }
 
+    #[must_use]
     pub fn is_windows(&self) -> bool {
         matches!(self.environment, NvmEnvironment::Windows { .. })
     }
@@ -68,8 +72,7 @@ impl NvmClient {
             }
             NvmEnvironment::Wsl { distro, nvm_dir } => {
                 let script = format!(
-                    "export NVM_DIR=\"{}\"; [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; nvm \"$@\"",
-                    nvm_dir
+                    "export NVM_DIR=\"{nvm_dir}\"; [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; nvm \"$@\""
                 );
                 let mut cmd = Command::new("wsl.exe");
                 cmd.args(["-d", distro, "--", "bash", "-c", &script, "bash"]);

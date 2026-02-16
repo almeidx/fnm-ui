@@ -126,7 +126,10 @@ pub fn parse_unix_remote(output: &str) -> Vec<RemoteVersion> {
 
         let lts_codename = if let Some(start) = rest.find("LTS: ") {
             let after_lts = &rest[start + 5..];
-            after_lts.split(')').next().map(|s| s.to_string())
+            after_lts
+                .split(')')
+                .next()
+                .map(std::string::ToString::to_string)
         } else {
             None
         };

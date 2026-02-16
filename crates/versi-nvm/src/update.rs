@@ -22,14 +22,14 @@ pub async fn check_for_nvm_update(
         NvmVariant::Windows => NVM_WINDOWS_REPO,
     };
 
-    let url = format!("https://api.github.com/repos/{}/releases/latest", repo);
+    let url = format!("https://api.github.com/repos/{repo}/releases/latest");
 
     let response = client
         .get(&url)
         .header("User-Agent", "versi")
         .send()
         .await
-        .map_err(|e| format!("Failed to check for nvm update: {}", e))?;
+        .map_err(|e| format!("Failed to check for nvm update: {e}"))?;
 
     if !response.status().is_success() {
         return Ok(None);
@@ -38,7 +38,7 @@ pub async fn check_for_nvm_update(
     let release: GitHubRelease = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse nvm update response: {}", e))?;
+        .map_err(|e| format!("Failed to parse nvm update response: {e}"))?;
 
     let latest = release
         .tag_name

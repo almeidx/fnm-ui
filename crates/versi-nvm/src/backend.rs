@@ -9,19 +9,21 @@ use versi_backend::{
 
 use crate::client::{NvmClient, NvmEnvironment};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct NvmBackend {
     info: BackendInfo,
     client: NvmClient,
 }
 
 impl NvmBackend {
+    #[must_use]
     pub fn new(client: NvmClient, version: Option<String>) -> Self {
         let (path, data_dir) = match &client.environment {
             NvmEnvironment::Unix { nvm_dir } => (nvm_dir.join("nvm.sh"), Some(nvm_dir.clone())),
-            NvmEnvironment::Windows { nvm_exe } => {
-                (nvm_exe.clone(), nvm_exe.parent().map(|p| p.to_path_buf()))
-            }
+            NvmEnvironment::Windows { nvm_exe } => (
+                nvm_exe.clone(),
+                nvm_exe.parent().map(std::path::Path::to_path_buf),
+            ),
             NvmEnvironment::Wsl { nvm_dir, .. } => (
                 PathBuf::from(nvm_dir).join("nvm.sh"),
                 Some(PathBuf::from(nvm_dir)),
@@ -38,14 +40,6 @@ impl NvmBackend {
             },
             client,
         }
-    }
-}
-
-impl std::fmt::Debug for NvmBackend {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("NvmBackend")
-            .field("info", &self.info)
-            .finish()
     }
 }
 
@@ -122,7 +116,7 @@ impl VersionManager for NvmBackend {
     }
 
     async fn install(&self, version: &str) -> Result<(), BackendError> {
-        info!("nvm: installing version {}", version);
+        info!("nvm: installing version {version}");
         self.client
             .install(version)
             .await
@@ -132,7 +126,7 @@ impl VersionManager for NvmBackend {
     }
 
     async fn uninstall(&self, version: &str) -> Result<(), BackendError> {
-        info!("nvm: uninstalling version {}", version);
+        info!("nvm: uninstalling version {version}");
         self.client
             .uninstall(version)
             .await
@@ -142,7 +136,7 @@ impl VersionManager for NvmBackend {
     }
 
     async fn set_default(&self, version: &str) -> Result<(), BackendError> {
-        info!("nvm: setting default version to {}", version);
+        info!("nvm: setting default version to {version}");
         self.client
             .set_default(version)
             .await
@@ -152,7 +146,7 @@ impl VersionManager for NvmBackend {
     }
 
     async fn use_version(&self, version: &str) -> Result<(), BackendError> {
-        info!("nvm: using version {}", version);
+        info!("nvm: using version {version}");
         self.client
             .use_version(version)
             .await
@@ -168,8 +162,7 @@ impl VersionManager for NvmBackend {
                 nvm_dir.display()
             )),
             NvmEnvironment::Wsl { nvm_dir, .. } => Some(format!(
-                "export NVM_DIR=\"{}\" && [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"",
-                nvm_dir
+                "export NVM_DIR=\"{nvm_dir}\" && [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\""
             )),
             NvmEnvironment::Windows { .. } => None,
         }

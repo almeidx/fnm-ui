@@ -23,6 +23,7 @@ impl Default for NvmProvider {
 }
 
 impl NvmProvider {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -38,18 +39,21 @@ impl BackendProvider for NvmProvider {
         "nvm (Node Version Manager)"
     }
 
-    fn shell_config_marker(&self) -> &str {
+    fn shell_config_marker(&self) -> &'static str {
         "NVM_DIR"
     }
 
-    fn shell_config_label(&self) -> &str {
+    fn shell_config_label(&self) -> &'static str {
         "nvm (Node Version Manager)"
     }
 
     async fn detect(&self) -> BackendDetection {
         let detection = detect_nvm().await;
 
-        *self.variant.lock().unwrap_or_else(|e| e.into_inner()) = detection.variant.clone();
+        *self
+            .variant
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = detection.variant.clone();
 
         let path = detection.nvm_dir.clone().or(detection.nvm_exe.clone());
 
@@ -76,7 +80,7 @@ impl BackendProvider for NvmProvider {
         let variant = self
             .variant
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
         check_for_nvm_update(client, current_version, &variant).await
     }
@@ -85,7 +89,7 @@ impl BackendProvider for NvmProvider {
         let variant = self
             .variant
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
 
         let nvm_detection = crate::detection::NvmDetection {

@@ -184,9 +184,9 @@ pub async fn _check_fnm_update(current_version: &str) -> Option<String> {
     let latest_version = latest_version.strip_prefix('v').unwrap_or(latest_version);
     let current = current_version.strip_prefix('v').unwrap_or(current_version);
 
-    if latest_version != current {
-        Some(latest_version.to_string())
-    } else {
+    if latest_version == current {
         None
+    } else {
+        Some(latest_version.to_string())
     }
 }

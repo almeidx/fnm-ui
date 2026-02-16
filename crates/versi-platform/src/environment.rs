@@ -10,6 +10,7 @@ pub enum EnvironmentId {
 }
 
 impl EnvironmentId {
+    #[must_use]
     pub fn display_name(&self) -> String {
         match self {
             EnvironmentId::Native => {
@@ -26,7 +27,7 @@ impl EnvironmentId {
                     "Linux".to_string()
                 }
             }
-            EnvironmentId::Wsl { distro, .. } => format!("WSL: {}", distro),
+            EnvironmentId::Wsl { distro, .. } => format!("WSL: {distro}"),
         }
     }
 }
@@ -39,6 +40,7 @@ pub struct Environment {
 }
 
 impl Environment {
+    #[must_use]
     pub fn native() -> Self {
         Self {
             id: EnvironmentId::Native,
@@ -47,13 +49,15 @@ impl Environment {
         }
     }
 
+    #[must_use]
     pub fn wsl(distro: String, backend_path: String) -> Self {
+        let name = format!("WSL: {distro}");
         let id = EnvironmentId::Wsl {
-            distro: distro.clone(),
+            distro,
             backend_path,
         };
         Self {
-            name: id.display_name(),
+            name,
             id,
             enabled: true,
         }

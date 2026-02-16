@@ -27,6 +27,7 @@ pub struct FnmBackend {
 }
 
 impl FnmBackend {
+    #[must_use]
     pub fn new(path: PathBuf, version: Option<String>, fnm_dir: Option<PathBuf>) -> Self {
         Self {
             info: BackendInfo {
@@ -42,17 +43,20 @@ impl FnmBackend {
         }
     }
 
+    #[must_use]
     pub fn with_fnm_dir(mut self, dir: PathBuf) -> Self {
         self.fnm_dir = Some(dir.clone());
         self.info.data_dir = Some(dir);
         self
     }
 
+    #[must_use]
     pub fn with_node_dist_mirror(mut self, mirror: String) -> Self {
         self.node_dist_mirror = Some(mirror);
         self
     }
 
+    #[must_use]
     pub fn with_wsl(distro: String, fnm_path: String) -> Self {
         Self {
             info: BackendInfo {
@@ -72,8 +76,8 @@ impl FnmBackend {
         match &self.environment {
             Environment::Native => {
                 debug!(
-                    "Building native fnm command: {:?} {}",
-                    self.info.path,
+                    "Building native fnm command: {} {}",
+                    self.info.path.display(),
                     args.join(" ")
                 );
 
@@ -81,12 +85,12 @@ impl FnmBackend {
                 cmd.args(args);
 
                 if let Some(dir) = &self.fnm_dir {
-                    debug!("Setting FNM_DIR={:?}", dir);
+                    debug!("Setting FNM_DIR={}", dir.display());
                     cmd.env("FNM_DIR", dir);
                 }
 
                 if let Some(mirror) = &self.node_dist_mirror {
-                    debug!("Setting FNM_NODE_DIST_MIRROR={}", mirror);
+                    debug!("Setting FNM_NODE_DIST_MIRROR={mirror}");
                     cmd.env("FNM_NODE_DIST_MIRROR", mirror);
                 }
 
@@ -128,7 +132,7 @@ impl FnmBackend {
             Ok(stdout)
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            error!("fnm command failed: args={:?}, stderr='{}'", args, stderr);
+            error!("fnm command failed: args={args:?}, stderr='{stderr}'");
             Err(BackendError::CommandFailed { stderr })
         }
     }
@@ -232,11 +236,10 @@ impl VersionManager for FnmBackend {
         };
 
         match shell {
-            "bash" | "zsh" => Some(format!("eval \"$(fnm env{})\"", flags_str)),
-            "fish" => Some(format!("fnm env{} | source", flags_str)),
+            "bash" | "zsh" => Some(format!("eval \"$(fnm env{flags_str})\"")),
+            "fish" => Some(format!("fnm env{flags_str} | source")),
             "powershell" | "pwsh" => Some(format!(
-                "fnm env{} | Out-String | Invoke-Expression",
-                flags_str
+                "fnm env{flags_str} | Out-String | Invoke-Expression"
             )),
             _ => None,
         }

@@ -46,6 +46,7 @@ pub trait BackendProvider: Send + Sync {
 }
 
 #[derive(Debug, Clone, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct ManagerCapabilities {
     pub supports_lts_filter: bool,
     pub supports_use_version: bool,

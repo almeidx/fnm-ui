@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)]
+
 mod backend;
 mod client;
 mod detection;

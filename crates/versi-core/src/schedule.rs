@@ -22,6 +22,7 @@ pub struct ReleaseSchedule {
 }
 
 impl ReleaseSchedule {
+    #[must_use]
     pub fn is_active(&self, major: u32) -> bool {
         let Some(schedule) = self.versions.get(&major) else {
             return major >= 18;
@@ -35,19 +36,21 @@ impl ReleaseSchedule {
         end_date > today
     }
 
+    #[must_use]
     pub fn is_lts(&self, major: u32) -> bool {
         self.versions
             .get(&major)
-            .map(|s| s.lts.is_some() || s.codename.is_some())
-            .unwrap_or(false)
+            .is_some_and(|s| s.lts.is_some() || s.codename.is_some())
     }
 
+    #[must_use]
     pub fn codename(&self, major: u32) -> Option<&str> {
         self.versions
             .get(&major)
             .and_then(|s| s.codename.as_deref())
     }
 
+    #[must_use]
     pub fn active_versions(&self) -> Vec<u32> {
         self.versions
             .keys()
@@ -56,6 +59,7 @@ impl ReleaseSchedule {
             .collect()
     }
 
+    #[must_use]
     pub fn active_lts_versions(&self) -> Vec<u32> {
         self.versions
             .keys()
@@ -70,12 +74,12 @@ pub async fn fetch_release_schedule(client: &reqwest::Client) -> Result<ReleaseS
         .get(SCHEDULE_URL)
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch release schedule: {}", e))?;
+        .map_err(|e| format!("Failed to fetch release schedule: {e}"))?;
 
     let raw: HashMap<String, VersionSchedule> = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse release schedule: {}", e))?;
+        .map_err(|e| format!("Failed to parse release schedule: {e}"))?;
 
     let versions: HashMap<u32, VersionSchedule> = raw
         .into_iter()
