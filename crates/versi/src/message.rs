@@ -147,6 +147,14 @@ pub enum Message {
     VersionMetadataFetched(Result<HashMap<String, VersionMeta>, String>),
     ShowVersionDetail(String),
 
+    VersionListCursorMoved(iced::Point),
+    ShowContextMenu {
+        version: String,
+        is_installed: bool,
+        is_default: bool,
+    },
+    CloseContextMenu,
+
     ShowKeyboardShortcuts,
     OpenLink(String),
 

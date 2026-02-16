@@ -466,6 +466,94 @@ pub fn disabled_tab_button(theme: &Theme, _status: button::Status) -> button::St
     }
 }
 
+pub fn context_menu_item(theme: &Theme, status: button::Status) -> button::Style {
+    let palette = theme.palette();
+    let is_dark = palette.background.r < 0.5;
+
+    let hover_bg = if is_dark {
+        Color::from_rgba8(255, 255, 255, 0.08)
+    } else {
+        Color::from_rgba8(0, 0, 0, 0.05)
+    };
+
+    let base = button::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        text_color: palette.text,
+        border: Border {
+            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        shadow: Shadow::default(),
+        snap: false,
+    };
+
+    match status {
+        button::Status::Active => base,
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(hover_bg)),
+            ..base
+        },
+        button::Status::Pressed => button::Style {
+            background: Some(Background::Color(if is_dark {
+                Color::from_rgba8(255, 255, 255, 0.12)
+            } else {
+                Color::from_rgba8(0, 0, 0, 0.08)
+            })),
+            ..base
+        },
+        button::Status::Disabled => button::Style {
+            text_color: Color {
+                a: 0.4,
+                ..palette.text
+            },
+            ..base
+        },
+    }
+}
+
+pub fn context_menu_item_danger(_theme: &Theme, status: button::Status) -> button::Style {
+    let danger = Color::from_rgb8(255, 69, 58);
+
+    let base = button::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        text_color: danger,
+        border: Border {
+            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        shadow: Shadow::default(),
+        snap: false,
+    };
+
+    match status {
+        button::Status::Active => base,
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(Color {
+                r: 1.0,
+                g: 0.27,
+                b: 0.23,
+                a: 0.1,
+            })),
+            ..base
+        },
+        button::Status::Pressed => button::Style {
+            background: Some(Background::Color(Color {
+                r: 1.0,
+                g: 0.27,
+                b: 0.23,
+                a: 0.15,
+            })),
+            ..base
+        },
+        button::Status::Disabled => button::Style {
+            text_color: Color { a: 0.4, ..danger },
+            ..base
+        },
+    }
+}
+
 pub fn row_action_button(theme: &Theme, status: button::Status) -> button::Style {
     let palette = theme.palette();
 

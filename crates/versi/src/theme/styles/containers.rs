@@ -147,6 +147,26 @@ pub fn kbd_container(theme: &Theme) -> container::Style {
     }
 }
 
+pub fn context_menu_container(theme: &Theme) -> container::Style {
+    tooltip_container(theme)
+}
+
+pub fn context_menu_separator(theme: &Theme) -> container::Style {
+    let palette = theme.palette();
+    let is_dark = palette.background.r < 0.5;
+
+    let color = if is_dark {
+        Color::from_rgba8(255, 255, 255, 0.1)
+    } else {
+        Color::from_rgba8(0, 0, 0, 0.1)
+    };
+
+    container::Style {
+        background: Some(Background::Color(color)),
+        ..Default::default()
+    }
+}
+
 pub fn version_row_hovered(theme: &Theme) -> container::Style {
     let palette = theme.palette();
     let is_dark = palette.background.r < 0.5;

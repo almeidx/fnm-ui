@@ -110,6 +110,26 @@ impl Versi {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state
+            && state.context_menu.is_some()
+        {
+            let should_dismiss = !matches!(
+                message,
+                Message::NoOp
+                    | Message::Tick
+                    | Message::AnimationTick
+                    | Message::VersionListCursorMoved(_)
+                    | Message::VersionRowHovered(_)
+                    | Message::WindowEvent(_)
+                    | Message::SystemThemeChanged(_)
+                    | Message::CloseContextMenu
+                    | Message::ShowContextMenu { .. }
+            );
+            if should_dismiss {
+                state.context_menu = None;
+            }
+        }
+
         match message {
             Message::Initialized(result) => self.handle_initialized(result),
             Message::EnvironmentLoaded { env_id, versions } => {
@@ -609,6 +629,33 @@ impl Versi {
                         },
                         |_| Message::NoOp,
                     );
+                }
+                Task::none()
+            }
+            Message::VersionListCursorMoved(point) => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.cursor_position = point;
+                }
+                Task::none()
+            }
+            Message::ShowContextMenu {
+                version,
+                is_installed,
+                is_default,
+            } => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.context_menu = Some(crate::state::ContextMenu {
+                        version,
+                        is_installed,
+                        is_default,
+                        position: state.cursor_position,
+                    });
+                }
+                Task::none()
+            }
+            Message::CloseContextMenu => {
+                if let AppState::Main(state) = &mut self.state {
+                    state.context_menu = None;
                 }
                 Task::none()
             }

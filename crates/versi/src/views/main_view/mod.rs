@@ -1,11 +1,12 @@
 mod banners;
+mod context_menu;
 mod header;
 mod modals;
 pub mod search;
 pub mod tabs;
 
 use iced::Element;
-use iced::widget::{column, container};
+use iced::widget::{column, container, mouse_area};
 
 use crate::message::Message;
 use crate::settings::AppSettings;
@@ -66,10 +67,20 @@ pub fn view<'a>(
 
     let main_column = column![main_content].spacing(0);
 
-    let with_modal: Element<Message> = if let Some(modal) = &state.modal {
-        modals::modal_overlay(main_column.into(), modal, state, settings)
+    let with_cursor_tracking: Element<Message> = mouse_area(main_column)
+        .on_move(Message::VersionListCursorMoved)
+        .into();
+
+    let with_context_menu: Element<Message> = if let Some(menu) = &state.context_menu {
+        context_menu::context_menu_overlay(with_cursor_tracking, menu)
     } else {
-        main_column.into()
+        with_cursor_tracking
+    };
+
+    let with_modal: Element<Message> = if let Some(modal) = &state.modal {
+        modals::modal_overlay(with_context_menu, modal, state, settings)
+    } else {
+        with_context_menu
     };
 
     toast_container::view(with_modal, &state.toasts, settings.max_visible_toasts)

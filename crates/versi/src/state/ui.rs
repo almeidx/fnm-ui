@@ -1,6 +1,14 @@
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
+pub struct ContextMenu {
+    pub version: String,
+    pub is_installed: bool,
+    pub is_default: bool,
+    pub position: iced::Point,
+}
+
+#[derive(Debug, Clone)]
 pub struct Toast {
     pub id: usize,
     pub message: String,

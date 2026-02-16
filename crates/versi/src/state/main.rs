@@ -5,7 +5,9 @@ use chrono::{DateTime, Utc};
 use versi_backend::{BackendUpdate, NodeVersion, RemoteVersion, VersionManager};
 use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 
-use super::{EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast};
+use super::{
+    ContextMenu, EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SearchFilter {
@@ -35,6 +37,8 @@ pub struct MainState {
     pub detected_backends: Vec<&'static str>,
     pub refresh_rotation: f32,
     pub active_filters: HashSet<SearchFilter>,
+    pub context_menu: Option<ContextMenu>,
+    pub cursor_position: iced::Point,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -95,6 +99,8 @@ impl MainState {
             detected_backends: Vec::new(),
             refresh_rotation: 0.0,
             active_filters: HashSet::new(),
+            context_menu: None,
+            cursor_position: iced::Point::ORIGIN,
         }
     }
 

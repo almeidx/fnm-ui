@@ -28,6 +28,7 @@ pub(super) fn version_item_view<'a>(
     let version_for_default = version_str.clone();
     let version_for_changelog = version_str.clone();
     let version_for_hover = version_str.clone();
+    let version_for_ctx = version_str.clone();
 
     let active_op = operation_queue.active_operation_for(&version_str);
     let is_pending = operation_queue.has_pending_for_version(&version_str);
@@ -149,6 +150,11 @@ pub(super) fn version_item_view<'a>(
     mouse_area(row_container)
         .on_enter(Message::VersionRowHovered(Some(version_for_hover)))
         .on_exit(Message::VersionRowHovered(None))
+        .on_right_press(Message::ShowContextMenu {
+            version: version_for_ctx,
+            is_installed: true,
+            is_default,
+        })
         .into()
 }
 
