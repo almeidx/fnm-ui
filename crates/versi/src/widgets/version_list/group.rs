@@ -14,7 +14,6 @@ use super::VersionListContext;
 use super::filter_version;
 use super::item::version_item_view;
 
-#[allow(clippy::too_many_lines)]
 pub(super) fn version_group_view<'a>(
     group: &'a VersionGroup,
     default: Option<&'a versi_backend::NodeVersion>,
@@ -30,6 +29,40 @@ pub(super) fn version_group_view<'a>(
         .any(|v| default.is_some_and(|d| d == &v.version));
     let is_eol = ctx.schedule.is_some_and(|s| !s.is_active(group.major));
 
+    let header_button = button(group_header_row(group, has_lts, has_default, is_eol))
+        .on_press(Message::VersionGroupToggled { major: group.major })
+        .style(|theme, status| {
+            let mut style = iced::widget::button::text(theme, status);
+            style.text_color = theme.palette().text;
+            style
+        })
+        .padding([8, 12]);
+
+    let header: Element<Message> = row![
+        header_button,
+        Space::new().width(Length::Fill),
+        group_header_actions(group, update_available),
+    ]
+    .align_y(Alignment::Center)
+    .into();
+
+    if group.is_expanded {
+        expanded_group_view(group, default, search_query, active_filters, ctx, header)
+    } else {
+        container(header)
+            .style(styles::card_container)
+            .padding(12)
+            .width(Length::Fill)
+            .into()
+    }
+}
+
+fn group_header_row(
+    group: &VersionGroup,
+    has_lts: bool,
+    has_default: bool,
+    is_eol: bool,
+) -> iced::widget::Row<'_, Message> {
     let chevron = if group.is_expanded {
         icon::chevron_down(12.0)
     } else {
@@ -51,7 +84,6 @@ pub(super) fn version_group_view<'a>(
                 .style(styles::badge_lts),
         );
     }
-
     if is_eol {
         header_row = header_row.push(
             container(text("End-of-Life").size(10))
@@ -59,7 +91,6 @@ pub(super) fn version_group_view<'a>(
                 .style(styles::badge_eol),
         );
     }
-
     if has_default && !group.is_expanded {
         header_row = header_row.push(
             container(text("default").size(10))
@@ -67,21 +98,18 @@ pub(super) fn version_group_view<'a>(
                 .style(styles::badge_default),
         );
     }
+    header_row
+}
 
-    let header_button = button(header_row)
-        .on_press(Message::VersionGroupToggled { major: group.major })
-        .style(|theme, status| {
-            let mut style = iced::widget::button::text(theme, status);
-            style.text_color = theme.palette().text;
-            style
-        })
-        .padding([8, 12]);
-
-    let mut header_actions = row![].spacing(8).align_y(Alignment::Center);
+fn group_header_actions(
+    group: &VersionGroup,
+    update_available: Option<String>,
+) -> Element<'_, Message> {
+    let mut actions = row![].spacing(8).align_y(Alignment::Center);
 
     if let Some(new_version) = update_available {
         let version_to_install = new_version.clone();
-        header_actions = header_actions.push(
+        actions = actions.push(
             button(container(text(format!("{new_version} available")).size(10)).padding([2, 6]))
                 .on_press(Message::StartInstall(version_to_install))
                 .style(styles::update_badge_button)
@@ -90,13 +118,13 @@ pub(super) fn version_group_view<'a>(
     }
 
     if group.is_expanded && group.versions.len() > 1 {
-        header_actions = header_actions.push(
+        actions = actions.push(
             button(text("Keep Latest").size(10))
                 .on_press(Message::RequestBulkUninstallMajorExceptLatest { major: group.major })
                 .style(styles::ghost_button)
                 .padding([4, 8]),
         );
-        header_actions = header_actions.push(
+        actions = actions.push(
             button(text("Uninstall All").size(10))
                 .on_press(Message::RequestBulkUninstallMajor { major: group.major })
                 .style(styles::ghost_button)
@@ -104,46 +132,41 @@ pub(super) fn version_group_view<'a>(
         );
     }
 
-    let header: Element<Message> = row![
-        header_button,
-        Space::new().width(Length::Fill),
-        header_actions,
-    ]
-    .align_y(Alignment::Center)
-    .into();
+    actions.into()
+}
 
-    if group.is_expanded {
-        let filtered_versions: Vec<&InstalledVersion> = group
-            .versions
-            .iter()
-            .filter(|v| filter_version(v, search_query, active_filters, ctx.schedule))
-            .collect();
+fn expanded_group_view<'a>(
+    group: &'a VersionGroup,
+    default: Option<&'a versi_backend::NodeVersion>,
+    search_query: &'a str,
+    active_filters: &'a HashSet<SearchFilter>,
+    ctx: &VersionListContext<'a>,
+    header: Element<'a, Message>,
+) -> Element<'a, Message> {
+    let filtered_versions: Vec<&InstalledVersion> = group
+        .versions
+        .iter()
+        .filter(|v| filter_version(v, search_query, active_filters, ctx.schedule))
+        .collect();
 
-        let items: Vec<Element<Message>> = filtered_versions
-            .iter()
-            .map(|v| version_item_view(v, default, ctx))
-            .collect();
+    let items: Vec<Element<Message>> = filtered_versions
+        .iter()
+        .map(|version| version_item_view(version, default, ctx))
+        .collect();
 
-        container(
-            column![
-                header,
-                container(column(items).spacing(2)).padding(iced::Padding {
-                    top: 0.0,
-                    right: 0.0,
-                    bottom: 0.0,
-                    left: 24.0,
-                }),
-            ]
-            .spacing(4),
-        )
-        .style(styles::card_container)
-        .padding(12)
-        .into()
-    } else {
-        container(header)
-            .style(styles::card_container)
-            .padding(12)
-            .width(Length::Fill)
-            .into()
-    }
+    container(
+        column![
+            header,
+            container(column(items).spacing(2)).padding(iced::Padding {
+                top: 0.0,
+                right: 0.0,
+                bottom: 0.0,
+                left: 24.0,
+            }),
+        ]
+        .spacing(4),
+    )
+    .style(styles::card_container)
+    .padding(12)
+    .into()
 }

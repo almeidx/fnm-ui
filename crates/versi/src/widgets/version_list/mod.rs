@@ -132,7 +132,6 @@ fn filter_version(
     true
 }
 
-#[allow(clippy::too_many_lines)]
 pub fn view<'a>(
     env: &'a EnvironmentState,
     search_query: &'a str,
@@ -142,20 +141,58 @@ pub fn view<'a>(
     active_filters: &'a HashSet<SearchFilter>,
     ctx: &VersionListContext<'a>,
 ) -> Element<'a, Message> {
-    if env.loading && env.installed_versions.is_empty() {
-        return container(
-            column![text("Loading versions...").size(16),]
-                .spacing(8)
-                .align_x(Alignment::Center),
-        )
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .height(Length::Fill)
-        .into();
+    if let Some(status_view) = loading_or_error_view(env) {
+        return status_view;
     }
 
-    if let Some(error) = &env.error {
-        return container(
+    let mut content_items: Vec<Element<Message>> = Vec::new();
+    content_items.extend(installed_groups_content(
+        env,
+        search_query,
+        latest_by_major,
+        active_filters,
+        ctx,
+    ));
+    if let Some(search_results) = search_results_content(
+        remote_versions,
+        search_query,
+        search_results_limit,
+        active_filters,
+        ctx,
+    ) {
+        content_items.push(search_results);
+    }
+
+    if content_items.is_empty() {
+        return empty_versions_view(search_query);
+    }
+
+    scrollable(
+        column(content_items)
+            .spacing(12)
+            .padding(iced::Padding::new(0.0).right(32.0)),
+    )
+    .height(Length::Fill)
+    .into()
+}
+
+fn loading_or_error_view(env: &EnvironmentState) -> Option<Element<'_, Message>> {
+    if env.loading && env.installed_versions.is_empty() {
+        return Some(
+            container(
+                column![text("Loading versions...").size(16),]
+                    .spacing(8)
+                    .align_x(Alignment::Center),
+            )
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .height(Length::Fill)
+            .into(),
+        );
+    }
+
+    env.error.as_ref().map(|error| {
+        container(
             column![
                 text("Error loading versions").size(16),
                 text(error.to_string()).size(14),
@@ -171,103 +208,121 @@ pub fn view<'a>(
         .center_x(Length::Fill)
         .center_y(Length::Fill)
         .height(Length::Fill)
-        .into();
-    }
+        .into()
+    })
+}
 
+fn installed_groups_content<'a>(
+    env: &'a EnvironmentState,
+    search_query: &'a str,
+    latest_by_major: &'a HashMap<u32, NodeVersion>,
+    active_filters: &'a HashSet<SearchFilter>,
+    ctx: &VersionListContext<'a>,
+) -> Vec<Element<'a, Message>> {
     let filtered_groups: Vec<&VersionGroup> = env
         .version_groups
         .iter()
-        .filter(|g| filter_group(g, search_query, active_filters, ctx.schedule))
+        .filter(|group| filter_group(group, search_query, active_filters, ctx.schedule))
         .collect();
 
-    let default_version = env.default_version.as_ref();
+    if filtered_groups.is_empty() || !search_query.is_empty() {
+        return Vec::new();
+    }
 
-    let mut content_items: Vec<Element<Message>> = Vec::new();
-
-    if !filtered_groups.is_empty() && search_query.is_empty() {
-        for g in &filtered_groups {
-            let installed_latest = g.versions.iter().map(|v| &v.version).max();
-            let update_available = latest_by_major.get(&g.major).and_then(|latest| {
-                installed_latest.and_then(|installed| {
-                    if latest > installed {
-                        Some(latest.to_string())
-                    } else {
-                        None
-                    }
-                })
-            });
-            content_items.push(group::version_group_view(
-                g,
-                default_version,
+    filtered_groups
+        .iter()
+        .map(|group| {
+            let update_available = update_available_for_group(group, latest_by_major);
+            group::version_group_view(
+                group,
+                env.default_version.as_ref(),
                 search_query,
                 update_available,
                 active_filters,
                 ctx,
-            ));
-        }
+            )
+        })
+        .collect()
+}
+
+fn update_available_for_group(
+    group: &VersionGroup,
+    latest_by_major: &HashMap<u32, NodeVersion>,
+) -> Option<String> {
+    let installed_latest = group.versions.iter().map(|version| &version.version).max();
+    latest_by_major.get(&group.major).and_then(|latest| {
+        installed_latest.and_then(|installed| {
+            if latest > installed {
+                Some(latest.to_string())
+            } else {
+                None
+            }
+        })
+    })
+}
+
+fn search_results_content<'a>(
+    remote_versions: &'a [RemoteVersion],
+    search_query: &'a str,
+    search_results_limit: usize,
+    active_filters: &'a HashSet<SearchFilter>,
+    ctx: &VersionListContext<'a>,
+) -> Option<Element<'a, Message>> {
+    if search_query.is_empty() {
+        return None;
     }
 
-    if !search_query.is_empty() {
-        let alias_resolved = resolve_alias(remote_versions, search_query);
-        let available_list = filter_available_versions(
-            remote_versions,
-            search_query,
-            search_results_limit,
-            active_filters,
-            ctx.installed_set,
-            ctx.schedule,
+    let alias_resolved = resolve_alias(remote_versions, search_query);
+    let available_list = filter_available_versions(
+        remote_versions,
+        search_query,
+        search_results_limit,
+        active_filters,
+        ctx.installed_set,
+        ctx.schedule,
+    );
+
+    if available_list.is_empty() {
+        return None;
+    }
+
+    let mut card_items: Vec<Element<Message>> = Vec::new();
+    if alias_resolved.is_some() {
+        card_items.push(
+            text(format!("\"{search_query}\" resolves to:"))
+                .size(12)
+                .color(iced::Color::from_rgb8(142, 142, 147))
+                .into(),
         );
-
-        if !available_list.is_empty() {
-            let mut card_items: Vec<Element<Message>> = Vec::new();
-
-            if alias_resolved.is_some() {
-                card_items.push(
-                    text(format!("\"{search_query}\" resolves to:"))
-                        .size(12)
-                        .color(iced::Color::from_rgb8(142, 142, 147))
-                        .into(),
-                );
-                card_items.push(Space::new().height(4).into());
-            }
-
-            for v in &available_list {
-                card_items.push(available::available_version_row(v, ctx));
-            }
-
-            content_items.push(
-                container(column(card_items).spacing(4))
-                    .style(styles::card_container)
-                    .padding(12)
-                    .into(),
-            );
-        }
+        card_items.push(Space::new().height(4).into());
+    }
+    for version in &available_list {
+        card_items.push(available::available_version_row(version, ctx));
     }
 
-    if content_items.is_empty() {
-        return container(
-            column![
-                text("No versions found").size(16),
-                if search_query.is_empty() {
-                    text("Install your first Node.js version by searching above.").size(14)
-                } else {
-                    text(format!("No versions match '{search_query}'")).size(14)
-                },
-            ]
-            .spacing(8)
-            .align_x(Alignment::Center),
-        )
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .height(Length::Fill)
-        .into();
-    }
-
-    scrollable(
-        column(content_items)
-            .spacing(12)
-            .padding(iced::Padding::new(0.0).right(32.0)),
+    Some(
+        container(column(card_items).spacing(4))
+            .style(styles::card_container)
+            .padding(12)
+            .into(),
     )
+}
+
+fn empty_versions_view(search_query: &str) -> Element<'_, Message> {
+    container(
+        column![
+            text("No versions found").size(16),
+            if search_query.is_empty() {
+                text("Install your first Node.js version by searching above.").size(14)
+            } else {
+                text(format!("No versions match '{search_query}'")).size(14)
+            },
+        ]
+        .spacing(8)
+        .align_x(Alignment::Center),
+    )
+    .center_x(Length::Fill)
+    .center_y(Length::Fill)
     .height(Length::Fill)
     .into()
 }

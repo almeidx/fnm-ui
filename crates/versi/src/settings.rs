@@ -81,7 +81,7 @@ pub struct AppSettings {
     pub retry_delays_secs: Vec<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ShellOptions {
     #[serde(default = "default_true")]
     pub use_on_cd: bool,
@@ -247,7 +247,7 @@ impl AppSettings {
     pub fn shell_options_for(&self, backend: BackendKind) -> ShellOptions {
         self.backend_shell_options
             .get(&backend)
-            .cloned()
+            .copied()
             .unwrap_or_default()
     }
 

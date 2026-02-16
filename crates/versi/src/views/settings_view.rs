@@ -9,7 +9,6 @@ use crate::state::{MainState, SettingsModalState, ShellVerificationStatus};
 use crate::theme::styles;
 use crate::widgets::helpers::nav_icons;
 
-#[allow(clippy::too_many_lines)]
 pub fn view<'a>(
     settings_state: &'a SettingsModalState,
     settings: &'a AppSettings,
@@ -17,55 +16,89 @@ pub fn view<'a>(
     has_tabs: bool,
     is_system_dark: bool,
 ) -> Element<'a, Message> {
-    let header = row![
+    let header = settings_header(state);
+    let capabilities = state.backend.capabilities();
+    let shell_opts = settings.shell_options_for(state.backend_name);
+
+    let content = column![
+        appearance_section(settings, is_system_dark),
+        preferred_engine_section(settings, state),
+        tray_section(settings),
+        shell_options_section(capabilities, shell_opts),
+        shell_setup_section(settings_state),
+        settings_data_section(),
+        advanced_section(settings_state, settings),
+    ]
+    .spacing(4)
+    .width(Length::Fill);
+
+    column![
+        container(header).padding(iced::Padding::new(0.0).right(24.0)),
+        Space::new().height(12),
+        scrollable(content.padding(iced::Padding::default().right(24.0))).height(Length::Fill),
+    ]
+    .spacing(0)
+    .padding(if has_tabs {
+        iced::Padding::new(24.0).right(0.0)
+    } else {
+        iced::Padding::new(24.0).top(12.0).right(0.0)
+    })
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .into()
+}
+
+fn settings_header(state: &MainState) -> iced::widget::Row<'_, Message> {
+    row![
         text("Settings").size(14),
         Space::new().width(Length::Fill),
         nav_icons(&state.view, state.refresh_rotation),
     ]
     .spacing(8)
-    .align_y(Alignment::Center);
+    .align_y(Alignment::Center)
+}
 
-    let capabilities = state.backend.capabilities();
-    let shell_opts = settings.shell_options_for(state.backend_name);
-
-    let mut content = column![
+fn appearance_section(settings: &AppSettings, is_system_dark: bool) -> Element<'_, Message> {
+    let system_label = if is_system_dark {
+        "System (Dark)"
+    } else {
+        "System (Light)"
+    };
+    column![
         text("Appearance").size(14),
         Space::new().height(8),
         row![
-            button(
-                text(if is_system_dark {
-                    "System (Dark)"
-                } else {
-                    "System (Light)"
-                })
-                .size(13),
-            )
-            .on_press(Message::ThemeChanged(ThemeSetting::System))
-            .style(if settings.theme == ThemeSetting::System {
-                styles::primary_button
-            } else {
-                styles::secondary_button
-            })
-            .padding([10, 16]),
-            button(text("Light").size(13))
-                .on_press(Message::ThemeChanged(ThemeSetting::Light))
-                .style(if settings.theme == ThemeSetting::Light {
-                    styles::primary_button
-                } else {
-                    styles::secondary_button
-                })
-                .padding([10, 16]),
-            button(text("Dark").size(13))
-                .on_press(Message::ThemeChanged(ThemeSetting::Dark))
-                .style(if settings.theme == ThemeSetting::Dark {
-                    styles::primary_button
-                } else {
-                    styles::secondary_button
-                })
-                .padding([10, 16]),
+            theme_button(system_label, ThemeSetting::System, settings),
+            theme_button("Light", ThemeSetting::Light, settings),
+            theme_button("Dark", ThemeSetting::Dark, settings),
         ]
         .spacing(8),
         Space::new().height(28),
+    ]
+    .spacing(4)
+    .into()
+}
+
+fn theme_button<'a>(
+    label: &'a str,
+    theme: ThemeSetting,
+    settings: &'a AppSettings,
+) -> iced::widget::Button<'a, Message> {
+    button(text(label).size(13))
+        .on_press(Message::ThemeChanged(theme))
+        .style(if settings.theme == theme {
+            styles::primary_button
+        } else {
+            styles::secondary_button
+        })
+        .padding([10, 16])
+}
+
+fn preferred_engine_section<'a>(
+    settings: &'a AppSettings,
+    state: &'a MainState,
+) -> Element<'a, Message> {
+    column![
         text("Preferred Engine").size(14),
         Space::new().height(8),
         engine_selector(settings, state),
@@ -76,33 +109,19 @@ pub fn view<'a>(
             .size(11)
             .color(iced::Color::from_rgb8(142, 142, 147)),
         Space::new().height(28),
+    ]
+    .spacing(4)
+    .into()
+}
+
+fn tray_section(settings: &AppSettings) -> Element<'_, Message> {
+    column![
         text("System Tray").size(14),
         Space::new().height(8),
         row![
-            button(text("When Open").size(13))
-                .on_press(Message::TrayBehaviorChanged(TrayBehavior::WhenWindowOpen))
-                .style(if settings.tray_behavior == TrayBehavior::WhenWindowOpen {
-                    styles::primary_button
-                } else {
-                    styles::secondary_button
-                })
-                .padding([10, 16]),
-            button(text("Always").size(13))
-                .on_press(Message::TrayBehaviorChanged(TrayBehavior::AlwaysRunning))
-                .style(if settings.tray_behavior == TrayBehavior::AlwaysRunning {
-                    styles::primary_button
-                } else {
-                    styles::secondary_button
-                })
-                .padding([10, 16]),
-            button(text("Disabled").size(13))
-                .on_press(Message::TrayBehaviorChanged(TrayBehavior::Disabled))
-                .style(if settings.tray_behavior == TrayBehavior::Disabled {
-                    styles::primary_button
-                } else {
-                    styles::secondary_button
-                })
-                .padding([10, 16]),
+            tray_behavior_button("When Open", TrayBehavior::WhenWindowOpen, settings),
+            tray_behavior_button("Always", TrayBehavior::AlwaysRunning, settings),
+            tray_behavior_button("Disabled", TrayBehavior::Disabled, settings),
         ]
         .spacing(8),
         Space::new().height(8),
@@ -119,149 +138,173 @@ pub fn view<'a>(
             .size(11)
             .color(iced::Color::from_rgb8(142, 142, 147)),
         Space::new().height(28),
-        text("Shell Options").size(14),
-        Space::new().height(8),
     ]
     .spacing(4)
-    .width(Length::Fill);
+    .into()
+}
+
+fn tray_behavior_button<'a>(
+    label: &'a str,
+    behavior: TrayBehavior,
+    settings: &'a AppSettings,
+) -> iced::widget::Button<'a, Message> {
+    button(text(label).size(13))
+        .on_press(Message::TrayBehaviorChanged(behavior))
+        .style(if settings.tray_behavior == behavior {
+            styles::primary_button
+        } else {
+            styles::secondary_button
+        })
+        .padding([10, 16])
+}
+
+fn shell_options_section(
+    capabilities: versi_backend::ManagerCapabilities,
+    shell_opts: crate::settings::ShellOptions,
+) -> Element<'static, Message> {
+    let mut section = column![text("Shell Options").size(14), Space::new().height(8),].spacing(4);
 
     if capabilities.supports_auto_switch {
-        content = content.push(
-            row![
-                toggler(shell_opts.use_on_cd)
-                    .on_toggle(Message::ShellOptionUseOnCdToggled)
-                    .size(18),
-                text("Auto-switch on cd").size(12),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
-        );
+        section = section.push(shell_option_toggle(
+            shell_opts.use_on_cd,
+            "Auto-switch on cd",
+            Message::ShellOptionUseOnCdToggled,
+        ));
     }
-
     if capabilities.supports_resolve_engines {
-        content = content.push(
-            row![
-                toggler(shell_opts.resolve_engines)
-                    .on_toggle(Message::ShellOptionResolveEnginesToggled)
-                    .size(18),
-                text("Resolve engines from package.json").size(12),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
-        );
+        section = section.push(shell_option_toggle(
+            shell_opts.resolve_engines,
+            "Resolve engines from package.json",
+            Message::ShellOptionResolveEnginesToggled,
+        ));
     }
-
     if capabilities.supports_corepack {
-        content = content.push(
-            row![
-                toggler(shell_opts.corepack_enabled)
-                    .on_toggle(Message::ShellOptionCorepackEnabledToggled)
-                    .size(18),
-                text("Enable corepack").size(12),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
-        );
+        section = section.push(shell_option_toggle(
+            shell_opts.corepack_enabled,
+            "Enable corepack",
+            Message::ShellOptionCorepackEnabledToggled,
+        ));
     }
 
     if !capabilities.supports_auto_switch
         && !capabilities.supports_resolve_engines
         && !capabilities.supports_corepack
     {
-        content = content.push(
+        section = section.push(
             text("No shell options available for this engine")
                 .size(12)
                 .color(iced::Color::from_rgb8(142, 142, 147)),
         );
     } else {
-        content = content.push(
+        section = section.push(
             text("Options for new shell configurations")
                 .size(11)
                 .color(iced::Color::from_rgb8(142, 142, 147)),
         );
     }
 
-    content = content.push(Space::new().height(28));
-    content = content.push(text("Shell Setup").size(14));
-    content = content.push(Space::new().height(8));
+    section.push(Space::new().height(28)).into()
+}
+
+fn shell_option_toggle<F>(value: bool, label: &str, on_toggle: F) -> iced::widget::Row<'_, Message>
+where
+    F: Fn(bool) -> Message + 'static,
+{
+    row![
+        toggler(value).on_toggle(on_toggle).size(18),
+        text(label).size(12),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center)
+}
+
+fn shell_setup_section(settings_state: &SettingsModalState) -> Element<'_, Message> {
+    let mut section = column![text("Shell Setup").size(14), Space::new().height(8),].spacing(4);
 
     if settings_state.checking_shells {
-        content = content.push(text("Checking shell configuration...").size(12));
+        section = section.push(text("Checking shell configuration...").size(12));
     } else if settings_state.shell_statuses.is_empty() {
-        content = content.push(text("No shells detected").size(12));
+        section = section.push(text("No shells detected").size(12));
     } else {
         for shell in &settings_state.shell_statuses {
-            let is_configured_check = matches!(shell.status, ShellVerificationStatus::Configured);
-
-            let status_text = match &shell.status {
-                ShellVerificationStatus::Configured => "Configured",
-                ShellVerificationStatus::NotConfigured => "Not configured",
-                ShellVerificationStatus::NoConfigFile => "No config file",
-                ShellVerificationStatus::FunctionalButNotInConfig => "Working (not in config)",
-                ShellVerificationStatus::Error => "Error",
-            };
-
-            let is_configured = matches!(
-                shell.status,
-                ShellVerificationStatus::Configured
-                    | ShellVerificationStatus::FunctionalButNotInConfig
-            );
-
-            let has_no_config_file = matches!(shell.status, ShellVerificationStatus::NoConfigFile);
-
-            let shell_row = if shell.configuring {
-                row![
-                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text("Configuring...").size(12),
-                ]
-            } else if is_configured {
-                let mut r = row![
-                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text(status_text)
-                        .size(12)
-                        .color(iced::Color::from_rgb8(52, 199, 89)),
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center);
-                if is_configured_check {
-                    let check_icon: Element<'_, Message> = icon::check(12.0)
-                        .style(|_theme: &iced::Theme, _status| iced::widget::svg::Style {
-                            color: Some(iced::Color::from_rgb8(52, 199, 89)),
-                        })
-                        .into();
-                    r = r.push(check_icon);
-                }
-                r
-            } else if has_no_config_file {
-                row![
-                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text(status_text)
-                        .size(12)
-                        .color(iced::Color::from_rgb8(142, 142, 147)),
-                ]
-            } else {
-                let shell_type = shell.shell_type.clone();
-                row![
-                    text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
-                    text(status_text)
-                        .size(12)
-                        .color(iced::Color::from_rgb8(255, 149, 0)),
-                    Space::new().width(Length::Fill),
-                    button(text("Configure").size(11))
-                        .on_press(Message::ConfigureShell(shell_type))
-                        .style(styles::secondary_button)
-                        .padding([4, 10]),
-                ]
-            };
-
-            content = content.push(shell_row.spacing(8).align_y(Alignment::Center));
+            section = section.push(shell_status_row(shell));
         }
     }
 
-    content = content.push(Space::new().height(28));
-    content = content.push(text("Settings Data").size(14));
-    content = content.push(Space::new().height(8));
-    content = content.push(
+    section.push(Space::new().height(28)).into()
+}
+
+fn shell_status_row(shell: &crate::state::ShellSetupStatus) -> iced::widget::Row<'_, Message> {
+    let status_text = match &shell.status {
+        ShellVerificationStatus::Configured => "Configured",
+        ShellVerificationStatus::NotConfigured => "Not configured",
+        ShellVerificationStatus::NoConfigFile => "No config file",
+        ShellVerificationStatus::FunctionalButNotInConfig => "Working (not in config)",
+        ShellVerificationStatus::Error => "Error",
+    };
+
+    if shell.configuring {
+        return row![
+            text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+            text("Configuring...").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
+    }
+
+    if matches!(
+        shell.status,
+        ShellVerificationStatus::Configured | ShellVerificationStatus::FunctionalButNotInConfig
+    ) {
+        let mut row = row![
+            text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+            text(status_text)
+                .size(12)
+                .color(iced::Color::from_rgb8(52, 199, 89)),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
+        if matches!(shell.status, ShellVerificationStatus::Configured) {
+            let check_icon: Element<'_, Message> = icon::check(12.0)
+                .style(|_theme: &iced::Theme, _status| iced::widget::svg::Style {
+                    color: Some(iced::Color::from_rgb8(52, 199, 89)),
+                })
+                .into();
+            row = row.push(check_icon);
+        }
+        return row;
+    }
+
+    if matches!(shell.status, ShellVerificationStatus::NoConfigFile) {
+        return row![
+            text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+            text(status_text)
+                .size(12)
+                .color(iced::Color::from_rgb8(142, 142, 147)),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
+    }
+
+    row![
+        text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+        text(status_text)
+            .size(12)
+            .color(iced::Color::from_rgb8(255, 149, 0)),
+        Space::new().width(Length::Fill),
+        button(text("Configure").size(11))
+            .on_press(Message::ConfigureShell(shell.shell_type.clone()))
+            .style(styles::secondary_button)
+            .padding([4, 10]),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center)
+}
+
+fn settings_data_section() -> Element<'static, Message> {
+    column![
+        text("Settings Data").size(14),
+        Space::new().height(8),
         row![
             button(text("Export").size(11))
                 .on_press(Message::ExportSettings)
@@ -277,28 +320,21 @@ pub fn view<'a>(
                 .padding([4, 10]),
         ]
         .spacing(8),
-    );
-    content = content.push(
         text("Export or import preferences, or edit the config file directly")
             .size(11)
             .color(iced::Color::from_rgb8(142, 142, 147)),
-    );
+        Space::new().height(28),
+    ]
+    .spacing(4)
+    .into()
+}
 
-    content = content.push(Space::new().height(28));
-    content = content.push(text("Advanced").size(14));
-    content = content.push(Space::new().height(8));
-    content = content.push(
-        row![
-            toggler(settings.debug_logging)
-                .on_toggle(Message::DebugLoggingToggled)
-                .size(18),
-            text("Debug logging").size(12),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-    );
+fn advanced_section<'a>(
+    settings_state: &'a SettingsModalState,
+    settings: &'a AppSettings,
+) -> Element<'a, Message> {
     let log_path = versi_platform::AppPaths::new()
-        .map(|p| p.log_file().to_string_lossy().to_string())
+        .map(|paths| paths.log_file().to_string_lossy().to_string())
         .unwrap_or_default();
     let log_size_text = match settings_state.log_file_size {
         Some(0) => "empty".to_string(),
@@ -307,7 +343,18 @@ pub fn view<'a>(
         Some(size) => format_tenths(size, 1024 * 1024, "MB"),
         None => "not found".to_string(),
     };
-    content = content.push(
+
+    column![
+        text("Advanced").size(14),
+        Space::new().height(8),
+        row![
+            toggler(settings.debug_logging)
+                .on_toggle(Message::DebugLoggingToggled)
+                .size(18),
+            text("Debug logging").size(12),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
         row![
             text("Log file: ")
                 .size(11)
@@ -321,9 +368,7 @@ pub fn view<'a>(
                 .color(iced::Color::from_rgb8(142, 142, 147)),
         ]
         .align_y(Alignment::Center),
-    );
-    content = content.push(Space::new().height(8));
-    content = content.push(
+        Space::new().height(8),
         row![
             button(text("Show in Folder").size(11))
                 .on_press(Message::RevealLogFile)
@@ -335,20 +380,8 @@ pub fn view<'a>(
                 .padding([4, 10]),
         ]
         .spacing(8),
-    );
-    column![
-        container(header).padding(iced::Padding::new(0.0).right(24.0)),
-        Space::new().height(12),
-        scrollable(content.padding(iced::Padding::default().right(24.0))).height(Length::Fill),
     ]
-    .spacing(0)
-    .padding(if has_tabs {
-        iced::Padding::new(24.0).right(0.0)
-    } else {
-        iced::Padding::new(24.0).top(12.0).right(0.0)
-    })
-    .width(Length::Fill)
-    .height(Length::Fill)
+    .spacing(4)
     .into()
 }
 

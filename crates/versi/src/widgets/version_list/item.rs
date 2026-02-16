@@ -9,7 +9,6 @@ use crate::theme::styles;
 
 use super::VersionListContext;
 
-#[allow(clippy::too_many_lines)]
 pub(super) fn version_item_view<'a>(
     version: &'a InstalledVersion,
     default: Option<&'a versi_backend::NodeVersion>,
@@ -38,7 +37,7 @@ pub(super) fn version_item_view<'a>(
         .is_some_and(|h| h == &version_str);
     let show_actions = is_hovered || is_default;
 
-    let mut row_content = row![
+    let row_content = row![
         container(text(version_display).size(14))
             .padding([2, 4])
             .width(Length::Fixed(120.0)),
@@ -46,35 +45,7 @@ pub(super) fn version_item_view<'a>(
     .spacing(8)
     .align_y(Alignment::Center);
 
-    if let Some(lts) = &version.lts_codename {
-        row_content = row_content.push(
-            container(text(format!("LTS: {lts}")).size(11))
-                .padding([2, 6])
-                .style(styles::badge_lts),
-        );
-    }
-
-    if is_default {
-        row_content = row_content.push(
-            container(text("default").size(11))
-                .padding([2, 6])
-                .style(styles::badge_default),
-        );
-    }
-
-    if meta.is_some_and(|m| m.security) {
-        row_content = row_content.push(
-            container(text("Security").size(11))
-                .padding([2, 6])
-                .style(styles::badge_security),
-        );
-    }
-
-    row_content = row_content.push(Space::new().width(Length::Fill));
-
-    if let Some(size) = version.disk_size {
-        row_content = row_content.push(text(format_bytes(size)).size(12));
-    }
+    let row_content = push_badges_and_size(row_content, version, meta, is_default);
 
     let action_style = if show_actions {
         styles::row_action_button
@@ -87,53 +58,21 @@ pub(super) fn version_item_view<'a>(
         styles::row_action_button_hidden
     };
 
-    if is_default {
-        row_content = row_content.push(
-            button(text("Default").size(12))
-                .style(action_style)
-                .padding([6, 12]),
-        );
-    } else if is_setting_default {
-        row_content = row_content.push(
-            button(text("Setting...").size(12))
-                .style(action_style)
-                .padding([6, 12]),
-        );
-    } else if is_busy || !show_actions {
-        row_content = row_content.push(
-            button(text("Set Default").size(12))
-                .style(action_style)
-                .padding([6, 12]),
-        );
-    } else {
-        row_content = row_content.push(
-            button(text("Set Default").size(12))
-                .on_press(Message::SetDefault(version_for_default))
-                .style(action_style)
-                .padding([6, 12]),
-        );
-    }
-
-    if is_uninstalling {
-        row_content = row_content.push(
-            button(text("Removing...").size(12))
-                .style(danger_style)
-                .padding([6, 12]),
-        );
-    } else if is_busy || !show_actions {
-        row_content = row_content.push(
-            button(text("Uninstall").size(12))
-                .style(danger_style)
-                .padding([6, 12]),
-        );
-    } else {
-        row_content = row_content.push(
-            button(text("Uninstall").size(12))
-                .on_press(Message::RequestUninstall(version_str))
-                .style(danger_style)
-                .padding([6, 12]),
-        );
-    }
+    let row_content = push_set_default_button(
+        row_content,
+        action_style,
+        is_default,
+        is_setting_default,
+        is_busy || !show_actions,
+        version_for_default,
+    );
+    let row_content = push_uninstall_button(
+        row_content,
+        danger_style,
+        is_uninstalling,
+        is_busy || !show_actions,
+        version_str,
+    );
 
     let row_style = if is_hovered {
         styles::version_row_hovered
@@ -155,6 +94,96 @@ pub(super) fn version_item_view<'a>(
             is_default,
         })
         .into()
+}
+
+fn push_badges_and_size<'a>(
+    mut row_content: iced::widget::Row<'a, Message>,
+    version: &'a InstalledVersion,
+    meta: Option<&'a versi_core::VersionMeta>,
+    is_default: bool,
+) -> iced::widget::Row<'a, Message> {
+    if let Some(lts) = &version.lts_codename {
+        row_content = row_content.push(
+            container(text(format!("LTS: {lts}")).size(11))
+                .padding([2, 6])
+                .style(styles::badge_lts),
+        );
+    }
+
+    if is_default {
+        row_content = row_content.push(
+            container(text("default").size(11))
+                .padding([2, 6])
+                .style(styles::badge_default),
+        );
+    }
+
+    if meta.is_some_and(|version_meta| version_meta.security) {
+        row_content = row_content.push(
+            container(text("Security").size(11))
+                .padding([2, 6])
+                .style(styles::badge_security),
+        );
+    }
+
+    row_content = row_content.push(Space::new().width(Length::Fill));
+    if let Some(size) = version.disk_size {
+        row_content = row_content.push(text(format_bytes(size)).size(12));
+    }
+    row_content
+}
+
+fn push_set_default_button(
+    row_content: iced::widget::Row<'_, Message>,
+    action_style: fn(&iced::Theme, iced::widget::button::Status) -> iced::widget::button::Style,
+    is_default: bool,
+    is_setting_default: bool,
+    is_disabled: bool,
+    version_for_default: String,
+) -> iced::widget::Row<'_, Message> {
+    let button = if is_default {
+        button(text("Default").size(12))
+    } else if is_setting_default {
+        button(text("Setting...").size(12))
+    } else {
+        button(text("Set Default").size(12))
+    };
+
+    if !is_default && !is_setting_default && !is_disabled {
+        row_content.push(
+            button
+                .on_press(Message::SetDefault(version_for_default))
+                .style(action_style)
+                .padding([6, 12]),
+        )
+    } else {
+        row_content.push(button.style(action_style).padding([6, 12]))
+    }
+}
+
+fn push_uninstall_button(
+    row_content: iced::widget::Row<'_, Message>,
+    danger_style: fn(&iced::Theme, iced::widget::button::Status) -> iced::widget::button::Style,
+    is_uninstalling: bool,
+    is_disabled: bool,
+    version: String,
+) -> iced::widget::Row<'_, Message> {
+    let button = if is_uninstalling {
+        button(text("Removing...").size(12))
+    } else {
+        button(text("Uninstall").size(12))
+    };
+
+    if !is_uninstalling && !is_disabled {
+        row_content.push(
+            button
+                .on_press(Message::RequestUninstall(version))
+                .style(danger_style)
+                .padding([6, 12]),
+        )
+    } else {
+        row_content.push(button.style(danger_style).padding([6, 12]))
+    }
 }
 
 pub(super) fn format_bytes(bytes: u64) -> String {
