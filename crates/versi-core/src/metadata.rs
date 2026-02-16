@@ -26,6 +26,24 @@ struct RawEntry {
     openssl: Option<String>,
 }
 
+fn map_entries(entries: Vec<RawEntry>) -> HashMap<String, VersionMeta> {
+    entries
+        .into_iter()
+        .map(|entry| {
+            (
+                entry.version,
+                VersionMeta {
+                    date: entry.date,
+                    security: entry.security,
+                    npm: entry.npm,
+                    v8: entry.v8,
+                    openssl: entry.openssl,
+                },
+            )
+        })
+        .collect()
+}
+
 /// Fetch Node.js version metadata from `nodejs.org`.
 ///
 /// # Errors
@@ -44,21 +62,73 @@ pub async fn fetch_version_metadata(
         .await
         .map_err(|e| format!("Failed to parse version metadata: {e}"))?;
 
-    let map = entries
-        .into_iter()
-        .map(|e| {
-            (
-                e.version,
-                VersionMeta {
-                    date: e.date,
-                    security: e.security,
-                    npm: e.npm,
-                    v8: e.v8,
-                    openssl: e.openssl,
-                },
-            )
-        })
-        .collect();
+    Ok(map_entries(entries))
+}
 
-    Ok(map)
+#[cfg(test)]
+mod tests {
+    use super::{RawEntry, map_entries};
+
+    #[test]
+    fn map_entries_preserves_expected_fields() {
+        let entries = vec![
+            RawEntry {
+                version: "v24.0.0".to_string(),
+                date: "2026-01-01".to_string(),
+                security: true,
+                npm: Some("11.0.0".to_string()),
+                v8: Some("12.0".to_string()),
+                openssl: Some("3.4.0".to_string()),
+            },
+            RawEntry {
+                version: "v22.5.0".to_string(),
+                date: "2025-12-15".to_string(),
+                security: false,
+                npm: None,
+                v8: None,
+                openssl: None,
+            },
+        ];
+
+        let mapped = map_entries(entries);
+
+        assert_eq!(mapped.len(), 2);
+        let v24 = mapped.get("v24.0.0").expect("v24 metadata should be present");
+        assert_eq!(v24.date, "2026-01-01");
+        assert!(v24.security);
+        assert_eq!(v24.npm.as_deref(), Some("11.0.0"));
+        assert_eq!(v24.v8.as_deref(), Some("12.0"));
+        assert_eq!(v24.openssl.as_deref(), Some("3.4.0"));
+        let v22 = mapped.get("v22.5.0").expect("v22 metadata should be present");
+        assert!(!v22.security);
+        assert!(v22.npm.is_none());
+    }
+
+    #[test]
+    fn map_entries_overwrites_duplicate_versions_with_last_value() {
+        let mapped = map_entries(vec![
+            RawEntry {
+                version: "v22.0.0".to_string(),
+                date: "2025-04-24".to_string(),
+                security: false,
+                npm: Some("10.0.0".to_string()),
+                v8: None,
+                openssl: None,
+            },
+            RawEntry {
+                version: "v22.0.0".to_string(),
+                date: "2025-05-01".to_string(),
+                security: true,
+                npm: Some("10.1.0".to_string()),
+                v8: Some("11.2".to_string()),
+                openssl: Some("3.0.0".to_string()),
+            },
+        ]);
+
+        let entry = mapped.get("v22.0.0").expect("deduplicated key should exist");
+        assert_eq!(entry.date, "2025-05-01");
+        assert!(entry.security);
+        assert_eq!(entry.npm.as_deref(), Some("10.1.0"));
+        assert_eq!(entry.v8.as_deref(), Some("11.2"));
+    }
 }
