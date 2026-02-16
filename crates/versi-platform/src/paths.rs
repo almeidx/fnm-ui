@@ -80,3 +80,68 @@ impl AppPaths {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::AppPaths;
+
+    fn test_paths() -> AppPaths {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "versi-platform-paths-test-{}-{}",
+            std::process::id(),
+            nonce
+        ));
+        AppPaths {
+            config_dir: root.join("config"),
+            cache_dir: root.join("cache"),
+            data_dir: root.join("data"),
+        }
+    }
+
+    #[test]
+    fn file_paths_use_expected_filenames() {
+        let paths = test_paths();
+
+        assert!(
+            paths
+                .settings_file()
+                .ends_with(std::path::Path::new("config").join("settings.json"))
+        );
+        assert!(
+            paths
+                .version_cache_file()
+                .ends_with(std::path::Path::new("cache").join("versions.json"))
+        );
+        assert!(
+            paths
+                .log_file()
+                .ends_with(std::path::Path::new("data").join("debug.log"))
+        );
+    }
+
+    #[test]
+    fn ensure_dirs_creates_all_directories() {
+        let paths = test_paths();
+        let root = paths
+            .config_dir
+            .parent()
+            .expect("config dir should have a parent")
+            .to_path_buf();
+
+        paths
+            .ensure_dirs()
+            .expect("ensure_dirs should create application directories");
+
+        assert!(paths.config_dir.is_dir());
+        assert!(paths.cache_dir.is_dir());
+        assert!(paths.data_dir.is_dir());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+}

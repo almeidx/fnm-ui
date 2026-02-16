@@ -63,3 +63,57 @@ impl Environment {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Environment, EnvironmentId};
+
+    fn native_label() -> &'static str {
+        if cfg!(target_os = "macos") {
+            "macOS"
+        } else if cfg!(target_os = "windows") {
+            "Windows"
+        } else {
+            "Linux"
+        }
+    }
+
+    #[test]
+    fn native_display_name_matches_platform() {
+        assert_eq!(EnvironmentId::Native.display_name(), native_label());
+    }
+
+    #[test]
+    fn wsl_display_name_uses_distro_name() {
+        let id = EnvironmentId::Wsl {
+            distro: "Ubuntu".to_string(),
+            backend_path: "/home/user/.local/share/fnm/fnm".to_string(),
+        };
+
+        assert_eq!(id.display_name(), "WSL: Ubuntu");
+    }
+
+    #[test]
+    fn native_environment_defaults_to_enabled() {
+        let env = Environment::native();
+
+        assert_eq!(env.id, EnvironmentId::Native);
+        assert_eq!(env.name, native_label());
+        assert!(env.enabled);
+    }
+
+    #[test]
+    fn wsl_environment_sets_expected_fields() {
+        let env = Environment::wsl("Debian".to_string(), "/usr/bin/fnm".to_string());
+
+        assert_eq!(env.name, "WSL: Debian");
+        assert!(env.enabled);
+        assert_eq!(
+            env.id,
+            EnvironmentId::Wsl {
+                distro: "Debian".to_string(),
+                backend_path: "/usr/bin/fnm".to_string(),
+            }
+        );
+    }
+}
