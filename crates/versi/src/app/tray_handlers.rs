@@ -175,3 +175,70 @@ impl Versi {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::{AppState, MainViewKind, Operation};
+
+    #[test]
+    fn tray_open_settings_switches_view_and_marks_shell_check() {
+        let mut app = test_app_with_two_environments();
+        let _ = app.handle_tray_event(TrayMessage::OpenSettings);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.view, MainViewKind::Settings);
+        assert!(state.settings_state.checking_shells);
+    }
+
+    #[test]
+    fn tray_open_about_switches_view() {
+        let mut app = test_app_with_two_environments();
+        let _ = app.handle_tray_event(TrayMessage::OpenAbout);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.view, MainViewKind::About);
+    }
+
+    #[test]
+    fn tray_show_hide_window_without_window_id_updates_flags() {
+        let mut app = test_app_with_two_environments();
+        app.window_id = None;
+        app.window_visible = false;
+        app.pending_minimize = true;
+        app.pending_show = false;
+
+        let _ = app.handle_tray_event(TrayMessage::ShowWindow);
+        assert!(app.window_visible);
+        assert!(!app.pending_minimize);
+        assert!(app.pending_show);
+
+        let _ = app.handle_tray_event(TrayMessage::HideWindow);
+        assert!(!app.window_visible);
+    }
+
+    #[test]
+    fn tray_set_default_switches_environment_and_starts_default_operation() {
+        let mut app = test_app_with_two_environments();
+        let _ = app.handle_tray_event(TrayMessage::SetDefault {
+            env_index: 1,
+            version: "v20.11.0".to_string(),
+        });
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.active_environment_idx, 1);
+        assert_eq!(state.backend_name, crate::backend_kind::BackendKind::Nvm);
+        assert!(matches!(
+            state.operation_queue.exclusive_op.as_ref(),
+            Some(Operation::SetDefault { version }) if version == "v20.11.0"
+        ));
+        assert_eq!(app.provider.name(), "nvm");
+    }
+}
