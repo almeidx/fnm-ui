@@ -245,3 +245,68 @@ impl VersionManager for FnmBackend {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use versi_backend::{ShellInitOptions, VersionManager};
+
+    use super::FnmBackend;
+
+    fn backend() -> FnmBackend {
+        FnmBackend::new(PathBuf::from("fnm"), Some("1.38.0".to_string()), None)
+    }
+
+    #[test]
+    fn capabilities_enable_fnm_supported_features() {
+        let capabilities = backend().capabilities();
+
+        assert!(capabilities.supports_lts_filter);
+        assert!(capabilities.supports_use_version);
+        assert!(capabilities.supports_shell_integration);
+        assert!(capabilities.supports_auto_switch);
+        assert!(capabilities.supports_corepack);
+        assert!(capabilities.supports_resolve_engines);
+    }
+
+    #[test]
+    fn shell_init_command_builds_bash_flags() {
+        let options = ShellInitOptions {
+            use_on_cd: true,
+            resolve_engines: true,
+            corepack_enabled: false,
+        };
+
+        let command = backend()
+            .shell_init_command("bash", &options)
+            .expect("bash init command should be supported");
+
+        assert_eq!(
+            command,
+            "eval \"$(fnm env --use-on-cd --resolve-engines)\""
+        );
+    }
+
+    #[test]
+    fn shell_init_command_builds_fish_command() {
+        let options = ShellInitOptions {
+            use_on_cd: false,
+            resolve_engines: false,
+            corepack_enabled: true,
+        };
+
+        let command = backend()
+            .shell_init_command("fish", &options)
+            .expect("fish init command should be supported");
+
+        assert_eq!(command, "fnm env --corepack-enabled | source");
+    }
+
+    #[test]
+    fn shell_init_command_returns_none_for_unknown_shell() {
+        let options = ShellInitOptions::default();
+
+        assert!(backend().shell_init_command("nu", &options).is_none());
+    }
+}

@@ -32,3 +32,24 @@ impl From<std::io::Error> for FnmError {
         FnmError::IoError(err.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FnmError;
+
+    #[test]
+    fn io_error_conversion_maps_to_io_variant() {
+        let io_error = std::io::Error::other("disk full");
+
+        let mapped = FnmError::from(io_error);
+
+        assert!(matches!(mapped, FnmError::IoError(msg) if msg.contains("disk full")));
+    }
+
+    #[test]
+    fn install_failed_error_formats_message() {
+        let error = FnmError::InstallFailed("script exited 1".to_string());
+
+        assert_eq!(error.to_string(), "Installation failed: script exited 1");
+    }
+}

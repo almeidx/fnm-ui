@@ -94,3 +94,79 @@ impl BackendProvider for FnmProvider {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+    use std::path::PathBuf;
+
+    use versi_backend::{BackendDetection, BackendProvider};
+
+    use super::FnmProvider;
+
+    #[test]
+    fn provider_metadata_is_stable() {
+        let provider = FnmProvider::new();
+
+        assert_eq!(provider.name(), "fnm");
+        assert_eq!(provider.display_name(), "fnm (Fast Node Manager)");
+        assert_eq!(provider.shell_config_marker(), "fnm env");
+        assert_eq!(provider.shell_config_label(), "fnm (Fast Node Manager)");
+    }
+
+    #[test]
+    fn create_manager_uses_detected_path_and_data_dir() {
+        let provider = FnmProvider::new();
+        let detection = BackendDetection {
+            found: true,
+            path: Some(PathBuf::from("/opt/homebrew/bin/fnm")),
+            version: Some("1.38.0".to_string()),
+            in_path: false,
+            data_dir: Some(PathBuf::from("/tmp/fnm-data")),
+        };
+
+        let manager = provider.create_manager(&detection);
+        let info = manager.backend_info();
+
+        assert_eq!(info.path, PathBuf::from("/opt/homebrew/bin/fnm"));
+        assert_eq!(info.version.as_deref(), Some("1.38.0"));
+        assert_eq!(info.data_dir, Some(PathBuf::from("/tmp/fnm-data")));
+    }
+
+    #[test]
+    fn create_manager_falls_back_to_fnm_binary_name() {
+        let provider = FnmProvider::new();
+        let detection = BackendDetection {
+            found: false,
+            path: None,
+            version: None,
+            in_path: false,
+            data_dir: None,
+        };
+
+        let manager = provider.create_manager(&detection);
+        let info = manager.backend_info();
+
+        assert_eq!(info.path, PathBuf::from("fnm"));
+    }
+
+    #[test]
+    fn create_wsl_manager_uses_wsl_binary_path() {
+        let provider = FnmProvider::new();
+
+        let manager = provider.create_manager_for_wsl("Ubuntu".to_string(), "/usr/bin/fnm".to_string());
+        let info = manager.backend_info();
+
+        assert_eq!(info.path, PathBuf::from("/usr/bin/fnm"));
+    }
+
+    #[test]
+    fn wsl_search_paths_are_unique() {
+        let provider = FnmProvider::new();
+        let paths = provider.wsl_search_paths();
+        let unique_count = paths.iter().copied().collect::<HashSet<_>>().len();
+
+        assert!(!paths.is_empty());
+        assert_eq!(paths.len(), unique_count);
+    }
+}

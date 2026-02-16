@@ -52,20 +52,20 @@ pub(crate) async fn detect_fnm() -> FnmDetection {
 }
 
 pub(crate) fn detect_fnm_dir() -> Option<PathBuf> {
-    if let Ok(dir) = std::env::var("FNM_DIR") {
-        let path = PathBuf::from(dir);
-        if path.exists() {
-            return Some(path);
-        }
-    }
+    let env_dir = std::env::var("FNM_DIR").ok().map(PathBuf::from);
+    select_fnm_dir(env_dir, get_fnm_dir_candidates())
+}
 
-    let candidates = get_fnm_dir_candidates();
+fn select_fnm_dir(env_dir: Option<PathBuf>, candidates: Vec<PathBuf>) -> Option<PathBuf> {
+    if let Some(path) = env_dir.filter(|path| path.exists()) {
+        return Some(path);
+    }
 
     candidates
         .iter()
-        .find(|c| c.exists() && c.join("node-versions").exists())
+        .find(|candidate| candidate.exists() && candidate.join("node-versions").exists())
         .cloned()
-        .or_else(|| candidates.into_iter().find(|c| c.exists()))
+        .or_else(|| candidates.into_iter().find(|candidate| candidate.exists()))
 }
 
 fn get_fnm_dir_candidates() -> Vec<PathBuf> {
@@ -188,5 +188,85 @@ pub async fn _check_fnm_update(current_version: &str) -> Option<String> {
         None
     } else {
         Some(latest_version.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{get_common_fnm_paths, select_fnm_dir};
+
+    fn temp_path(name: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "versi-fnm-detection-test-{}-{nonce}-{name}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn select_fnm_dir_prefers_existing_env_dir() {
+        let env_dir = temp_path("env");
+        let candidate = temp_path("candidate");
+        std::fs::create_dir_all(&env_dir).expect("create env dir");
+        std::fs::create_dir_all(candidate.join("node-versions")).expect("create candidate dir");
+
+        let selected = select_fnm_dir(Some(env_dir.clone()), vec![candidate.clone()]);
+
+        assert_eq!(selected, Some(env_dir.clone()));
+        let _ = std::fs::remove_dir_all(env_dir);
+        let _ = std::fs::remove_dir_all(candidate);
+    }
+
+    #[test]
+    fn select_fnm_dir_prefers_node_versions_candidate() {
+        let plain = temp_path("plain");
+        let with_versions = temp_path("with-node-versions");
+        std::fs::create_dir_all(&plain).expect("create plain candidate");
+        std::fs::create_dir_all(with_versions.join("node-versions"))
+            .expect("create node-versions candidate");
+
+        let selected = select_fnm_dir(None, vec![plain.clone(), with_versions.clone()]);
+
+        assert_eq!(selected, Some(with_versions.clone()));
+        let _ = std::fs::remove_dir_all(plain);
+        let _ = std::fs::remove_dir_all(with_versions);
+    }
+
+    #[test]
+    fn select_fnm_dir_falls_back_to_existing_candidate() {
+        let fallback = temp_path("fallback");
+        std::fs::create_dir_all(&fallback).expect("create fallback candidate");
+
+        let selected = select_fnm_dir(None, vec![fallback.clone()]);
+
+        assert_eq!(selected, Some(fallback.clone()));
+        let _ = std::fs::remove_dir_all(fallback);
+    }
+
+    #[test]
+    fn select_fnm_dir_returns_none_when_nothing_exists() {
+        let missing = temp_path("missing");
+
+        let selected = select_fnm_dir(None, vec![missing]);
+
+        assert!(selected.is_none());
+    }
+
+    #[test]
+    fn common_paths_include_expected_home_candidates() {
+        let paths = get_common_fnm_paths();
+        let Some(home) = dirs::home_dir() else {
+            return;
+        };
+
+        assert!(paths.contains(&home.join(".fnm").join("fnm")));
+        assert!(paths.contains(&home.join(".local").join("bin").join("fnm")));
+        assert!(paths.contains(&home.join(".cargo").join("bin").join("fnm")));
     }
 }
