@@ -364,7 +364,7 @@ mod tests {
     use crate::backend_kind::BackendKind;
     use crate::message::Message;
     use crate::settings::AppSettings;
-    use crate::state::{AppState, EnvironmentState, MainState, Operation};
+    use crate::state::{AppState, EnvironmentState, MainState, MainViewKind, Modal, Operation};
     use crate::tray::TrayMessage;
 
     fn test_app_with_two_environments() -> Versi {
@@ -527,5 +527,64 @@ mod tests {
         assert!(env.error.is_none());
         assert_eq!(env.default_version, Some(NodeVersion::new(20, 11, 0)));
         assert!(env.installed_set.contains("v20.11.0"));
+    }
+
+    #[test]
+    fn update_routes_navigation_messages() {
+        let mut app = test_app_with_two_environments();
+
+        let _ = app.update(Message::SearchChanged("20".to_string()));
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.search_query, "20");
+    }
+
+    #[test]
+    fn update_routes_operation_messages() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.modal = Some(Modal::KeyboardShortcuts);
+        } else {
+            panic!("expected main state");
+        }
+
+        let _ = app.update(Message::CancelBulkOperation);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.modal.is_none());
+    }
+
+    #[test]
+    fn update_routes_settings_messages() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.view = MainViewKind::Versions;
+        } else {
+            panic!("expected main state");
+        }
+
+        let _ = app.update(Message::NavigateToAbout);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.view, MainViewKind::About);
+    }
+
+    #[test]
+    fn update_routes_system_messages() {
+        let mut app = test_app_with_two_environments();
+        let point = iced::Point::new(12.0, 34.0);
+
+        let _ = app.update(Message::VersionListCursorMoved(point));
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.cursor_position, point);
     }
 }
