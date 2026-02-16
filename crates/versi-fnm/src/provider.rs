@@ -154,7 +154,8 @@ mod tests {
     fn create_wsl_manager_uses_wsl_binary_path() {
         let provider = FnmProvider::new();
 
-        let manager = provider.create_manager_for_wsl("Ubuntu".to_string(), "/usr/bin/fnm".to_string());
+        let manager =
+            provider.create_manager_for_wsl("Ubuntu".to_string(), "/usr/bin/fnm".to_string());
         let info = manager.backend_info();
 
         assert_eq!(info.path, PathBuf::from("/usr/bin/fnm"));

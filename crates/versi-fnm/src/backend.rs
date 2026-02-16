@@ -282,10 +282,7 @@ mod tests {
             .shell_init_command("bash", &options)
             .expect("bash init command should be supported");
 
-        assert_eq!(
-            command,
-            "eval \"$(fnm env --use-on-cd --resolve-engines)\""
-        );
+        assert_eq!(command, "eval \"$(fnm env --use-on-cd --resolve-engines)\"");
     }
 
     #[test]

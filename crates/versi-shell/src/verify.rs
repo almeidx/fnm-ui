@@ -390,9 +390,6 @@ mod tests {
         )
         .await;
 
-        assert_eq!(
-            result,
-            Err("WSL is only available on Windows".to_string())
-        );
+        assert_eq!(result, Err("WSL is only available on Windows".to_string()));
     }
 }

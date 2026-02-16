@@ -238,7 +238,10 @@ mod tests {
             remote("v20.10.0", Some("Iron")),
         ]);
 
-        let lts = manager.list_remote_lts().await.expect("lts listing succeeds");
+        let lts = manager
+            .list_remote_lts()
+            .await
+            .expect("lts listing succeeds");
 
         assert_eq!(lts.len(), 2);
         assert_eq!(lts[0].version.to_string(), "v22.1.0");

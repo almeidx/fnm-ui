@@ -7,7 +7,10 @@ fn backend_update_from_release(
     release: GitHubRelease,
     current_version: &str,
 ) -> Option<BackendUpdate> {
-    let latest = release.tag_name.strip_prefix('v').unwrap_or(&release.tag_name);
+    let latest = release
+        .tag_name
+        .strip_prefix('v')
+        .unwrap_or(&release.tag_name);
     let current = current_version.strip_prefix('v').unwrap_or(current_version);
 
     if is_newer_version(latest, current) {
@@ -48,7 +51,7 @@ pub async fn check_for_fnm_update(
 
 #[cfg(test)]
 mod tests {
-    use super::{backend_update_from_release, GitHubRelease};
+    use super::{GitHubRelease, backend_update_from_release};
 
     fn release(tag_name: &str) -> GitHubRelease {
         GitHubRelease {

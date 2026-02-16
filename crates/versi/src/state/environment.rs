@@ -135,7 +135,10 @@ mod tests {
         state.loading = true;
         state.error = Some(crate::error::AppError::message("old error"));
 
-        state.update_versions(vec![installed("v20.11.0", true), installed("v18.19.1", false)]);
+        state.update_versions(vec![
+            installed("v20.11.0", true),
+            installed("v18.19.1", false),
+        ]);
 
         assert_eq!(state.installed_versions.len(), 2);
         assert_eq!(

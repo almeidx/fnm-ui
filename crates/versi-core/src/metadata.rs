@@ -93,13 +93,17 @@ mod tests {
         let mapped = map_entries(entries);
 
         assert_eq!(mapped.len(), 2);
-        let v24 = mapped.get("v24.0.0").expect("v24 metadata should be present");
+        let v24 = mapped
+            .get("v24.0.0")
+            .expect("v24 metadata should be present");
         assert_eq!(v24.date, "2026-01-01");
         assert!(v24.security);
         assert_eq!(v24.npm.as_deref(), Some("11.0.0"));
         assert_eq!(v24.v8.as_deref(), Some("12.0"));
         assert_eq!(v24.openssl.as_deref(), Some("3.4.0"));
-        let v22 = mapped.get("v22.5.0").expect("v22 metadata should be present");
+        let v22 = mapped
+            .get("v22.5.0")
+            .expect("v22 metadata should be present");
         assert!(!v22.security);
         assert!(v22.npm.is_none());
     }
@@ -125,7 +129,9 @@ mod tests {
             },
         ]);
 
-        let entry = mapped.get("v22.0.0").expect("deduplicated key should exist");
+        let entry = mapped
+            .get("v22.0.0")
+            .expect("deduplicated key should exist");
         assert_eq!(entry.date, "2025-05-01");
         assert!(entry.security);
         assert_eq!(entry.npm.as_deref(), Some("10.1.0"));

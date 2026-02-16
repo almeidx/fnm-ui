@@ -163,7 +163,8 @@ mod tests {
             .write_all(b"second line\n")
             .expect("writer should recreate file after deletion");
 
-        let contents = std::fs::read_to_string(&log_path).expect("recreated file should be readable");
+        let contents =
+            std::fs::read_to_string(&log_path).expect("recreated file should be readable");
         assert_eq!(contents, "second line\n");
     }
 
@@ -176,7 +177,8 @@ mod tests {
 
         trim_log_file_if_oversized(&log_path, 10);
 
-        let trimmed = std::fs::read_to_string(&log_path).expect("trimmed log file should be readable");
+        let trimmed =
+            std::fs::read_to_string(&log_path).expect("trimmed log file should be readable");
         assert!(trimmed.starts_with("line-4\n") || trimmed.starts_with("line-3\n"));
         assert!(!trimmed.contains("line-1"));
     }

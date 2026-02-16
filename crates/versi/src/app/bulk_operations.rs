@@ -259,7 +259,11 @@ mod tests {
 
     #[test]
     fn compute_major_updates_returns_only_outdated_installed_majors() {
-        let installed = vec![installed("v22.3.0"), installed("v20.11.1"), installed("v18.19.0")];
+        let installed = vec![
+            installed("v22.3.0"),
+            installed("v20.11.1"),
+            installed("v18.19.0"),
+        ];
         let remote = vec![remote("v22.8.0"), remote("v20.11.1"), remote("v18.20.0")];
 
         let mut updates = compute_major_updates(&installed, &remote);
@@ -276,7 +280,11 @@ mod tests {
 
     #[test]
     fn versions_for_major_filters_to_matching_major_only() {
-        let installed = vec![installed("v22.3.0"), installed("v20.11.1"), installed("v22.8.0")];
+        let installed = vec![
+            installed("v22.3.0"),
+            installed("v20.11.1"),
+            installed("v22.8.0"),
+        ];
 
         let versions = versions_for_major(&installed, 22);
 
@@ -285,7 +293,11 @@ mod tests {
 
     #[test]
     fn uninstall_except_latest_returns_sorted_removals_and_kept_version() {
-        let installed = vec![installed("v22.1.0"), installed("v22.9.0"), installed("v22.7.0")];
+        let installed = vec![
+            installed("v22.1.0"),
+            installed("v22.9.0"),
+            installed("v22.7.0"),
+        ];
 
         let (remove, keep) = versions_to_uninstall_except_latest(&installed, 22)
             .expect("major with more than one version should produce removals");

@@ -342,8 +342,16 @@ mod tests {
             serde_json::from_value(value).expect("settings JSON should deserialize");
 
         assert_eq!(settings.backend_shell_options.len(), 2);
-        assert!(settings.backend_shell_options.contains_key(&BackendKind::Fnm));
-        assert!(settings.backend_shell_options.contains_key(&BackendKind::Nvm));
+        assert!(
+            settings
+                .backend_shell_options
+                .contains_key(&BackendKind::Fnm)
+        );
+        assert!(
+            settings
+                .backend_shell_options
+                .contains_key(&BackendKind::Nvm)
+        );
     }
 
     #[test]
@@ -386,7 +394,9 @@ mod tests {
     fn shell_options_for_mut_inserts_default_entry() {
         let mut settings = AppSettings::default();
 
-        settings.shell_options_for_mut(BackendKind::Fnm).resolve_engines = true;
+        settings
+            .shell_options_for_mut(BackendKind::Fnm)
+            .resolve_engines = true;
 
         let stored = settings
             .backend_shell_options

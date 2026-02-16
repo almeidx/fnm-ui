@@ -40,8 +40,10 @@ fn is_wayland_with<F>(get_var: F) -> bool
 where
     F: Fn(&str) -> Result<String, std::env::VarError>,
 {
-    get_var("XDG_SESSION_TYPE")
-        .map_or_else(|_| get_var("WAYLAND_DISPLAY").is_ok(), |value| value == "wayland")
+    get_var("XDG_SESSION_TYPE").map_or_else(
+        |_| get_var("WAYLAND_DISPLAY").is_ok(),
+        |value| value == "wayland",
+    )
 }
 
 pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
