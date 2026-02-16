@@ -166,7 +166,7 @@ pub(super) fn available_version_row<'a>(
     let version_for_ctx = version_str.clone();
     let version_for_install = version_str.clone();
     let version_for_uninstall = version_str.clone();
-    let is_installed = ctx.installed_set.contains(&version_str);
+    let is_installed = ctx.installed_set.contains(&version.version);
 
     let is_active = ctx.operation_queue.is_current_version(&version_str);
     let is_pending = ctx.operation_queue.has_pending_for_version(&version_str);

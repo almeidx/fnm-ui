@@ -11,7 +11,7 @@ pub struct EnvironmentState {
     pub id: EnvironmentId,
     pub name: String,
     pub installed_versions: Vec<InstalledVersion>,
-    pub installed_set: HashSet<String>,
+    pub installed_set: HashSet<NodeVersion>,
     pub version_groups: Vec<VersionGroup>,
     pub default_version: Option<NodeVersion>,
     pub backend_name: BackendKind,
@@ -68,7 +68,7 @@ impl EnvironmentState {
             .iter()
             .find(|v| v.is_default)
             .map(|v| v.version.clone());
-        self.installed_set = versions.iter().map(|v| v.version.to_string()).collect();
+        self.installed_set = versions.iter().map(|v| v.version.clone()).collect();
         self.version_groups = VersionGroup::from_versions(versions.clone());
         self.installed_versions = versions;
         self.loading = false;
@@ -149,8 +149,8 @@ mod tests {
                 patch: 0,
             })
         );
-        assert!(state.installed_set.contains("v20.11.0"));
-        assert!(state.installed_set.contains("v18.19.1"));
+        assert!(state.installed_set.contains(&NodeVersion::new(20, 11, 0)));
+        assert!(state.installed_set.contains(&NodeVersion::new(18, 19, 1)));
         assert_eq!(state.version_groups.len(), 2);
         assert!(!state.loading);
         assert!(state.error.is_none());

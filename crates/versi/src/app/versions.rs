@@ -92,7 +92,7 @@ impl Versi {
                             .available_versions
                             .latest_by_major
                             .get(major)
-                            .is_some_and(|latest| !env.installed_set.contains(&latest.to_string()))
+                            .is_some_and(|latest| !env.installed_set.contains(latest))
                     });
                     super::platform::set_update_badge(has_update);
 

@@ -22,7 +22,7 @@ pub struct VersionListContext<'a> {
     pub operation_queue: &'a OperationQueue,
     pub hovered_version: &'a Option<String>,
     pub metadata: Option<&'a HashMap<String, VersionMeta>>,
-    pub installed_set: &'a HashSet<String>,
+    pub installed_set: &'a HashSet<NodeVersion>,
 }
 
 fn filter_group(

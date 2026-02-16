@@ -159,10 +159,10 @@ impl MainState {
     }
 
     pub fn is_version_installed(&self, version_str: &str) -> bool {
-        self.active_environment()
-            .installed_versions
-            .iter()
-            .any(|v| v.version.to_string() == version_str)
+        version_str
+            .parse()
+            .ok()
+            .is_some_and(|version| self.active_environment().installed_set.contains(&version))
     }
 }
 
@@ -394,7 +394,7 @@ mod tests {
         state
             .active_environment_mut()
             .installed_set
-            .insert("v20.11.0".to_string());
+            .insert(NodeVersion::new(20, 11, 0));
         state.active_filters.insert(SearchFilter::Lts);
 
         assert!(state.is_version_installed("v20.11.0"));

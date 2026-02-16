@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use versi_backend::RemoteVersion;
+use versi_backend::{NodeVersion, RemoteVersion};
 use versi_core::ReleaseSchedule;
 
 use crate::state::SearchFilter;
@@ -42,7 +42,7 @@ pub(crate) fn search_available_versions<'a>(
     query: &str,
     limit: usize,
     active_filters: &HashSet<SearchFilter>,
-    installed_set: &HashSet<String>,
+    installed_set: &HashSet<NodeVersion>,
     schedule: Option<&ReleaseSchedule>,
 ) -> AvailableVersionSearch<'a> {
     let query_lower = query.to_lowercase();
@@ -131,7 +131,7 @@ fn latest_by_minor<'a>(
 fn apply_active_filters(
     versions: &mut Vec<&RemoteVersion>,
     active_filters: &HashSet<SearchFilter>,
-    installed_set: &HashSet<String>,
+    installed_set: &HashSet<NodeVersion>,
     schedule: Option<&ReleaseSchedule>,
 ) {
     if active_filters.is_empty() {
@@ -143,15 +143,14 @@ fn apply_active_filters(
             return false;
         }
 
-        let version_str = version.version.to_string();
         if active_filters.contains(&SearchFilter::Installed)
-            && !installed_set.contains(&version_str)
+            && !installed_set.contains(&version.version)
         {
             return false;
         }
 
         if active_filters.contains(&SearchFilter::NotInstalled)
-            && installed_set.contains(&version_str)
+            && installed_set.contains(&version.version)
         {
             return false;
         }
@@ -238,7 +237,7 @@ mod tests {
             remote("v22.1.0", Some("Jod")),
             remote("v20.11.0", Some("Iron")),
         ];
-        let installed = HashSet::from(["v20.11.0".to_string()]);
+        let installed = HashSet::from([versi_backend::NodeVersion::new(20, 11, 0)]);
         let filters = HashSet::from([SearchFilter::Installed, SearchFilter::Eol]);
         let schedule = schedule_with_eol_major(20);
 

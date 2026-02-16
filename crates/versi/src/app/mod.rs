@@ -531,7 +531,7 @@ mod tests {
         assert!(!env.loading);
         assert!(env.error.is_none());
         assert_eq!(env.default_version, Some(NodeVersion::new(20, 11, 0)));
-        assert!(env.installed_set.contains("v20.11.0"));
+        assert!(env.installed_set.contains(&NodeVersion::new(20, 11, 0)));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use versi_backend::RemoteVersion;
+use versi_backend::{NodeVersion, RemoteVersion};
 use versi_core::ReleaseSchedule;
 
 use crate::state::SearchFilter;
@@ -11,7 +11,7 @@ pub(super) fn search_available_versions<'a>(
     query: &str,
     limit: usize,
     active_filters: &HashSet<SearchFilter>,
-    installed_set: &HashSet<String>,
+    installed_set: &HashSet<NodeVersion>,
     schedule: Option<&ReleaseSchedule>,
 ) -> version_query::AvailableVersionSearch<'a> {
     version_query::search_available_versions(
@@ -105,7 +105,7 @@ mod tests {
             remote("v22.1.0", Some("Jod")),
             remote("v20.11.0", Some("Iron")),
         ];
-        let installed = HashSet::from(["v20.11.0".to_string()]);
+        let installed = HashSet::from([versi_backend::NodeVersion::new(20, 11, 0)]);
         let filters = HashSet::from([SearchFilter::Installed, SearchFilter::Eol]);
         let schedule = schedule_with_eol_major(20);
 
