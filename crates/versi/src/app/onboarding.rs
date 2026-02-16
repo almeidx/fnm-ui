@@ -62,12 +62,13 @@ impl Versi {
             state.install_error = None;
 
             let provider = self.provider.clone();
+            let backend_name = provider.name();
             return Task::perform(
                 async move {
                     provider
                         .install_backend()
                         .await
-                        .map_err(|e| AppError::message(e.to_string()))
+                        .map_err(|e| AppError::backend_install_failed(backend_name, e.to_string()))
                 },
                 Message::OnboardingBackendInstallResult,
             );
@@ -119,23 +120,29 @@ impl Versi {
             let backend = self.provider.clone();
             let backend_marker = backend.shell_config_marker().to_string();
             let backend_label = backend.shell_config_label().to_string();
+            let shell_name = shell_type.name();
 
             return Task::perform(
                 async move {
                     use versi_shell::{ShellConfig, get_or_create_config_path};
 
                     let config_path = get_or_create_config_path(&shell_type)
-                        .ok_or_else(|| AppError::message("No config file path found"))?;
+                        .ok_or_else(|| AppError::shell_config_path_not_found(shell_name))?;
 
-                    let mut config = ShellConfig::load(shell_type, config_path)
-                        .map_err(|e| AppError::message(e.to_string()))?;
+                    let mut config = ShellConfig::load(shell_type, config_path).map_err(|e| {
+                        AppError::shell_config_failed(shell_name, "load config", e.to_string())
+                    })?;
 
                     if config.has_init(&backend_marker) {
                         let edit = config.update_flags(&backend_marker, &options);
                         if edit.has_changes() {
-                            config
-                                .apply_edit(&edit)
-                                .map_err(|e| AppError::message(e.to_string()))?;
+                            config.apply_edit(&edit).map_err(|e| {
+                                AppError::shell_config_failed(
+                                    shell_name,
+                                    "update config",
+                                    e.to_string(),
+                                )
+                            })?;
                         }
                     } else {
                         let init_command = backend
@@ -147,13 +154,17 @@ impl Versi {
                                 data_dir: None,
                             })
                             .shell_init_command(shell_type_to_str(&config.shell_type), &options)
-                            .ok_or_else(|| AppError::message("Shell not supported"))?;
+                            .ok_or_else(|| AppError::shell_not_supported(shell_name))?;
 
                         let edit = config.add_init(&init_command, &backend_label);
                         if edit.has_changes() {
-                            config
-                                .apply_edit(&edit)
-                                .map_err(|e| AppError::message(e.to_string()))?;
+                            config.apply_edit(&edit).map_err(|e| {
+                                AppError::shell_config_failed(
+                                    shell_name,
+                                    "write config",
+                                    e.to_string(),
+                                )
+                            })?;
                         }
                     }
 

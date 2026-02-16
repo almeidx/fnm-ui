@@ -142,6 +142,7 @@ impl Versi {
 
         let marker = provider.shell_config_marker().to_string();
         let label = provider.shell_config_label().to_string();
+        let shell_name = shell_type.name();
 
         #[cfg(target_os = "windows")]
         let active_env_id = if let AppState::Main(state) = &self.state {
@@ -166,7 +167,7 @@ impl Versi {
                             data_dir: None,
                         })
                         .shell_init_command(shell_type.shell_arg(), &options)
-                        .ok_or_else(|| "Shell not supported".to_string())?;
+                        .ok_or_else(|| AppError::shell_not_supported(shell_name))?;
 
                     versi_shell::configure_wsl_shell_config(
                         &shell_type,
@@ -177,23 +178,31 @@ impl Versi {
                         &options,
                     )
                     .await
-                    .map_err(AppError::from)?;
+                    .map_err(|e| {
+                        AppError::shell_config_failed(shell_name, "configure WSL shell", e)
+                    })?;
 
                     return Ok::<_, AppError>(());
                 }
 
                 let config_path = get_or_create_config_path(&shell_type)
-                    .ok_or_else(|| AppError::message("No config file path found"))?;
+                    .ok_or_else(|| AppError::shell_config_path_not_found(shell_name))?;
 
-                let mut config = ShellConfig::load(shell_type.clone(), config_path)
-                    .map_err(|e| AppError::message(e.to_string()))?;
+                let mut config =
+                    ShellConfig::load(shell_type.clone(), config_path).map_err(|e| {
+                        AppError::shell_config_failed(shell_name, "load config", e.to_string())
+                    })?;
 
                 if config.has_init(&marker) {
                     let edit = config.update_flags(&marker, &options);
                     if edit.has_changes() {
-                        config
-                            .apply_edit(&edit)
-                            .map_err(|e| AppError::message(e.to_string()))?;
+                        config.apply_edit(&edit).map_err(|e| {
+                            AppError::shell_config_failed(
+                                shell_name,
+                                "update config",
+                                e.to_string(),
+                            )
+                        })?;
                     }
                 } else {
                     let init_command = provider
@@ -205,13 +214,13 @@ impl Versi {
                             data_dir: None,
                         })
                         .shell_init_command(shell_type.shell_arg(), &options)
-                        .ok_or_else(|| AppError::message("Shell not supported"))?;
+                        .ok_or_else(|| AppError::shell_not_supported(shell_name))?;
 
                     let edit = config.add_init(&init_command, &label);
                     if edit.has_changes() {
-                        config
-                            .apply_edit(&edit)
-                            .map_err(|e| AppError::message(e.to_string()))?;
+                        config.apply_edit(&edit).map_err(|e| {
+                            AppError::shell_config_failed(shell_name, "write config", e.to_string())
+                        })?;
                     }
                 }
 
