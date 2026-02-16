@@ -170,11 +170,7 @@ pub(crate) fn set_update_badge(visible: bool) {
                 .as_ref()
                 .copied()
                 .ok_or_else(|| std::io::Error::other("failed to create overlay icon"))?;
-            let result = taskbar.SetOverlayIcon(
-                hwnd,
-                icon,
-                w!("Update available"),
-            );
+            let result = taskbar.SetOverlayIcon(hwnd, icon, w!("Update available"));
 
             // Guard's Drop cleans up dc, color_bitmap, mask_bitmap, icon
 
