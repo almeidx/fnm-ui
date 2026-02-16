@@ -17,7 +17,6 @@ mod tray;
 mod views;
 mod widgets;
 
-#[allow(clippy::cast_precision_loss)]
 fn main() -> iced::Result {
     let Ok(_instance_guard) = single_instance::SingleInstance::acquire() else {
         single_instance::bring_existing_window_to_front();
@@ -52,7 +51,7 @@ fn main() -> iced::Result {
     let (window_size, window_position) = match &settings.window_geometry {
         Some(geo) if geo.is_likely_visible() => (
             iced::Size::new(geo.width, geo.height),
-            window::Position::Specific(iced::Point::new(geo.x as f32, geo.y as f32)),
+            window::Position::Specific(iced::Point::new(geo.x, geo.y)),
         ),
         _ => (iced::Size::new(800.0, 600.0), window::Position::Default),
     };

@@ -260,14 +260,14 @@ impl AppSettings {
 pub struct WindowGeometry {
     pub width: f32,
     pub height: f32,
-    pub x: i32,
-    pub y: i32,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl WindowGeometry {
     pub fn is_likely_visible(&self) -> bool {
-        const MIN_VISIBLE: i32 = -50;
-        const MAX_COORD: i32 = 16384;
+        const MIN_VISIBLE: f32 = -50.0;
+        const MAX_COORD: f32 = 16_384.0;
         const MIN_SIZE: f32 = 100.0;
 
         self.x > MIN_VISIBLE

@@ -70,14 +70,13 @@ impl Versi {
         }
     }
 
-    #[allow(clippy::cast_possible_truncation)]
     pub(super) fn save_window_geometry(&mut self) {
         if let (Some(size), Some(pos)) = (self.window_size, self.window_position) {
             self.settings.window_geometry = Some(crate::settings::WindowGeometry {
                 width: size.width,
                 height: size.height,
-                x: pos.x as i32,
-                y: pos.y as i32,
+                x: pos.x,
+                y: pos.y,
             });
             if let Err(e) = self.settings.save() {
                 log::error!("Failed to save settings: {e}");
