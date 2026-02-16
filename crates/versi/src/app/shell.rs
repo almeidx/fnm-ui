@@ -286,3 +286,95 @@ fn backend_kind_from_provider(
     crate::backend_kind::BackendKind::from_name(provider.name())
         .unwrap_or(crate::backend_kind::BackendKind::DEFAULT)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::{AppState, ShellVerificationStatus};
+
+    #[test]
+    fn shell_setup_checked_maps_statuses_and_updates_options() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.settings_state.checking_shells = true;
+        }
+
+        let configured_options = versi_shell::ShellInitOptions {
+            use_on_cd: false,
+            resolve_engines: true,
+            corepack_enabled: true,
+        };
+
+        app.handle_shell_setup_checked(vec![
+            (
+                versi_shell::ShellType::Bash,
+                versi_shell::VerificationResult::Configured(Some(configured_options)),
+            ),
+            (
+                versi_shell::ShellType::Zsh,
+                versi_shell::VerificationResult::NotConfigured,
+            ),
+            (
+                versi_shell::ShellType::Fish,
+                versi_shell::VerificationResult::ConfigFileNotFound,
+            ),
+            (
+                versi_shell::ShellType::PowerShell,
+                versi_shell::VerificationResult::FunctionalButNotInConfig,
+            ),
+            (
+                versi_shell::ShellType::Cmd,
+                versi_shell::VerificationResult::Error("boom".to_string()),
+            ),
+        ]);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(!state.settings_state.checking_shells);
+        assert_eq!(state.settings_state.shell_statuses.len(), 5);
+        assert!(matches!(
+            state.settings_state.shell_statuses[0].status,
+            ShellVerificationStatus::Configured
+        ));
+        assert!(matches!(
+            state.settings_state.shell_statuses[1].status,
+            ShellVerificationStatus::NotConfigured
+        ));
+        assert!(matches!(
+            state.settings_state.shell_statuses[2].status,
+            ShellVerificationStatus::NoConfigFile
+        ));
+        assert!(matches!(
+            state.settings_state.shell_statuses[3].status,
+            ShellVerificationStatus::FunctionalButNotInConfig
+        ));
+        assert!(matches!(
+            state.settings_state.shell_statuses[4].status,
+            ShellVerificationStatus::Error
+        ));
+
+        let options = app.settings.shell_options_for(app.active_backend_kind());
+        assert!(!options.use_on_cd);
+        assert!(options.resolve_engines);
+        assert!(options.corepack_enabled);
+    }
+
+    #[test]
+    fn backend_kind_from_provider_matches_known_provider_names() {
+        let fnm_provider = std::sync::Arc::new(versi_fnm::FnmProvider::new())
+            as std::sync::Arc<dyn versi_backend::BackendProvider>;
+        let nvm_provider = std::sync::Arc::new(versi_nvm::NvmProvider::new())
+            as std::sync::Arc<dyn versi_backend::BackendProvider>;
+
+        assert_eq!(
+            backend_kind_from_provider(&fnm_provider),
+            crate::backend_kind::BackendKind::Fnm
+        );
+        assert_eq!(
+            backend_kind_from_provider(&nvm_provider),
+            crate::backend_kind::BackendKind::Nvm
+        );
+    }
+}
