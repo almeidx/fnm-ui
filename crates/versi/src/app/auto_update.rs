@@ -130,3 +130,131 @@ impl Versi {
         iced::exit()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::AppState;
+    use versi_core::AppUpdate;
+
+    fn sample_update(download_url: Option<&str>, download_size: Option<u64>) -> AppUpdate {
+        AppUpdate {
+            current_version: "0.9.0".to_string(),
+            latest_version: "0.10.0".to_string(),
+            release_url: "https://example.com/release".to_string(),
+            release_notes: None,
+            download_url: download_url.map(ToString::to_string),
+            download_size,
+        }
+    }
+
+    #[test]
+    fn start_app_update_sets_downloading_when_update_is_ready() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.app_update = Some(sample_update(
+                Some("https://example.com/download.zip"),
+                Some(42),
+            ));
+            state.app_update_state = AppUpdateState::Idle;
+        }
+
+        let _ = app.handle_start_app_update();
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.app_update_state,
+            AppUpdateState::Downloading {
+                downloaded: 0,
+                total: 42
+            }
+        ));
+    }
+
+    #[test]
+    fn start_app_update_keeps_state_when_not_ready() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.app_update = Some(sample_update(None, Some(5)));
+            state.app_update_state = AppUpdateState::Idle;
+        }
+
+        let _ = app.handle_start_app_update();
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(state.app_update_state, AppUpdateState::Idle));
+
+        if let AppState::Main(state) = &mut app.state {
+            state.app_update = Some(sample_update(
+                Some("https://example.com/download.zip"),
+                Some(5),
+            ));
+            state.app_update_state = AppUpdateState::Applying;
+        }
+
+        let _ = app.handle_start_app_update();
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(state.app_update_state, AppUpdateState::Applying));
+    }
+
+    #[test]
+    fn app_update_progress_handlers_update_state_variants() {
+        let mut app = test_app_with_two_environments();
+
+        app.handle_app_update_progress(10, 100);
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.app_update_state,
+            AppUpdateState::Downloading {
+                downloaded: 10,
+                total: 100
+            }
+        ));
+
+        app.handle_app_update_extracting();
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(state.app_update_state, AppUpdateState::Extracting));
+
+        app.handle_app_update_applying();
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(state.app_update_state, AppUpdateState::Applying));
+    }
+
+    #[test]
+    fn app_update_complete_sets_restart_required_or_failed() {
+        let mut app = test_app_with_two_environments();
+        let _ = app.handle_app_update_complete(Ok(ApplyResult::RestartRequired));
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.app_update_state,
+            AppUpdateState::RestartRequired
+        ));
+
+        let mut app = test_app_with_two_environments();
+        let _ = app.handle_app_update_complete(Err(AppError::message("apply failed")));
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            &state.app_update_state,
+            AppUpdateState::Failed(AppError::Message(message)) if message == "apply failed"
+        ));
+    }
+}
