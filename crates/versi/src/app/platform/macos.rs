@@ -1,0 +1,105 @@
+pub(crate) fn set_update_badge(visible: bool) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplication;
+    use objc2_foundation::NSString;
+
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    let tile = app.dockTile();
+    if visible {
+        tile.setBadgeLabel(Some(&NSString::from_str("1")));
+    } else {
+        tile.setBadgeLabel(None);
+    }
+}
+
+pub(crate) fn set_dock_visible(visible: bool) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
+
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    let policy = if visible {
+        NSApplicationActivationPolicy::Regular
+    } else {
+        NSApplicationActivationPolicy::Accessory
+    };
+    app.setActivationPolicy(policy);
+}
+
+pub(crate) fn is_wayland() -> bool {
+    false
+}
+
+pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    let home = dirs::home_dir().ok_or("could not determine home directory")?;
+    let plist_path = home
+        .join("Library/LaunchAgents")
+        .join(versi_platform::LAUNCHAGENT_PLIST_FILENAME);
+
+    if !enable {
+        if plist_path.exists() {
+            fs::remove_file(&plist_path)?;
+        }
+        return Ok(());
+    }
+
+    let exe = std::env::current_exe()?;
+    let exe_str = exe.to_string_lossy();
+
+    let (program_arg, extra_arg) = if let Some(app_pos) = exe_str.find(".app/") {
+        let bundle_path = PathBuf::from(&exe_str[..app_pos + 4]);
+        (
+            "open".to_string(),
+            format!("-a\n    <string>{}</string>", bundle_path.display()),
+        )
+    } else {
+        (exe_str.to_string(), String::new())
+    };
+
+    let extra_line = if extra_arg.is_empty() {
+        String::new()
+    } else {
+        format!("\n    {extra_arg}")
+    };
+
+    let app_id = versi_platform::APP_ID;
+    let plist = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{app_id}</string>
+    <key>ProgramArguments</key>
+    <array>
+    <string>{program_arg}</string>{extra_line}
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>
+"#
+    );
+
+    if let Some(parent) = plist_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&plist_path, plist)?;
+    Ok(())
+}
+
+pub(crate) fn reveal_in_file_manager(path: &std::path::Path) {
+    let _ = std::process::Command::new("open")
+        .args(["-R", &path.to_string_lossy()])
+        .spawn();
+}

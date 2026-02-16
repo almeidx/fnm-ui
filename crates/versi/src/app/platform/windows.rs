@@ -1,56 +1,4 @@
-#[cfg(target_os = "macos")]
-pub(super) fn set_update_badge(visible: bool) {
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::NSApplication;
-    use objc2_foundation::NSString;
-
-    let Some(mtm) = MainThreadMarker::new() else {
-        return;
-    };
-    let app = NSApplication::sharedApplication(mtm);
-    let tile = app.dockTile();
-    if visible {
-        tile.setBadgeLabel(Some(&NSString::from_str("1")));
-    } else {
-        tile.setBadgeLabel(None);
-    }
-}
-
-#[cfg(target_os = "linux")]
-pub(super) fn set_update_badge(visible: bool) {
-    use log::debug;
-
-    std::thread::spawn(move || {
-        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
-            let connection = zbus::blocking::Connection::session()?;
-
-            let count: i64 = if visible { 1 } else { 0 };
-            let mut props = std::collections::HashMap::new();
-            props.insert("count", zbus::zvariant::Value::from(count));
-            props.insert("count-visible", zbus::zvariant::Value::from(visible));
-
-            connection.emit_signal(
-                None::<zbus::names::BusName>,
-                "/",
-                "com.canonical.Unity.LauncherEntry",
-                "Update",
-                &(
-                    format!("application://{}", versi_platform::DESKTOP_ENTRY_FILENAME),
-                    props,
-                ),
-            )?;
-
-            Ok(())
-        })();
-
-        if let Err(e) = result {
-            debug!("Failed to set update badge: {}", e);
-        }
-    });
-}
-
-#[cfg(windows)]
-pub(super) fn set_update_badge(visible: bool) {
+pub(crate) fn set_update_badge(visible: bool) {
     use std::ptr;
 
     use log::debug;
@@ -228,107 +176,13 @@ pub(super) fn set_update_badge(visible: bool) {
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
-pub(super) fn set_update_badge(_visible: bool) {}
+pub(crate) fn set_dock_visible(_visible: bool) {}
 
-#[cfg(target_os = "macos")]
-pub(super) fn set_dock_visible(visible: bool) {
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
-
-    let Some(mtm) = MainThreadMarker::new() else {
-        return;
-    };
-    let app = NSApplication::sharedApplication(mtm);
-    let policy = if visible {
-        NSApplicationActivationPolicy::Regular
-    } else {
-        NSApplicationActivationPolicy::Accessory
-    };
-    app.setActivationPolicy(policy);
-}
-
-#[cfg(not(target_os = "macos"))]
-pub(super) fn set_dock_visible(_visible: bool) {}
-
-#[cfg(target_os = "linux")]
-pub(super) fn is_wayland() -> bool {
-    std::env::var("XDG_SESSION_TYPE")
-        .map(|v| v == "wayland")
-        .unwrap_or_else(|_| std::env::var("WAYLAND_DISPLAY").is_ok())
-}
-
-#[cfg(not(target_os = "linux"))]
-pub(super) fn is_wayland() -> bool {
+pub(crate) fn is_wayland() -> bool {
     false
 }
 
-#[cfg(target_os = "macos")]
-pub(super) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
-    use std::fs;
-    use std::path::PathBuf;
-
-    let home = dirs::home_dir().ok_or("could not determine home directory")?;
-    let plist_path = home
-        .join("Library/LaunchAgents")
-        .join(versi_platform::LAUNCHAGENT_PLIST_FILENAME);
-
-    if !enable {
-        if plist_path.exists() {
-            fs::remove_file(&plist_path)?;
-        }
-        return Ok(());
-    }
-
-    let exe = std::env::current_exe()?;
-    let exe_str = exe.to_string_lossy();
-
-    let (program_arg, extra_arg) = if let Some(app_pos) = exe_str.find(".app/") {
-        let bundle_path = PathBuf::from(&exe_str[..app_pos + 4]);
-        (
-            "open".to_string(),
-            format!("-a\n    <string>{}</string>", bundle_path.display()),
-        )
-    } else {
-        (exe_str.to_string(), String::new())
-    };
-
-    let extra_line = if extra_arg.is_empty() {
-        String::new()
-    } else {
-        format!("\n    {extra_arg}")
-    };
-
-    let app_id = versi_platform::APP_ID;
-    let plist = format!(
-        r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>{app_id}</string>
-    <key>ProgramArguments</key>
-    <array>
-    <string>{program_arg}</string>{extra_line}
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <false/>
-</dict>
-</plist>
-"#
-    );
-
-    if let Some(parent) = plist_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(&plist_path, plist)?;
-    Ok(())
-}
-
-#[cfg(windows)]
-pub(super) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
     use windows_sys::Win32::System::Registry::{
         HKEY_CURRENT_USER, KEY_SET_VALUE, REG_SZ, RegCloseKey, RegDeleteValueW, RegOpenKeyExW,
         RegSetValueExW,
@@ -382,63 +236,10 @@ pub(super) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
-pub(super) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
-    use std::fs;
-
-    let autostart_dir = dirs::config_dir()
-        .ok_or("could not determine config directory")?
-        .join("autostart");
-    let desktop_path = autostart_dir.join(versi_platform::DESKTOP_ENTRY_FILENAME);
-
-    if !enable {
-        if desktop_path.exists() {
-            fs::remove_file(&desktop_path)?;
-        }
-        return Ok(());
-    }
-
-    let exe = std::env::current_exe()?;
-    let entry = format!(
-        "[Desktop Entry]\n\
-         Type=Application\n\
-         Name=Versi\n\
-         Exec={}\n\
-         X-GNOME-Autostart-enabled=true\n",
-        exe.display()
-    );
-
-    fs::create_dir_all(&autostart_dir)?;
-    fs::write(&desktop_path, entry)?;
-    Ok(())
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
-pub(super) fn set_launch_at_login(_enable: bool) -> Result<(), Box<dyn std::error::Error>> {
-    Ok(())
-}
-
-pub(super) fn reveal_in_file_manager(path: &std::path::Path) {
-    #[cfg(target_os = "macos")]
-    {
-        let _ = std::process::Command::new("open")
-            .args(["-R", &path.to_string_lossy()])
-            .spawn();
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        use versi_core::HideWindow;
-        let _ = std::process::Command::new("explorer")
-            .arg(format!("/select,{}", path.to_string_lossy()))
-            .hide_window()
-            .spawn();
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        if let Some(parent) = path.parent() {
-            let _ = std::process::Command::new("xdg-open").arg(parent).spawn();
-        }
-    }
+pub(crate) fn reveal_in_file_manager(path: &std::path::Path) {
+    use versi_core::HideWindow;
+    let _ = std::process::Command::new("explorer")
+        .arg(format!("/select,{}", path.to_string_lossy()))
+        .hide_window()
+        .spawn();
 }
