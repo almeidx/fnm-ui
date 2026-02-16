@@ -5,6 +5,7 @@ mod init;
 mod onboarding;
 mod operations;
 mod platform;
+mod settings_io;
 mod shell;
 mod tray_handlers;
 mod versions;
@@ -25,6 +26,21 @@ use crate::state::{AppState, MainViewKind};
 use crate::theme::{dark_theme, light_theme};
 use crate::tray;
 use crate::views;
+
+fn should_dismiss_context_menu(message: &Message) -> bool {
+    !matches!(
+        message,
+        Message::NoOp
+            | Message::Tick
+            | Message::AnimationTick
+            | Message::VersionListCursorMoved(_)
+            | Message::VersionRowHovered(_)
+            | Message::WindowEvent(_)
+            | Message::SystemThemeChanged(_)
+            | Message::CloseContextMenu
+            | Message::ShowContextMenu { .. }
+    )
+}
 
 pub struct Versi {
     pub(crate) state: AppState,
@@ -113,19 +129,7 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state
             && state.context_menu.is_some()
         {
-            let should_dismiss = !matches!(
-                message,
-                Message::NoOp
-                    | Message::Tick
-                    | Message::AnimationTick
-                    | Message::VersionListCursorMoved(_)
-                    | Message::VersionRowHovered(_)
-                    | Message::WindowEvent(_)
-                    | Message::SystemThemeChanged(_)
-                    | Message::CloseContextMenu
-                    | Message::ShowContextMenu { .. }
-            );
-            if should_dismiss {
+            if should_dismiss_context_menu(&message) {
                 state.context_menu = None;
             }
         }
@@ -341,9 +345,7 @@ impl Versi {
             }
             Message::ShellOptionUseOnCdToggled(value) => {
                 let backend_name = self.active_backend_name();
-                self.settings
-                    .shell_options_for_mut(backend_name)
-                    .use_on_cd = value;
+                self.settings.shell_options_for_mut(backend_name).use_on_cd = value;
                 if let Err(e) = self.settings.save() {
                     log::error!("Failed to save settings: {e}");
                 }
@@ -433,83 +435,10 @@ impl Versi {
                 Task::none()
             }
             Message::ShellFlagsUpdated => Task::none(),
-            Message::ExportSettings => {
-                let settings = self.settings.clone();
-                Task::perform(
-                    async move {
-                        let dialog = rfd::AsyncFileDialog::new()
-                            .set_file_name("versi-settings.json")
-                            .add_filter("JSON", &["json"])
-                            .save_file()
-                            .await;
-                        match dialog {
-                            Some(handle) => {
-                                let content = serde_json::to_string_pretty(&settings)
-                                    .map_err(|e| e.to_string())?;
-                                let path = handle.path().to_path_buf();
-                                tokio::fs::write(&path, content)
-                                    .await
-                                    .map_err(|e| e.to_string())?;
-                                Ok(path)
-                            }
-                            None => Err("Cancelled".to_string()),
-                        }
-                    },
-                    Message::SettingsExported,
-                )
-            }
-            Message::SettingsExported(result) => {
-                if let Err(e) = result
-                    && e != "Cancelled"
-                    && let AppState::Main(state) = &mut self.state
-                {
-                    let id = state.next_toast_id();
-                    state.add_toast(crate::state::Toast::error(
-                        id,
-                        format!("Export failed: {}", e),
-                    ));
-                }
-                Task::none()
-            }
-            Message::ImportSettings => Task::perform(
-                async {
-                    let dialog = rfd::AsyncFileDialog::new()
-                        .add_filter("JSON", &["json"])
-                        .pick_file()
-                        .await;
-                    match dialog {
-                        Some(handle) => {
-                            let content = tokio::fs::read_to_string(handle.path())
-                                .await
-                                .map_err(|e| e.to_string())?;
-                            let imported: crate::settings::AppSettings =
-                                serde_json::from_str(&content).map_err(|e| e.to_string())?;
-                            imported.save().map_err(|e| e.to_string())?;
-                            Ok(())
-                        }
-                        None => Err("Cancelled".to_string()),
-                    }
-                },
-                Message::SettingsImported,
-            ),
-            Message::SettingsImported(result) => {
-                match result {
-                    Ok(()) => {
-                        self.settings = crate::settings::AppSettings::load();
-                    }
-                    Err(e) if e != "Cancelled" => {
-                        if let AppState::Main(state) = &mut self.state {
-                            let id = state.next_toast_id();
-                            state.add_toast(crate::state::Toast::error(
-                                id,
-                                format!("Import failed: {}", e),
-                            ));
-                        }
-                    }
-                    _ => {}
-                }
-                Task::none()
-            }
+            Message::ExportSettings => self.handle_export_settings(),
+            Message::SettingsExported(result) => self.handle_settings_exported(result),
+            Message::ImportSettings => self.handle_import_settings(),
+            Message::SettingsImported(result) => self.handle_settings_imported(result),
             Message::ShellSetupChecked(results) => {
                 self.handle_shell_setup_checked(results);
                 Task::none()
@@ -949,5 +878,29 @@ impl Versi {
         } else {
             self.provider.name()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_dismiss_context_menu;
+    use crate::message::Message;
+
+    #[test]
+    fn context_menu_is_dismissed_for_unrelated_messages() {
+        assert!(should_dismiss_context_menu(&Message::NavigateToSettings));
+        assert!(should_dismiss_context_menu(&Message::SetDefault(
+            "20.10.0".to_string()
+        )));
+    }
+
+    #[test]
+    fn context_menu_stays_open_for_allowed_messages() {
+        assert!(!should_dismiss_context_menu(&Message::Tick));
+        assert!(!should_dismiss_context_menu(&Message::ShowContextMenu {
+            version: "20.10.0".to_string(),
+            is_installed: true,
+            is_default: false,
+        }));
     }
 }
