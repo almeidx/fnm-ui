@@ -181,7 +181,7 @@ impl Versi {
         let preferred = self.settings.preferred_backend;
         Task::perform(
             super::init::initialize(all_providers, preferred),
-            Message::Initialized,
+            |result| Message::Initialized(Box::new(result)),
         )
     }
 }

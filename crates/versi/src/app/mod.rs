@@ -105,7 +105,7 @@ impl Versi {
         let preferred_backend = app.settings.preferred_backend;
         let init_task = Task::perform(
             init::initialize(all_providers, preferred_backend),
-            Message::Initialized,
+            |result| Message::Initialized(Box::new(result)),
         );
         let theme_task = iced::system::theme().map(Message::SystemThemeChanged);
 
@@ -315,7 +315,7 @@ impl Versi {
                 self.state = AppState::Loading;
                 return Task::perform(
                     init::initialize(all_providers, preferred),
-                    Message::Initialized,
+                    |result| Message::Initialized(Box::new(result)),
                 );
             }
         }

@@ -70,7 +70,7 @@ impl Versi {
                         Err(e) => Err(format!("Update task panicked: {e}")),
                     };
 
-                    let _ = sender.send(Message::AppUpdateComplete(result)).await;
+                    let _ = sender.send(Message::AppUpdateComplete(Box::new(result))).await;
                 },
             ),
             std::convert::identity,

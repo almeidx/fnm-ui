@@ -15,7 +15,7 @@ use crate::tray::TrayMessage;
 #[derive(Debug, Clone)]
 pub enum Message {
     NoOp,
-    Initialized(InitResult),
+    Initialized(Box<InitResult>),
 
     EnvironmentSelected(usize),
     SelectNextEnvironment,
@@ -38,7 +38,7 @@ pub enum Message {
 
     FetchRemoteVersions,
     RemoteVersionsFetched(Result<Vec<RemoteVersion>, String>),
-    ReleaseScheduleFetched(Result<ReleaseSchedule, String>),
+    ReleaseScheduleFetched(Box<Result<ReleaseSchedule, String>>),
 
     CloseModal,
     OpenChangelog(String),
@@ -131,7 +131,7 @@ pub enum Message {
     LaunchAtLoginToggled(bool),
     WindowOpened(iced::window::Id),
 
-    AppUpdateChecked(Result<Option<AppUpdate>, String>),
+    AppUpdateChecked(Box<Result<Option<AppUpdate>, String>>),
     OpenAppUpdate,
     StartAppUpdate,
     AppUpdateProgress {
@@ -140,13 +140,13 @@ pub enum Message {
     },
     AppUpdateExtracting,
     AppUpdateApplying,
-    AppUpdateComplete(Result<versi_core::auto_update::ApplyResult, String>),
+    AppUpdateComplete(Box<Result<versi_core::auto_update::ApplyResult, String>>),
     RestartApp,
-    BackendUpdateChecked(Result<Option<BackendUpdate>, String>),
+    BackendUpdateChecked(Box<Result<Option<BackendUpdate>, String>>),
     OpenBackendUpdate,
 
     FetchReleaseSchedule,
-    VersionMetadataFetched(Result<HashMap<String, VersionMeta>, String>),
+    VersionMetadataFetched(Box<Result<HashMap<String, VersionMeta>, String>>),
     ShowVersionDetail(String),
 
     VersionListCursorMoved(iced::Point),

@@ -8,7 +8,7 @@ use super::super::Versi;
 impl Versi {
     pub(super) fn dispatch_navigation(&mut self, message: Message) -> super::DispatchResult {
         match message {
-            Message::Initialized(result) => Ok(self.handle_initialized(result)),
+            Message::Initialized(result) => Ok(self.handle_initialized(*result)),
             Message::EnvironmentLoaded { env_id, result } => {
                 Ok(self.handle_environment_loaded(env_id, result))
             }
@@ -93,11 +93,11 @@ impl Versi {
                 Ok(Task::none())
             }
             Message::ReleaseScheduleFetched(result) => {
-                self.handle_release_schedule_fetched(result);
+                self.handle_release_schedule_fetched(*result);
                 Ok(Task::none())
             }
             Message::VersionMetadataFetched(result) => {
-                self.handle_version_metadata_fetched(result);
+                self.handle_version_metadata_fetched(*result);
                 Ok(Task::none())
             }
             Message::ShowVersionDetail(version) => {

@@ -51,7 +51,7 @@ impl Versi {
             }
             Message::WindowEvent(_) => Ok(Task::none()),
             Message::AppUpdateChecked(result) => {
-                self.handle_app_update_checked(result);
+                self.handle_app_update_checked(*result);
                 Ok(Task::none())
             }
             Message::OpenAppUpdate => {
@@ -81,10 +81,10 @@ impl Versi {
                 self.handle_app_update_applying();
                 Ok(Task::none())
             }
-            Message::AppUpdateComplete(result) => Ok(self.handle_app_update_complete(result)),
+            Message::AppUpdateComplete(result) => Ok(self.handle_app_update_complete(*result)),
             Message::RestartApp => Ok(self.handle_restart_app()),
             Message::BackendUpdateChecked(result) => {
-                self.handle_backend_update_checked(result);
+                self.handle_backend_update_checked(*result);
                 Ok(Task::none())
             }
             Message::OpenBackendUpdate => {

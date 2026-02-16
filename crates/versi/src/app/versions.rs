@@ -134,7 +134,7 @@ impl Versi {
                     }
                     Err(last_err)
                 },
-                Message::ReleaseScheduleFetched,
+                |result| Message::ReleaseScheduleFetched(Box::new(result)),
             );
         }
         Task::none()
@@ -197,7 +197,7 @@ impl Versi {
                     }
                     Err(last_err)
                 },
-                Message::VersionMetadataFetched,
+                |result| Message::VersionMetadataFetched(Box::new(result)),
             );
         }
         Task::none()
@@ -236,7 +236,7 @@ impl Versi {
         let client = self.http_client.clone();
         Task::perform(
             async move { check_for_update(&client, &current_version).await },
-            Message::AppUpdateChecked,
+            |result| Message::AppUpdateChecked(Box::new(result)),
         )
     }
 
@@ -261,7 +261,7 @@ impl Versi {
             let provider = self.provider_for_kind(state.backend_name);
             return Task::perform(
                 async move { provider.check_for_update(&client, &version).await },
-                Message::BackendUpdateChecked,
+                |result| Message::BackendUpdateChecked(Box::new(result)),
             );
         }
         Task::none()
