@@ -391,11 +391,9 @@ mod tests {
         let mut app = test_app_with_two_environments();
         if let AppState::Main(state) = &mut app.state {
             state.active_environment_mut().default_version = None;
-            state
-                .operation_queue
-                .start_exclusive(Operation::Uninstall {
-                    version: "v18.0.0".to_string(),
-                });
+            state.operation_queue.start_exclusive(Operation::Uninstall {
+                version: "v18.0.0".to_string(),
+            });
         }
 
         let _ = app.handle_uninstall("v20.11.0".to_string());
@@ -413,11 +411,9 @@ mod tests {
     fn set_default_queues_when_exclusive_queue_is_busy() {
         let mut app = test_app_with_two_environments();
         if let AppState::Main(state) = &mut app.state {
-            state
-                .operation_queue
-                .start_exclusive(Operation::Uninstall {
-                    version: "v18.0.0".to_string(),
-                });
+            state.operation_queue.start_exclusive(Operation::Uninstall {
+                version: "v18.0.0".to_string(),
+            });
         }
 
         let _ = app.handle_set_default("v22.0.0".to_string());

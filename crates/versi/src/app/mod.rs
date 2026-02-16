@@ -25,11 +25,11 @@ use crate::backend_kind::BackendKind;
 use crate::message::Message;
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{AppState, MainViewKind};
+#[cfg(test)]
+use crate::state::{EnvironmentState, MainState};
 use crate::theme::{dark_theme, light_theme};
 use crate::tray;
 use crate::views;
-#[cfg(test)]
-use crate::state::{EnvironmentState, MainState};
 #[cfg(test)]
 use versi_backend::BackendDetection;
 #[cfg(test)]
