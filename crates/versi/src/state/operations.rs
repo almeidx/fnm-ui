@@ -197,7 +197,43 @@ pub enum Modal {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
+
+    fn version_tag(tag: u8) -> String {
+        format!("v{}.0.0", tag)
+    }
+
+    fn exclusive_op(kind: u8, tag: u8) -> Operation {
+        let version = version_tag(tag);
+        match kind % 3 {
+            0 => Operation::Install { version },
+            1 => Operation::Uninstall { version },
+            _ => Operation::SetDefault { version },
+        }
+    }
+
+    fn request(kind: u8, tag: u8) -> OperationRequest {
+        let version = version_tag(tag);
+        match kind % 3 {
+            0 => OperationRequest::Install { version },
+            1 => OperationRequest::Uninstall { version },
+            _ => OperationRequest::SetDefault { version },
+        }
+    }
+
+    fn generate_pending(seed: u64, len: usize) -> Vec<(u8, u8)> {
+        let mut state = seed;
+        let mut out = Vec::with_capacity(len);
+        for _ in 0..len {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let kind = ((state >> 8) % 3) as u8;
+            let tag = ((state >> 16) % 20) as u8;
+            out.push((kind, tag));
+        }
+        out
+    }
 
     #[test]
     fn new_queue_is_empty() {
@@ -638,5 +674,63 @@ mod tests {
         q.remove_completed_install("22.0.0");
         assert!(q.active_installs.is_empty());
         assert!(!q.is_busy_for_exclusive());
+    }
+
+    #[test]
+    fn drain_next_preserves_invariants_across_generated_queue_states() {
+        for active_mask in 0u16..32 {
+            for exclusive_variant in 0u8..4 {
+                for seed in 0u64..64 {
+                    for len in 0usize..16 {
+                        let mut queue = OperationQueue::new();
+
+                        for bit in 0..5u8 {
+                            if (active_mask & (1 << bit)) != 0 {
+                                queue.start_install(version_tag(bit));
+                            }
+                        }
+
+                        if exclusive_variant != 0 {
+                            queue.start_exclusive(exclusive_op(
+                                exclusive_variant - 1,
+                                (seed % 20) as u8,
+                            ));
+                        }
+
+                        for (kind, tag) in generate_pending(seed, len) {
+                            queue.enqueue(request(kind, tag));
+                        }
+
+                        let had_exclusive = queue.exclusive_op.is_some();
+                        let had_active_installs = !queue.active_installs.is_empty();
+                        let pending_len_before = queue.pending.len();
+                        let active_installs_before = queue.active_installs.clone();
+
+                        let (installs, exclusive_request) = queue.drain_next();
+
+                        let unique_installs: HashSet<&String> = installs.iter().collect();
+                        assert_eq!(installs.len(), unique_installs.len());
+
+                        for version in &installs {
+                            assert!(!active_installs_before.iter().any(
+                                |op| matches!(op, Operation::Install { version: active } if active == version)
+                            ));
+                        }
+
+                        if had_exclusive {
+                            assert!(installs.is_empty());
+                            assert!(exclusive_request.is_none());
+                            assert_eq!(queue.pending.len(), pending_len_before);
+                        }
+
+                        if let Some(request) = exclusive_request {
+                            assert!(installs.is_empty());
+                            assert!(!matches!(request, OperationRequest::Install { .. }));
+                            assert!(!had_active_installs);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
