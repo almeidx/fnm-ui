@@ -108,10 +108,12 @@ mod tests {
 
     #[test]
     fn falls_back_to_wayland_display_when_session_type_missing() {
-        let result = is_wayland_with(|name| match name {
-            "XDG_SESSION_TYPE" => Err(std::env::VarError::NotPresent),
-            "WAYLAND_DISPLAY" => Ok("wayland-0".to_string()),
-            _ => Err(std::env::VarError::NotPresent),
+        let result = is_wayland_with(|name| {
+            if name == "WAYLAND_DISPLAY" {
+                Ok("wayland-0".to_string())
+            } else {
+                Err(std::env::VarError::NotPresent)
+            }
         });
 
         assert!(result);
