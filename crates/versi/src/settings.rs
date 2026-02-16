@@ -171,8 +171,10 @@ fn serialize_backend_shell_options<S>(
 where
     S: serde::Serializer,
 {
-    let raw: HashMap<&str, &ShellOptions> =
-        map.iter().map(|(kind, options)| (kind.as_str(), options)).collect();
+    let raw: HashMap<&str, &ShellOptions> = map
+        .iter()
+        .map(|(kind, options)| (kind.as_str(), options))
+        .collect();
     raw.serialize(serializer)
 }
 

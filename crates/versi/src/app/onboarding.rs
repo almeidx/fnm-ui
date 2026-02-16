@@ -178,7 +178,7 @@ impl Versi {
 
     pub(super) fn handle_onboarding_complete(&mut self) -> Task<Message> {
         let all_providers = self.all_providers();
-        let preferred = self.settings.preferred_backend.clone();
+        let preferred = self.settings.preferred_backend;
         Task::perform(
             super::init::initialize(all_providers, preferred),
             Message::Initialized,

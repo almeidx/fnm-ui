@@ -102,7 +102,7 @@ impl Versi {
         };
 
         let all_providers: Vec<Arc<dyn BackendProvider>> = providers.values().cloned().collect();
-        let preferred_backend = app.settings.preferred_backend.clone();
+        let preferred_backend = app.settings.preferred_backend;
         let init_task = Task::perform(
             init::initialize(all_providers, preferred_backend),
             Message::Initialized,
@@ -311,7 +311,7 @@ impl Versi {
                     self.provider = provider.clone();
                 }
                 let all_providers = self.all_providers();
-                let preferred = self.settings.preferred_backend.clone();
+                let preferred = self.settings.preferred_backend;
                 self.state = AppState::Loading;
                 return Task::perform(
                     init::initialize(all_providers, preferred),

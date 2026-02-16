@@ -209,7 +209,10 @@ fn install_backend_step<'a>(
     content.into()
 }
 
-fn configure_shell_step<'a>(state: &'a OnboardingState, backend_name: BackendKind) -> Element<'a, Message> {
+fn configure_shell_step<'a>(
+    state: &'a OnboardingState,
+    backend_name: BackendKind,
+) -> Element<'a, Message> {
     let mut content = column![
         text("Configure Shell").size(28),
         Space::new().height(16),

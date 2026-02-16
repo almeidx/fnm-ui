@@ -412,8 +412,16 @@ fn engine_selector<'a>(settings: &'a AppSettings, state: &'a MainState) -> Eleme
     let nvm_detected = state.detected_backends.contains(&BackendKind::Nvm);
 
     row![
-        engine_button(BackendKind::Fnm, preferred == BackendKind::Fnm, fnm_detected),
-        engine_button(BackendKind::Nvm, preferred == BackendKind::Nvm, nvm_detected),
+        engine_button(
+            BackendKind::Fnm,
+            preferred == BackendKind::Fnm,
+            fnm_detected
+        ),
+        engine_button(
+            BackendKind::Nvm,
+            preferred == BackendKind::Nvm,
+            nvm_detected
+        ),
     ]
     .spacing(8)
     .into()

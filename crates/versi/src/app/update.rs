@@ -10,10 +10,9 @@ impl Versi {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state
             && state.context_menu.is_some()
+            && should_dismiss_context_menu(&message)
         {
-            if should_dismiss_context_menu(&message) {
-                state.context_menu = None;
-            }
+            state.context_menu = None;
         }
 
         match message {

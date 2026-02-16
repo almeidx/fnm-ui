@@ -274,7 +274,9 @@ impl Versi {
     }
 }
 
-fn backend_kind_from_provider(provider: &std::sync::Arc<dyn versi_backend::BackendProvider>) -> crate::backend_kind::BackendKind {
+fn backend_kind_from_provider(
+    provider: &std::sync::Arc<dyn versi_backend::BackendProvider>,
+) -> crate::backend_kind::BackendKind {
     crate::backend_kind::BackendKind::from_name(provider.name())
         .unwrap_or(crate::backend_kind::BackendKind::DEFAULT)
 }
