@@ -33,10 +33,15 @@ pub(crate) fn set_update_badge(visible: bool) {
 pub(crate) fn set_dock_visible(_visible: bool) {}
 
 pub(crate) fn is_wayland() -> bool {
-    std::env::var("XDG_SESSION_TYPE").map_or_else(
-        |_| std::env::var("WAYLAND_DISPLAY").is_ok(),
-        |v| v == "wayland",
-    )
+    is_wayland_with(std::env::var)
+}
+
+fn is_wayland_with<F>(get_var: F) -> bool
+where
+    F: Fn(&str) -> Result<String, std::env::VarError>,
+{
+    get_var("XDG_SESSION_TYPE")
+        .map_or_else(|_| get_var("WAYLAND_DISPLAY").is_ok(), |value| value == "wayland")
 }
 
 pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
@@ -72,5 +77,48 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
 pub(crate) fn reveal_in_file_manager(path: &std::path::Path) {
     if let Some(parent) = path.parent() {
         let _ = std::process::Command::new("xdg-open").arg(parent).spawn();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_wayland_with;
+
+    #[test]
+    fn xdg_session_wayland_is_detected() {
+        let result = is_wayland_with(|name| match name {
+            "XDG_SESSION_TYPE" => Ok("wayland".to_string()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+
+        assert!(result);
+    }
+
+    #[test]
+    fn xdg_session_non_wayland_returns_false_without_fallback() {
+        let result = is_wayland_with(|name| match name {
+            "XDG_SESSION_TYPE" => Ok("x11".to_string()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+
+        assert!(!result);
+    }
+
+    #[test]
+    fn falls_back_to_wayland_display_when_session_type_missing() {
+        let result = is_wayland_with(|name| match name {
+            "XDG_SESSION_TYPE" => Err(std::env::VarError::NotPresent),
+            "WAYLAND_DISPLAY" => Ok("wayland-0".to_string()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+
+        assert!(result);
+    }
+
+    #[test]
+    fn returns_false_when_no_wayland_variables_exist() {
+        let result = is_wayland_with(|_| Err(std::env::VarError::NotPresent));
+
+        assert!(!result);
     }
 }

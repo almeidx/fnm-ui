@@ -54,3 +54,97 @@ where
 
     Err(last_err)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    use std::time::Duration;
+
+    use super::{retry_with_delays, run_with_timeout};
+    use crate::error::AppError;
+
+    #[tokio::test]
+    async fn run_with_timeout_returns_inner_success_value() {
+        let result = run_with_timeout(
+            Duration::from_secs(1),
+            "fetch",
+            async { Ok::<_, &'static str>(42) },
+            |_| AppError::message("mapped"),
+        )
+        .await
+        .expect("success result should pass through");
+
+        assert_eq!(result, 42);
+    }
+
+    #[tokio::test]
+    async fn run_with_timeout_maps_operation_error() {
+        let result = run_with_timeout(
+            Duration::from_secs(1),
+            "fetch",
+            async { Err::<(), _>("boom") },
+            AppError::from,
+        )
+        .await;
+
+        assert_eq!(result, Err(AppError::message("boom")));
+    }
+
+    #[tokio::test]
+    async fn run_with_timeout_returns_timeout_error() {
+        let result = run_with_timeout(
+            Duration::from_millis(5),
+            "install",
+            async {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+                Ok::<_, AppError>(())
+            },
+            |error| error,
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            Err(AppError::Timeout {
+                operation: "install",
+                seconds: 0,
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn retry_with_delays_retries_until_success() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let attempts_for_op = Arc::clone(&attempts);
+
+        let result = retry_with_delays("load", &[0, 0, 0], move || {
+            let attempts_for_this_try = Arc::clone(&attempts_for_op);
+            async move {
+                let attempt = attempts_for_this_try.fetch_add(1, Ordering::SeqCst);
+                if attempt == 0 {
+                    Err(AppError::message("first attempt failed"))
+                } else {
+                    Ok("ok")
+                }
+            }
+        })
+        .await
+        .expect("second attempt should succeed");
+
+        assert_eq!(result, "ok");
+        assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn retry_with_delays_returns_last_error_when_all_attempts_fail() {
+        let result = retry_with_delays("load", &[0, 0], || async {
+            Err::<(), _>(AppError::message("still failing"))
+        })
+        .await;
+
+        assert_eq!(result, Err(AppError::message("still failing")));
+    }
+}
