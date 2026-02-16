@@ -236,21 +236,27 @@ impl VersionCache {
     }
 
     pub fn set_versions(&mut self, versions: Vec<RemoteVersion>) {
-        self.recompute_latest_by_major(&versions);
         self.versions = versions;
+        self.recompute_latest_by_major();
     }
 
-    fn recompute_latest_by_major(&mut self, versions: &[RemoteVersion]) {
-        self.latest_by_major.clear();
-        for v in versions {
-            self.latest_by_major
-                .entry(v.version.major)
+    fn recompute_latest_by_major(&mut self) {
+        let mut latest_refs: HashMap<u32, &NodeVersion> = HashMap::new();
+        for version in &self.versions {
+            latest_refs
+                .entry(version.version.major)
                 .and_modify(|existing| {
-                    if v.version > *existing {
-                        *existing = v.version.clone();
+                    if version.version > **existing {
+                        *existing = &version.version;
                     }
                 })
-                .or_insert_with(|| v.version.clone());
+                .or_insert(&version.version);
+        }
+
+        self.latest_by_major.clear();
+        self.latest_by_major.reserve(latest_refs.len());
+        for (major, version) in latest_refs {
+            self.latest_by_major.insert(major, version.clone());
         }
     }
 
@@ -297,5 +303,47 @@ fn resolve_alias_query<'a>(
                 .max_by_key(|v| &v.version)
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::VersionCache;
+    use versi_backend::{NodeVersion, RemoteVersion};
+
+    #[test]
+    fn set_versions_recomputes_latest_major_versions() {
+        let mut cache = VersionCache::new();
+        cache.set_versions(vec![
+            RemoteVersion {
+                version: NodeVersion::new(20, 10, 0),
+                lts_codename: Some("Iron".to_string()),
+                is_latest: false,
+            },
+            RemoteVersion {
+                version: NodeVersion::new(20, 11, 0),
+                lts_codename: Some("Iron".to_string()),
+                is_latest: true,
+            },
+            RemoteVersion {
+                version: NodeVersion::new(22, 1, 0),
+                lts_codename: None,
+                is_latest: true,
+            },
+            RemoteVersion {
+                version: NodeVersion::new(22, 0, 1),
+                lts_codename: None,
+                is_latest: false,
+            },
+        ]);
+
+        assert_eq!(
+            cache.latest_by_major.get(&20),
+            Some(&NodeVersion::new(20, 11, 0))
+        );
+        assert_eq!(
+            cache.latest_by_major.get(&22),
+            Some(&NodeVersion::new(22, 1, 0))
+        );
     }
 }
