@@ -255,3 +255,63 @@ fn load_log_file_stats_task() -> Task<Message> {
         Message::LogFileStatsLoaded,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::{AppState, MainViewKind, Modal, Toast};
+
+    #[test]
+    fn dispatch_settings_returns_err_for_unhandled_message() {
+        let mut app = test_app_with_two_environments();
+
+        let result = app.dispatch_settings(Message::NoOp);
+
+        assert!(matches!(result, Err(other) if matches!(*other, Message::NoOp)));
+    }
+
+    #[test]
+    fn navigate_to_about_switches_view() {
+        let mut app = test_app_with_two_environments();
+
+        let _ = app.dispatch_settings(Message::NavigateToAbout);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.view, MainViewKind::About);
+    }
+
+    #[test]
+    fn version_row_hovered_is_cleared_while_modal_open() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.modal = Some(Modal::KeyboardShortcuts);
+        }
+
+        let _ = app.dispatch_settings(Message::VersionRowHovered(Some("v20.11.0".to_string())));
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.hovered_version.is_none());
+    }
+
+    #[test]
+    fn toast_dismiss_removes_matching_toast() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.toasts.push(Toast::error(1, "first".to_string()));
+            state.toasts.push(Toast::error(2, "second".to_string()));
+        }
+
+        let _ = app.dispatch_settings(Message::ToastDismiss(1));
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.toasts.len(), 1);
+        assert_eq!(state.toasts[0].id, 2);
+    }
+}

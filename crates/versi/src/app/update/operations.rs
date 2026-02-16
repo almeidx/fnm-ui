@@ -50,3 +50,69 @@ impl Versi {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use versi_backend::InstalledVersion;
+
+    use super::super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::{AppState, Modal};
+
+    fn installed(version: &str) -> InstalledVersion {
+        InstalledVersion {
+            version: version.parse().expect("test version should parse"),
+            is_default: false,
+            lts_codename: None,
+            install_date: None,
+            disk_size: None,
+        }
+    }
+
+    #[test]
+    fn dispatch_operations_returns_err_for_unhandled_message() {
+        let mut app = test_app_with_two_environments();
+
+        let result = app.dispatch_operations(Message::NoOp);
+
+        assert!(matches!(result, Err(other) if matches!(*other, Message::NoOp)));
+    }
+
+    #[test]
+    fn cancel_bulk_operation_closes_modal() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.modal = Some(Modal::KeyboardShortcuts);
+        }
+
+        let _ = app.dispatch_operations(Message::CancelBulkOperation);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.modal.is_none());
+    }
+
+    #[test]
+    fn request_bulk_uninstall_major_opens_confirmation_modal() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.active_environment_mut().update_versions(vec![
+                installed("v20.11.0"),
+                installed("v20.10.0"),
+                installed("v18.19.0"),
+            ]);
+        }
+
+        let _ = app.dispatch_operations(Message::RequestBulkUninstallMajor { major: 20 });
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.modal,
+            Some(Modal::ConfirmBulkUninstallMajor { major: 20, ref versions })
+            if versions == &vec!["v20.11.0".to_string(), "v20.10.0".to_string()]
+        ));
+    }
+}

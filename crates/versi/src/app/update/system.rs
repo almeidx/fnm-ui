@@ -168,3 +168,88 @@ fn open_url_task(url: String) -> Task<Message> {
         |()| Message::NoOp,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::{AppState, Modal};
+
+    #[test]
+    fn dispatch_system_returns_err_for_unhandled_message() {
+        let mut app = test_app_with_two_environments();
+
+        let result = app.dispatch_system(Message::NoOp);
+
+        assert!(matches!(result, Err(other) if matches!(*other, Message::NoOp)));
+    }
+
+    #[test]
+    fn cursor_moved_updates_position() {
+        let mut app = test_app_with_two_environments();
+        let point = iced::Point::new(42.0, 84.0);
+
+        let _ = app.dispatch_system(Message::VersionListCursorMoved(point));
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.cursor_position, point);
+    }
+
+    #[test]
+    fn show_context_menu_uses_current_cursor_position() {
+        let mut app = test_app_with_two_environments();
+        let point = iced::Point::new(10.0, 20.0);
+        if let AppState::Main(state) = &mut app.state {
+            state.cursor_position = point;
+        }
+
+        let _ = app.dispatch_system(Message::ShowContextMenu {
+            version: "v20.11.0".to_string(),
+            is_installed: true,
+            is_default: false,
+        });
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.context_menu,
+            Some(ref menu)
+            if menu.version == "v20.11.0"
+                && menu.is_installed
+                && !menu.is_default
+                && menu.position == point
+        ));
+    }
+
+    #[test]
+    fn close_context_menu_clears_existing_menu() {
+        let mut app = test_app_with_two_environments();
+        let _ = app.dispatch_system(Message::ShowContextMenu {
+            version: "v20.11.0".to_string(),
+            is_installed: true,
+            is_default: false,
+        });
+
+        let _ = app.dispatch_system(Message::CloseContextMenu);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.context_menu.is_none());
+    }
+
+    #[test]
+    fn show_keyboard_shortcuts_sets_modal() {
+        let mut app = test_app_with_two_environments();
+
+        let _ = app.dispatch_system(Message::ShowKeyboardShortcuts);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(state.modal, Some(Modal::KeyboardShortcuts)));
+    }
+}

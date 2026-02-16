@@ -28,6 +28,12 @@ use crate::state::{AppState, MainViewKind};
 use crate::theme::{dark_theme, light_theme};
 use crate::tray;
 use crate::views;
+#[cfg(test)]
+use crate::state::{EnvironmentState, MainState};
+#[cfg(test)]
+use versi_backend::BackendDetection;
+#[cfg(test)]
+use versi_platform::EnvironmentId;
 
 fn should_dismiss_context_menu(message: &Message) -> bool {
     !matches!(
@@ -352,70 +358,63 @@ impl Versi {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
-    use std::path::PathBuf;
-    use std::sync::Arc;
+fn test_app_with_two_environments() -> Versi {
+    let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
+    let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
 
-    use versi_backend::{
-        BackendDetection, BackendProvider, InstalledVersion, NodeVersion, RemoteVersion,
+    let mut providers: HashMap<BackendKind, Arc<dyn BackendProvider>> = HashMap::new();
+    providers.insert(BackendKind::Fnm, fnm_provider.clone());
+    providers.insert(BackendKind::Nvm, nvm_provider.clone());
+
+    let detection = BackendDetection {
+        found: true,
+        path: Some(PathBuf::from("fnm")),
+        version: None,
+        in_path: true,
+        data_dir: None,
     };
+    let backend = fnm_provider.create_manager(&detection);
+
+    let native = EnvironmentState::new(EnvironmentId::Native, BackendKind::Fnm, None);
+    let wsl = EnvironmentState::new(
+        EnvironmentId::Wsl {
+            distro: "Ubuntu".to_string(),
+            backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+        },
+        BackendKind::Nvm,
+        None,
+    );
+    let main_state = MainState::new_with_environments(backend, vec![native, wsl], BackendKind::Fnm);
+
+    Versi {
+        state: AppState::Main(Box::new(main_state)),
+        settings: AppSettings::default(),
+        window_id: None,
+        pending_minimize: false,
+        pending_show: false,
+        window_visible: true,
+        backend_path: PathBuf::from("fnm"),
+        backend_dir: None,
+        window_size: None,
+        window_position: None,
+        http_client: reqwest::Client::new(),
+        providers,
+        provider: fnm_provider,
+        system_theme_mode: iced::theme::Mode::None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
     use versi_platform::EnvironmentId;
 
-    use super::{Versi, should_dismiss_context_menu};
+    use super::{should_dismiss_context_menu, test_app_with_two_environments};
     use crate::backend_kind::BackendKind;
     use crate::error::AppError;
     use crate::message::Message;
-    use crate::settings::AppSettings;
-    use crate::state::{AppState, EnvironmentState, MainState, MainViewKind, Modal, Operation};
+    use crate::state::{AppState, MainViewKind, Modal, Operation};
     use crate::tray::TrayMessage;
-
-    fn test_app_with_two_environments() -> Versi {
-        let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
-        let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
-
-        let mut providers: HashMap<BackendKind, Arc<dyn BackendProvider>> = HashMap::new();
-        providers.insert(BackendKind::Fnm, fnm_provider.clone());
-        providers.insert(BackendKind::Nvm, nvm_provider.clone());
-
-        let detection = BackendDetection {
-            found: true,
-            path: Some(PathBuf::from("fnm")),
-            version: None,
-            in_path: true,
-            data_dir: None,
-        };
-        let backend = fnm_provider.create_manager(&detection);
-
-        let native = EnvironmentState::new(EnvironmentId::Native, BackendKind::Fnm, None);
-        let wsl = EnvironmentState::new(
-            EnvironmentId::Wsl {
-                distro: "Ubuntu".to_string(),
-                backend_path: "/home/user/.nvm/nvm.sh".to_string(),
-            },
-            BackendKind::Nvm,
-            None,
-        );
-        let main_state =
-            MainState::new_with_environments(backend, vec![native, wsl], BackendKind::Fnm);
-
-        Versi {
-            state: AppState::Main(Box::new(main_state)),
-            settings: AppSettings::default(),
-            window_id: None,
-            pending_minimize: false,
-            pending_show: false,
-            window_visible: true,
-            backend_path: PathBuf::from("fnm"),
-            backend_dir: None,
-            window_size: None,
-            window_position: None,
-            http_client: reqwest::Client::new(),
-            providers,
-            provider: fnm_provider,
-            system_theme_mode: iced::theme::Mode::None,
-        }
-    }
 
     #[test]
     fn context_menu_is_dismissed_for_unrelated_messages() {

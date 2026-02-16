@@ -180,3 +180,113 @@ fn open_url_task(url: String) -> Task<Message> {
         |()| Message::NoOp,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use versi_backend::InstalledVersion;
+
+    use super::super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::{AppState, MainViewKind, Modal};
+
+    fn installed(version: &str, is_default: bool) -> InstalledVersion {
+        InstalledVersion {
+            version: version.parse().expect("test version should parse"),
+            is_default,
+            lts_codename: None,
+            install_date: None,
+            disk_size: None,
+        }
+    }
+
+    #[test]
+    fn dispatch_navigation_returns_err_for_unhandled_message() {
+        let mut app = test_app_with_two_environments();
+
+        let result = app.dispatch_navigation(Message::NoOp);
+
+        assert!(matches!(result, Err(other) if matches!(*other, Message::NoOp)));
+    }
+
+    #[test]
+    fn show_version_detail_sets_modal() {
+        let mut app = test_app_with_two_environments();
+
+        let _ = app.dispatch_navigation(Message::ShowVersionDetail("v20.11.0".to_string()));
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.modal,
+            Some(Modal::VersionDetail { ref version }) if version == "v20.11.0"
+        ));
+    }
+
+    #[test]
+    fn close_modal_closes_open_modal_before_changing_view() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.modal = Some(Modal::KeyboardShortcuts);
+            state.view = MainViewKind::About;
+        }
+
+        app.close_modal_or_return_to_versions();
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.modal.is_none());
+        assert_eq!(state.view, MainViewKind::About);
+    }
+
+    #[test]
+    fn close_modal_returns_about_to_versions_when_no_modal() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.modal = None;
+            state.view = MainViewKind::About;
+        }
+
+        app.close_modal_or_return_to_versions();
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.view, MainViewKind::Versions);
+    }
+
+    #[test]
+    fn move_version_selection_advances_and_clamps_at_bounds() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.active_environment_mut().update_versions(vec![
+                installed("v20.10.0", false),
+                installed("v20.11.0", true),
+            ]);
+            state.view = MainViewKind::Versions;
+            state.modal = None;
+        }
+
+        app.move_version_selection(true);
+        app.move_version_selection(true);
+        app.move_version_selection(true);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.hovered_version.as_deref(), Some("v20.10.0"));
+    }
+
+    #[test]
+    fn select_environment_by_step_wraps_backwards() {
+        let mut app = test_app_with_two_environments();
+
+        let _ = app.select_environment_by_step(false);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.active_environment_idx, 1);
+    }
+}
