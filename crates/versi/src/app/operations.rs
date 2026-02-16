@@ -9,10 +9,62 @@ use iced::Task;
 
 use crate::error::AppError;
 use crate::message::Message;
-use crate::state::{AppState, Modal, Operation, OperationRequest, Toast};
+use crate::state::{AppState, MainState, Modal, Operation, OperationRequest, Toast};
 
 use super::Versi;
 use super::async_helpers::run_with_timeout;
+
+fn has_duplicate_install_request(state: &MainState, version: &str) -> bool {
+    state.operation_queue.has_active_install(version)
+        || state.operation_queue.has_pending_for_version(version)
+}
+
+fn enqueue_install_if_busy(state: &mut MainState, version: &str) -> bool {
+    if state.operation_queue.is_busy_for_install() {
+        state.operation_queue.enqueue(OperationRequest::Install {
+            version: version.to_string(),
+        });
+        return true;
+    }
+    false
+}
+
+fn enqueue_exclusive_if_busy(state: &mut MainState, request: OperationRequest) -> bool {
+    if state.operation_queue.is_busy_for_exclusive() {
+        state.operation_queue.enqueue(request);
+        return true;
+    }
+    false
+}
+
+fn should_confirm_default_uninstall(state: &MainState, version: &str) -> bool {
+    state
+        .active_environment()
+        .default_version
+        .as_ref()
+        .is_some_and(|dv| dv.to_string() == version)
+}
+
+fn error_text(error: Option<AppError>) -> String {
+    error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
+}
+
+fn install_failure_message(version: &str, error: Option<AppError>) -> String {
+    format!("Failed to install Node {version}: {}", error_text(error))
+}
+
+fn uninstall_failure_message(version: &str, error: Option<AppError>) -> String {
+    format!("Failed to uninstall Node {version}: {}", error_text(error))
+}
+
+fn set_default_failure_message(error: Option<AppError>) -> String {
+    format!("Failed to set default: {}", error_text(error))
+}
+
+fn add_failure_toast(state: &mut MainState, message: String) {
+    let toast_id = state.next_toast_id();
+    state.add_toast(Toast::error(toast_id, message));
+}
 
 impl Versi {
     pub(super) fn handle_close_modal(&mut self) {
@@ -25,16 +77,11 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
 
-            if state.operation_queue.has_active_install(&version)
-                || state.operation_queue.has_pending_for_version(&version)
-            {
+            if has_duplicate_install_request(state, &version) {
                 return Task::none();
             }
 
-            if state.operation_queue.is_busy_for_install() {
-                state
-                    .operation_queue
-                    .enqueue(OperationRequest::Install { version });
+            if enqueue_install_if_busy(state, &version) {
                 return Task::none();
             }
 
@@ -84,15 +131,7 @@ impl Versi {
             state.operation_queue.remove_completed_install(version);
 
             if !success {
-                let toast_id = state.next_toast_id();
-                state.add_toast(Toast::error(
-                    toast_id,
-                    format!(
-                        "Failed to install Node {}: {}",
-                        version,
-                        error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
-                    ),
-                ));
+                add_failure_toast(state, install_failure_message(version, error));
             }
         }
 
@@ -103,27 +142,23 @@ impl Versi {
 
     pub(super) fn handle_uninstall(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            let is_default = state
-                .active_environment()
-                .default_version
-                .as_ref()
-                .is_some_and(|dv| dv.to_string() == version);
-
-            if is_default {
+            if should_confirm_default_uninstall(state, &version) {
                 state.modal = Some(Modal::ConfirmUninstallDefault {
                     version: version.clone(),
                 });
                 return Task::none();
             }
 
-            if state.operation_queue.is_busy_for_exclusive() {
-                state
-                    .operation_queue
-                    .enqueue(OperationRequest::Uninstall { version });
+            if enqueue_exclusive_if_busy(
+                state,
+                OperationRequest::Uninstall {
+                    version: version.clone(),
+                },
+            ) {
                 return Task::none();
             }
 
-            return self.start_uninstall_internal(&version);
+            return self.start_uninstall_internal(version);
         }
         Task::none()
     }
@@ -132,41 +167,38 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             state.modal = None;
 
-            if state.operation_queue.is_busy_for_exclusive() {
-                state
-                    .operation_queue
-                    .enqueue(OperationRequest::Uninstall { version });
+            if enqueue_exclusive_if_busy(
+                state,
+                OperationRequest::Uninstall {
+                    version: version.clone(),
+                },
+            ) {
                 return Task::none();
             }
 
-            return self.start_uninstall_internal(&version);
+            return self.start_uninstall_internal(version);
         }
         Task::none()
     }
 
-    pub(super) fn start_uninstall_internal(&mut self, version: &str) -> Task<Message> {
+    pub(super) fn start_uninstall_internal(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            let version_owned = version.to_string();
             state.operation_queue.start_exclusive(Operation::Uninstall {
-                version: version_owned.clone(),
+                version: version.clone(),
             });
 
             let backend = state.backend.clone();
-            let version_clone = version_owned.clone();
             let timeout = Duration::from_secs(self.settings.uninstall_timeout_secs);
 
             return Task::perform(
                 async move {
-                    match run_with_timeout(
-                        timeout,
-                        "Uninstall",
-                        backend.uninstall(&version_clone),
-                        |e| AppError::message(e.to_string()),
-                    )
+                    match run_with_timeout(timeout, "Uninstall", backend.uninstall(&version), |e| {
+                        AppError::message(e.to_string())
+                    })
                     .await
                     {
-                        Ok(()) => (version_clone, true, None),
-                        Err(error) => (version_clone, false, Some(error)),
+                        Ok(()) => (version, true, None),
+                        Err(error) => (version, false, Some(error)),
                     }
                 },
                 |(version, success, error)| Message::UninstallComplete {
@@ -189,15 +221,7 @@ impl Versi {
             state.operation_queue.complete_exclusive();
 
             if !success {
-                let toast_id = state.next_toast_id();
-                state.add_toast(Toast::error(
-                    toast_id,
-                    format!(
-                        "Failed to uninstall Node {}: {}",
-                        version,
-                        error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
-                    ),
-                ));
+                add_failure_toast(state, uninstall_failure_message(version, error));
             }
         }
 
@@ -208,10 +232,12 @@ impl Versi {
 
     pub(super) fn handle_set_default(&mut self, version: String) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            if state.operation_queue.is_busy_for_exclusive() {
-                state
-                    .operation_queue
-                    .enqueue(OperationRequest::SetDefault { version });
+            if enqueue_exclusive_if_busy(
+                state,
+                OperationRequest::SetDefault {
+                    version: version.clone(),
+                },
+            ) {
                 return Task::none();
             }
 
@@ -260,14 +286,7 @@ impl Versi {
             state.operation_queue.complete_exclusive();
 
             if !success {
-                let toast_id = state.next_toast_id();
-                state.add_toast(Toast::error(
-                    toast_id,
-                    format!(
-                        "Failed to set default: {}",
-                        error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
-                    ),
-                ));
+                add_failure_toast(state, set_default_failure_message(error));
             }
         }
 
@@ -285,15 +304,7 @@ impl Versi {
                 tasks.push(self.start_install_internal(version));
             }
             if let Some(request) = exclusive_request {
-                match request {
-                    OperationRequest::Uninstall { version } => {
-                        tasks.push(self.start_uninstall_internal(&version));
-                    }
-                    OperationRequest::SetDefault { version } => {
-                        tasks.push(self.start_set_default_internal(version));
-                    }
-                    OperationRequest::Install { .. } => unreachable!(),
-                }
+                tasks.push(self.task_for_exclusive_request(request));
             }
 
             if !tasks.is_empty() {
@@ -301,6 +312,14 @@ impl Versi {
             }
         }
         Task::none()
+    }
+
+    fn task_for_exclusive_request(&mut self, request: OperationRequest) -> Task<Message> {
+        match request {
+            OperationRequest::Uninstall { version } => self.start_uninstall_internal(version),
+            OperationRequest::SetDefault { version } => self.start_set_default_internal(version),
+            OperationRequest::Install { .. } => Task::none(),
+        }
     }
 }
 
