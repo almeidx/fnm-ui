@@ -133,3 +133,134 @@ impl<T: VersionManager + Clone + 'static> From<T> for Box<dyn VersionManager> {
         Box::new(manager)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use async_trait::async_trait;
+
+    use super::*;
+
+    #[derive(Clone)]
+    struct MockManager {
+        info: BackendInfo,
+        remote: Vec<RemoteVersion>,
+    }
+
+    impl MockManager {
+        fn new(remote: Vec<RemoteVersion>) -> Self {
+            Self {
+                info: BackendInfo {
+                    name: "mock",
+                    path: PathBuf::from("/tmp/mock-backend"),
+                    version: Some("1.0.0".to_string()),
+                    data_dir: Some(PathBuf::from("/tmp/mock-data")),
+                    in_path: true,
+                },
+                remote,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl VersionManager for MockManager {
+        fn name(&self) -> &'static str {
+            "mock"
+        }
+
+        fn capabilities(&self) -> ManagerCapabilities {
+            ManagerCapabilities::default()
+        }
+
+        fn backend_info(&self) -> &BackendInfo {
+            &self.info
+        }
+
+        async fn list_installed(&self) -> Result<Vec<InstalledVersion>, BackendError> {
+            Ok(Vec::new())
+        }
+
+        async fn list_remote(&self) -> Result<Vec<RemoteVersion>, BackendError> {
+            Ok(self.remote.clone())
+        }
+
+        async fn current_version(&self) -> Result<Option<NodeVersion>, BackendError> {
+            Ok(None)
+        }
+
+        async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError> {
+            Ok(None)
+        }
+
+        async fn install(&self, _version: &str) -> Result<(), BackendError> {
+            Ok(())
+        }
+
+        async fn uninstall(&self, _version: &str) -> Result<(), BackendError> {
+            Ok(())
+        }
+
+        async fn set_default(&self, _version: &str) -> Result<(), BackendError> {
+            Ok(())
+        }
+
+        fn shell_init_command(&self, _shell: &str, _options: &ShellInitOptions) -> Option<String> {
+            None
+        }
+    }
+
+    fn remote(version: &str, lts_codename: Option<&str>) -> RemoteVersion {
+        RemoteVersion {
+            version: version.parse().expect("valid semver in test"),
+            lts_codename: lts_codename.map(str::to_string),
+            is_latest: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn use_version_default_returns_unsupported() {
+        let manager = MockManager::new(Vec::new());
+
+        let result = manager.use_version("v20.0.0").await;
+
+        assert!(
+            matches!(result, Err(BackendError::Unsupported(ref op)) if op == "use_version"),
+            "expected Unsupported(\"use_version\"), got {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_remote_lts_filters_non_lts_versions() {
+        let manager = MockManager::new(vec![
+            remote("v24.0.0", None),
+            remote("v22.1.0", Some("Jod")),
+            remote("v20.10.0", Some("Iron")),
+        ]);
+
+        let lts = manager.list_remote_lts().await.expect("lts listing succeeds");
+
+        assert_eq!(lts.len(), 2);
+        assert_eq!(lts[0].version.to_string(), "v22.1.0");
+        assert_eq!(lts[1].version.to_string(), "v20.10.0");
+        assert!(lts.iter().all(|v| v.lts_codename.is_some()));
+    }
+
+    #[tokio::test]
+    async fn boxed_clone_preserves_manager_behavior_and_info() {
+        let boxed: Box<dyn VersionManager> = MockManager::new(vec![remote("v20.1.0", None)]).into();
+        let cloned = boxed.clone();
+
+        assert_eq!(cloned.name(), "mock");
+        assert_eq!(
+            cloned.backend_info().path,
+            PathBuf::from("/tmp/mock-backend")
+        );
+        let remote_versions = cloned
+            .list_remote()
+            .await
+            .expect("list_remote should work on cloned manager");
+        assert_eq!(remote_versions.len(), 1);
+        assert_eq!(remote_versions[0].version.to_string(), "v20.1.0");
+    }
+}
