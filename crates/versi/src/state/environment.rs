@@ -18,6 +18,7 @@ pub struct EnvironmentState {
     pub backend_version: Option<String>,
     pub loading: bool,
     pub error: Option<AppError>,
+    pub load_request_seq: u64,
     pub available: bool,
 }
 
@@ -39,6 +40,7 @@ impl EnvironmentState {
             backend_version,
             loading: true,
             error: None,
+            load_request_seq: 0,
             available: true,
         }
     }
@@ -56,6 +58,7 @@ impl EnvironmentState {
             backend_version: None,
             loading: false,
             error: Some(AppError::message(reason)),
+            load_request_seq: 0,
             available: false,
         }
     }

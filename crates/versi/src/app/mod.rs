@@ -356,7 +356,9 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    use versi_backend::{BackendDetection, BackendProvider, InstalledVersion, NodeVersion};
+    use versi_backend::{
+        BackendDetection, BackendProvider, InstalledVersion, NodeVersion, RemoteVersion,
+    };
     use versi_platform::EnvironmentId;
 
     use super::{Versi, should_dismiss_context_menu};
@@ -476,7 +478,7 @@ mod tests {
         };
 
         let _ =
-            app.handle_environment_loaded(target_env.clone(), Err("backend unavailable".into()));
+            app.handle_environment_loaded(target_env.clone(), 0, Err("backend unavailable".into()));
 
         let AppState::Main(state) = &app.state else {
             panic!("expected main state");
@@ -506,9 +508,10 @@ mod tests {
         let mut app = test_app_with_two_environments();
         let target_env = EnvironmentId::Native;
 
-        let _ = app.handle_environment_loaded(target_env.clone(), Err("timed out".into()));
+        let _ = app.handle_environment_loaded(target_env.clone(), 0, Err("timed out".into()));
         let _ = app.handle_environment_loaded(
             target_env.clone(),
+            0,
             Ok(vec![InstalledVersion {
                 version: NodeVersion::new(20, 11, 0),
                 is_default: true,
@@ -530,6 +533,71 @@ mod tests {
         assert!(env.error.is_none());
         assert_eq!(env.default_version, Some(NodeVersion::new(20, 11, 0)));
         assert!(env.installed_set.contains("v20.11.0"));
+    }
+
+    #[test]
+    fn stale_environment_load_response_is_ignored() {
+        let mut app = test_app_with_two_environments();
+        let target_env = EnvironmentId::Native;
+
+        if let AppState::Main(state) = &mut app.state {
+            let env = state
+                .environments
+                .iter_mut()
+                .find(|env| env.id == target_env)
+                .expect("expected native environment");
+            env.loading = true;
+            env.load_request_seq = 2;
+        }
+
+        let _ = app.handle_environment_loaded(
+            target_env,
+            1,
+            Ok(vec![InstalledVersion {
+                version: NodeVersion::new(20, 11, 0),
+                is_default: true,
+                lts_codename: None,
+                install_date: None,
+                disk_size: None,
+            }]),
+        );
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        let env = state
+            .environments
+            .iter()
+            .find(|env| env.id == EnvironmentId::Native)
+            .expect("expected native environment");
+        assert!(env.loading);
+        assert!(env.installed_versions.is_empty());
+        assert!(env.default_version.is_none());
+    }
+
+    #[test]
+    fn stale_remote_versions_response_is_ignored() {
+        let mut app = test_app_with_two_environments();
+
+        if let AppState::Main(state) = &mut app.state {
+            state.available_versions.loading = true;
+            state.available_versions.remote_request_seq = 2;
+        }
+
+        app.handle_remote_versions_fetched(
+            1,
+            Ok(vec![RemoteVersion {
+                version: NodeVersion::new(22, 1, 0),
+                lts_codename: None,
+                is_latest: true,
+            }]),
+        );
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.available_versions.loading);
+        assert!(state.available_versions.versions.is_empty());
     }
 
     #[test]

@@ -22,6 +22,7 @@ impl Versi {
     pub(super) fn handle_environment_loaded(
         &mut self,
         env_id: EnvironmentId,
+        request_seq: u64,
         result: Result<Vec<versi_backend::InstalledVersion>, AppError>,
     ) -> Task<Message> {
         match &result {
@@ -46,6 +47,14 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state
             && let Some(env) = state.environments.iter_mut().find(|e| e.id == env_id)
         {
+            if env.load_request_seq != request_seq {
+                debug!(
+                    "Ignoring stale environment load for {:?}: request_seq={} current_seq={}",
+                    env_id, request_seq, env.load_request_seq
+                );
+                return Task::none();
+            }
+
             match result {
                 Ok(versions) => env.update_versions(versions),
                 Err(error) => {
@@ -119,6 +128,9 @@ impl Versi {
                 info!("Loading versions for environment: {:?}", env_id);
                 let env = state.active_environment_mut();
                 env.loading = true;
+                env.error = None;
+                env.load_request_seq = env.load_request_seq.wrapping_add(1);
+                let request_seq = env.load_request_seq;
 
                 let backend = state.backend.clone();
                 let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
@@ -147,9 +159,13 @@ impl Versi {
                                 versions.len(),
                             );
                         }
-                        (env_id, result)
+                        (env_id, request_seq, result)
                     },
-                    |(env_id, result)| Message::EnvironmentLoaded { env_id, result },
+                    |(env_id, request_seq, result)| Message::EnvironmentLoaded {
+                        env_id,
+                        request_seq,
+                        result,
+                    },
                 )
             } else {
                 Task::none()
@@ -172,7 +188,9 @@ impl Versi {
             let env = state.active_environment_mut();
             env.loading = true;
             env.error = None;
+            env.load_request_seq = env.load_request_seq.wrapping_add(1);
             let env_id = env.id.clone();
+            let request_seq = env.load_request_seq;
 
             state.refresh_rotation = std::f32::consts::TAU / 40.0;
             let backend = state.backend.clone();
@@ -191,9 +209,13 @@ impl Versi {
                                 fetch_timeout.as_secs(),
                             )),
                         };
-                    (env_id, result)
+                    (env_id, request_seq, result)
                 },
-                |(env_id, result)| Message::EnvironmentLoaded { env_id, result },
+                |(env_id, request_seq, result)| Message::EnvironmentLoaded {
+                    env_id,
+                    request_seq,
+                    result,
+                },
             );
         }
         Task::none()

@@ -24,6 +24,9 @@ impl Versi {
                 return Task::none();
             }
             state.available_versions.loading = true;
+            state.available_versions.remote_request_seq =
+                state.available_versions.remote_request_seq.wrapping_add(1);
+            let request_seq = state.available_versions.remote_request_seq;
 
             let backend = state.backend.clone();
             let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
@@ -57,7 +60,10 @@ impl Versi {
                     }
                     Err(last_err)
                 },
-                Message::RemoteVersionsFetched,
+                move |result| Message::RemoteVersionsFetched {
+                    request_seq,
+                    result,
+                },
             );
         }
         Task::none()
@@ -65,9 +71,18 @@ impl Versi {
 
     pub(super) fn handle_remote_versions_fetched(
         &mut self,
+        request_seq: u64,
         result: Result<Vec<versi_backend::RemoteVersion>, AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state {
+            if request_seq != state.available_versions.remote_request_seq {
+                debug!(
+                    "Ignoring stale remote versions response: request_seq={} current_seq={}",
+                    request_seq, state.available_versions.remote_request_seq
+                );
+                return;
+            }
+
             state.available_versions.loading = false;
             match result {
                 Ok(versions) => {
@@ -113,7 +128,12 @@ impl Versi {
     }
 
     pub(super) fn handle_fetch_release_schedule(&mut self) -> Task<Message> {
-        if let AppState::Main(_) = &self.state {
+        if let AppState::Main(state) = &mut self.state {
+            state.available_versions.schedule_request_seq = state
+                .available_versions
+                .schedule_request_seq
+                .wrapping_add(1);
+            let request_seq = state.available_versions.schedule_request_seq;
             let client = self.http_client.clone();
             let retry_delays = self.settings.retry_delays_secs.clone();
 
@@ -138,7 +158,10 @@ impl Versi {
                     }
                     Err(last_err)
                 },
-                |result| Message::ReleaseScheduleFetched(Box::new(result)),
+                move |result| Message::ReleaseScheduleFetched {
+                    request_seq,
+                    result: Box::new(result),
+                },
             );
         }
         Task::none()
@@ -146,9 +169,18 @@ impl Versi {
 
     pub(super) fn handle_release_schedule_fetched(
         &mut self,
+        request_seq: u64,
         result: Result<versi_core::ReleaseSchedule, AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state {
+            if request_seq != state.available_versions.schedule_request_seq {
+                debug!(
+                    "Ignoring stale release schedule response: request_seq={} current_seq={}",
+                    request_seq, state.available_versions.schedule_request_seq
+                );
+                return;
+            }
+
             match result {
                 Ok(schedule) => {
                     state.available_versions.schedule = Some(schedule.clone());
@@ -176,7 +208,12 @@ impl Versi {
     }
 
     pub(super) fn handle_fetch_version_metadata(&mut self) -> Task<Message> {
-        if let AppState::Main(_) = &self.state {
+        if let AppState::Main(state) = &mut self.state {
+            state.available_versions.metadata_request_seq = state
+                .available_versions
+                .metadata_request_seq
+                .wrapping_add(1);
+            let request_seq = state.available_versions.metadata_request_seq;
             let client = self.http_client.clone();
             let retry_delays = self.settings.retry_delays_secs.clone();
 
@@ -201,7 +238,10 @@ impl Versi {
                     }
                     Err(last_err)
                 },
-                |result| Message::VersionMetadataFetched(Box::new(result)),
+                move |result| Message::VersionMetadataFetched {
+                    request_seq,
+                    result: Box::new(result),
+                },
             );
         }
         Task::none()
@@ -209,9 +249,18 @@ impl Versi {
 
     pub(super) fn handle_version_metadata_fetched(
         &mut self,
+        request_seq: u64,
         result: Result<std::collections::HashMap<String, versi_core::VersionMeta>, AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state {
+            if request_seq != state.available_versions.metadata_request_seq {
+                debug!(
+                    "Ignoring stale version metadata response: request_seq={} current_seq={}",
+                    request_seq, state.available_versions.metadata_request_seq
+                );
+                return;
+            }
+
             match result {
                 Ok(metadata) => {
                     state.available_versions.metadata = Some(metadata.clone());

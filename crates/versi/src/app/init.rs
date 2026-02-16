@@ -160,6 +160,18 @@ impl Versi {
 
             let backend =
                 create_backend_for_environment(&env_id, &backend_path, &backend_dir, &provider);
+            let request_seq = if let AppState::Main(state) = &mut self.state {
+                if let Some(env) = state.environments.iter_mut().find(|e| e.id == env_id) {
+                    env.loading = true;
+                    env.error = None;
+                    env.load_request_seq = env.load_request_seq.wrapping_add(1);
+                    env.load_request_seq
+                } else {
+                    continue;
+                }
+            } else {
+                continue;
+            };
 
             let fetch_timeout = std::time::Duration::from_secs(self.settings.fetch_timeout_secs);
             load_tasks.push(Task::perform(
@@ -175,9 +187,13 @@ impl Versi {
                                 fetch_timeout.as_secs(),
                             )),
                         };
-                    (env_id, result)
+                    (env_id, request_seq, result)
                 },
-                move |(env_id, result)| Message::EnvironmentLoaded { env_id, result },
+                move |(env_id, request_seq, result)| Message::EnvironmentLoaded {
+                    env_id,
+                    request_seq,
+                    result,
+                },
             ));
         }
 

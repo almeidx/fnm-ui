@@ -9,9 +9,11 @@ impl Versi {
     pub(super) fn dispatch_navigation(&mut self, message: Message) -> super::DispatchResult {
         match message {
             Message::Initialized(result) => Ok(self.handle_initialized(*result)),
-            Message::EnvironmentLoaded { env_id, result } => {
-                Ok(self.handle_environment_loaded(env_id, result))
-            }
+            Message::EnvironmentLoaded {
+                env_id,
+                request_seq,
+                result,
+            } => Ok(self.handle_environment_loaded(env_id, request_seq, result)),
             Message::RefreshEnvironment => Ok(self.handle_refresh_environment()),
             Message::FocusSearch => {
                 if let AppState::Main(state) = &mut self.state {
@@ -88,16 +90,25 @@ impl Versi {
                 Ok(Task::none())
             }
             Message::FetchRemoteVersions => Ok(self.handle_fetch_remote_versions()),
-            Message::RemoteVersionsFetched(result) => {
-                self.handle_remote_versions_fetched(result);
+            Message::RemoteVersionsFetched {
+                request_seq,
+                result,
+            } => {
+                self.handle_remote_versions_fetched(request_seq, result);
                 Ok(Task::none())
             }
-            Message::ReleaseScheduleFetched(result) => {
-                self.handle_release_schedule_fetched(*result);
+            Message::ReleaseScheduleFetched {
+                request_seq,
+                result,
+            } => {
+                self.handle_release_schedule_fetched(request_seq, *result);
                 Ok(Task::none())
             }
-            Message::VersionMetadataFetched(result) => {
-                self.handle_version_metadata_fetched(*result);
+            Message::VersionMetadataFetched {
+                request_seq,
+                result,
+            } => {
+                self.handle_version_metadata_fetched(request_seq, *result);
                 Ok(Task::none())
             }
             Message::ShowVersionDetail(version) => {

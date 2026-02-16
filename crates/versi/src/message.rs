@@ -22,6 +22,7 @@ pub enum Message {
     SelectPreviousEnvironment,
     EnvironmentLoaded {
         env_id: EnvironmentId,
+        request_seq: u64,
         result: Result<Vec<InstalledVersion>, AppError>,
     },
     RefreshEnvironment,
@@ -37,8 +38,14 @@ pub enum Message {
     SearchFilterToggled(SearchFilter),
 
     FetchRemoteVersions,
-    RemoteVersionsFetched(Result<Vec<RemoteVersion>, AppError>),
-    ReleaseScheduleFetched(Box<Result<ReleaseSchedule, AppError>>),
+    RemoteVersionsFetched {
+        request_seq: u64,
+        result: Result<Vec<RemoteVersion>, AppError>,
+    },
+    ReleaseScheduleFetched {
+        request_seq: u64,
+        result: Box<Result<ReleaseSchedule, AppError>>,
+    },
 
     CloseModal,
     OpenChangelog(String),
@@ -146,7 +153,10 @@ pub enum Message {
     OpenBackendUpdate,
 
     FetchReleaseSchedule,
-    VersionMetadataFetched(Box<Result<HashMap<String, VersionMeta>, AppError>>),
+    VersionMetadataFetched {
+        request_seq: u64,
+        result: Box<Result<HashMap<String, VersionMeta>, AppError>>,
+    },
     ShowVersionDetail(String),
 
     VersionListCursorMoved(iced::Point),
