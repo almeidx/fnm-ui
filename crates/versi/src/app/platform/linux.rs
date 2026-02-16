@@ -33,12 +33,12 @@ pub(crate) fn set_update_badge(visible: bool) {
 pub(crate) fn set_dock_visible(_visible: bool) {}
 
 pub(crate) fn is_wayland() -> bool {
-    is_wayland_with(std::env::var)
+    is_wayland_with(|name| std::env::var(name))
 }
 
 fn is_wayland_with<F>(get_var: F) -> bool
 where
-    F: Fn(&str) -> Result<String, std::env::VarError>,
+    F: for<'a> Fn(&'a str) -> Result<String, std::env::VarError>,
 {
     get_var("XDG_SESSION_TYPE").map_or_else(
         |_| get_var("WAYLAND_DISPLAY").is_ok(),
