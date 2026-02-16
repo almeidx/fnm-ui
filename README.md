@@ -1,21 +1,22 @@
 # Versi
 
-A native GUI application for managing Node.js versions.
+Versi is a native desktop app for managing Node.js versions.
+
+It currently supports multiple backends (`fnm` and `nvm`) through a backend-agnostic architecture, so backend-specific behavior is isolated from the GUI and platform layers.
 
 ![Versi screenshot](assets/screenshot.png)
 
 ## Features
 
-- View and manage installed Node.js versions
-- Install/uninstall Node.js versions
-- Set default Node.js version
-- Bulk operations: update all majors, clean EOL versions, keep only latest per major
-- Check for updates and install them
-- Light and dark theme support (follows system preference)
-- Shell configuration detection and setup
-- Search and filter versions
-- System tray support with quick version switching
-- WSL integration on Windows (manage Node.js in WSL distros)
+- Manage installed Node.js versions with install, uninstall, set-default, and use actions
+- Backend selection and detection during onboarding (`fnm` and `nvm`)
+- Bulk operations: update majors, remove EOL versions, keep only latest per major
+- Shell integration setup and verification
+- Environment-aware management (native + WSL on Windows)
+- Search, filtering, and grouped version lists
+- Light/dark theme support with system preference integration
+- System tray support with quick actions
+- In-app update checks and platform-specific self-update flow
 
 ## Installation
 
@@ -33,139 +34,143 @@ Download the latest release for your platform from the [Releases](https://github
 
 ### macOS Installation
 
-1. Download the appropriate `.zip` file for your Mac
-2. Extract the zip file
+1. Download the appropriate `.zip` file for your Mac.
+2. Extract the archive.
 3. Run the install script (recommended):
    ```bash
    ./install.sh
    ```
-   This will remove the quarantine attribute and move `Versi.app` to your Applications folder.
+   This removes quarantine attributes and moves `Versi.app` to your Applications folder.
 
-   **Or install manually:**
-   - Drag `Versi.app` to your Applications folder
-   - On first launch, macOS may block the app because it's not signed. To fix this:
-     ```bash
-     xattr -cr "/Applications/Versi.app"
-     ```
-     Or right-click the app and select "Open" to bypass Gatekeeper.
+Manual install:
+- Drag `Versi.app` to `/Applications`.
+- If macOS blocks first launch:
+  ```bash
+  xattr -cr "/Applications/Versi.app"
+  ```
+  Or right-click the app and choose "Open".
 
 ### Windows Installation
 
-1. Download `versi-windows-x64.msi`
-2. Double-click to run the installer
-3. The app will be available in your Start Menu
+1. Download `versi-windows-x64.msi`.
+2. Run the installer.
+3. Launch Versi from the Start Menu.
 
 ### Linux Installation
 
-1. Download the appropriate `.zip` file
-2. Extract the archive:
+1. Download the appropriate `.zip` file.
+2. Extract:
    ```bash
    unzip versi-linux-x64.zip
    ```
-3. Move the binary to a location in your PATH:
+3. Move the binary to your `PATH`:
    ```bash
    sudo mv versi /usr/local/bin/
    ```
-4. (Optional) Install the desktop entry for application launchers:
+4. Optional desktop entry:
    ```bash
    mv dev.almeidx.versi.desktop ~/.local/share/applications/
    ```
 
-### Build from Source
+## Build from Source
 
-#### Prerequisites
+### Prerequisites
 
-- [Rust](https://rustup.rs/) 1.75 or later
-- [fnm](https://github.com/Schniz/fnm) installed and configured
+- [Rust](https://rustup.rs/) stable toolchain with Rust 2024 edition support
+- Linux only: GTK/AppIndicator dev libraries
+  ```bash
+  sudo apt-get install -y libgtk-3-dev libayatana-appindicator3-dev
+  ```
 
-#### Build Steps
+You do not need `fnm`/`nvm` installed to build. At runtime, Versi will detect configured backends and guide setup via onboarding.
+
+### Build Steps
 
 ```bash
-# Clone the repository
 git clone https://github.com/almeidx/versi.git
 cd versi
-
-# Build in release mode
-cargo build --release
-
-# The binary will be at target/release/versi
+cargo build -p versi --release
 ```
+
+Binary output:
+- `target/release/versi`
 
 ## Usage
 
-1. **First Launch**: If fnm is not detected, the app will guide you through installation and shell configuration.
-
-2. **Main View**: Shows all installed Node.js versions grouped by major version. Click a group to expand/collapse.
-
-3. **Install**: Click the "Install" button to browse and install new versions. Recommended versions are shown at the top.
-
-4. **Set Default**: Click "Set Default" on any version to make it the default.
-
-5. **Uninstall**: Click "Uninstall" to remove a version. A toast notification appears with an "Undo" option.
-
-6. **Updates**: If a newer version is available for an installed major version, an update badge appears. Click it to install.
-
-7. **Settings**: Access theme preferences and shell configuration status.
+1. First launch: select a backend and complete setup if needed.
+2. Main view: browse installed versions grouped by major.
+3. Install: use the install flow to fetch available versions.
+4. Set default / use: set shell default or activate a version.
+5. Uninstall: remove versions with confirmation for destructive actions.
+6. Bulk actions: update majors or clean old/EOL versions.
+7. Settings: theme, shell integration, launch options, logging.
 
 ## Development
 
-### Project Structure
+### Workspace Layout
 
 ```
 versi/
-├── crates/
-│   ├── versi/          # Main GUI application
-│   ├── versi-core/     # fnm CLI wrapper library
-│   ├── versi-shell/    # Shell detection & configuration
-│   └── versi-platform/ # Platform abstractions
+├── crates/versi/          # Main Iced GUI app
+├── crates/versi-backend/  # Backend traits + shared types
+├── crates/versi-core/     # Shared logic (updates, schedule, metadata)
+├── crates/versi-fnm/      # fnm backend implementation
+├── crates/versi-nvm/      # nvm backend implementation
+├── crates/versi-shell/    # Shell detection/config helpers
+└── crates/versi-platform/ # Platform abstractions
 ```
 
-### Commands
+### Common Commands
 
 ```bash
-# Run in development mode
-cargo run
+# Run app
+cargo run -p versi
 
-# Run tests
-cargo test
+# Build/check
+cargo build --workspace
+cargo check --workspace
 
-# Check code
-cargo clippy
+# Tests
+cargo test --workspace
 
-# Format code
-cargo fmt
+# Format
+cargo fmt --all
+cargo fmt --all -- --check
+
+# Lint (local strict mode used in CI)
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```
 
 ### Architecture
 
-The application uses [Iced](https://iced.rs/) with the Elm architecture:
-- **State**: Immutable application state
-- **Message**: Events that trigger state changes
-- **Update**: Logic to handle messages and produce side effects
-- **View**: Pure functions rendering state to UI
+Versi uses [Iced](https://iced.rs/) with Elm-style state management:
+- `State`: data model (`crates/versi/src/state/`)
+- `Message`: event types (`crates/versi/src/message.rs`)
+- `Update`: message handling (`crates/versi/src/app/`)
+- `View`: pure rendering (`crates/versi/src/views/`, `crates/versi/src/widgets/`)
 
-See [AGENTS.md](AGENTS.md) for detailed development documentation.
+Message dispatch is split into navigation, operations, settings, and system routing modules under `crates/versi/src/app/update/`.
 
-## Requirements
+For contributor and agent-facing details, see [AGENTS.md](AGENTS.md).
 
-- **fnm**: The application requires fnm to be installed. If not found, the onboarding wizard will help you install it.
-- **Shell Configuration**: fnm needs to be configured in your shell for full functionality.
+## Runtime Requirements
 
-## License
-
-GNU General Public License v3.0 - see [LICENSE](LICENSE) for details.
+- At least one backend available (`fnm` or `nvm`) for version management
+- Shell integration configured for full command-line behavior
 
 ## Contributing
 
-Contributions are welcome! Please read the contributing guidelines before submitting a PR.
+1. Fork and branch.
+2. Implement changes with tests.
+3. Run formatting, tests, and clippy.
+4. Open a PR.
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
+## License
+
+GNU General Public License v3.0. See [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- [fnm](https://github.com/Schniz/fnm) - The fast Node.js version manager this UI wraps
-- [Iced](https://iced.rs/) - The Rust GUI framework powering this application
+- [fnm](https://github.com/Schniz/fnm)
+- [nvm](https://github.com/nvm-sh/nvm)
+- [Iced](https://iced.rs/)

@@ -2,12 +2,18 @@
 
 ## Project Overview
 
-Versi is a native GUI application for managing Node.js versions. It currently uses [fnm](https://github.com/Schniz/fnm) (Fast Node Manager) as its backend, but the architecture is backend-agnostic — adding a new backend (e.g., nvm, volta) requires only implementing the `BackendProvider` and `VersionManager` traits.
+Versi is a native GUI application for managing Node.js versions.
+
+The app is backend-agnostic and currently ships with:
+- [fnm](https://github.com/Schniz/fnm) backend (`versi-fnm`)
+- [nvm](https://github.com/nvm-sh/nvm) backend (`versi-nvm`)
+
+Adding a new backend requires implementing `BackendProvider` and `VersionManager` from `versi-backend` and wiring the provider into the app initialization path.
 
 ## Technology Stack
 
-- **Language**: Rust (2021 edition)
-- **GUI Framework**: [Iced](https://iced.rs/) 0.13 (Elm architecture)
+- **Language**: Rust (2024 edition)
+- **GUI Framework**: [Iced](https://iced.rs/) 0.14 (Elm architecture)
 - **Async Runtime**: Tokio
 - **Build System**: Cargo workspace
 
@@ -20,21 +26,42 @@ versi/
 │   ├── versi/                    # Main GUI application
 │   │   └── src/
 │   │       ├── main.rs           # Entry point
-│   │       ├── app/              # Iced Application implementation (mod.rs + handler modules)
-│   │       │   ├── mod.rs        # Main update loop, Versi struct, message dispatch
-│   │       │   ├── init.rs       # Initialization and backend detection
-│   │       │   ├── environment.rs # Environment switching and loading
-│   │       │   ├── onboarding.rs # Onboarding flow handlers
-│   │       │   ├── operations.rs # Install/uninstall/set-default operations
+│   │       ├── app/              # Iced application handlers
+│   │       │   ├── mod.rs        # Versi struct + app bootstrap
+│   │       │   ├── init.rs       # Backend detection and initial load
+│   │       │   ├── versions.rs   # Remote versions + metadata + schedule loading
+│   │       │   ├── operations.rs # Install/uninstall/set-default/use operation handlers
+│   │       │   ├── bulk_operations.rs # Bulk install/uninstall flows
+│   │       │   ├── auto_update.rs # App update download/apply flow
+│   │       │   ├── settings_io.rs # Import/export settings
+│   │       │   ├── environment.rs # Native/WSL environment switching
 │   │       │   ├── shell.rs      # Shell configuration handlers
-│   │       │   ├── versions.rs   # Remote version fetching and update checks
-│   │       │   ├── tray_handlers.rs # System tray event handlers
-│   │       │   └── platform.rs   # Platform-specific helpers
+│   │       │   ├── tray_handlers.rs # Tray event handlers
+│   │       │   ├── window.rs     # Window state and geometry handling
+│   │       │   ├── async_helpers.rs # Timeout/retry utilities
+│   │       │   ├── update.rs     # Main message dispatch entry
+│   │       │   ├── update/       # Dispatch split by concern
+│   │       │   │   ├── navigation.rs
+│   │       │   │   ├── operations.rs
+│   │       │   │   ├── settings.rs
+│   │       │   │   └── system.rs
+│   │       │   └── platform/     # Platform-specific app integrations
+│   │       │       ├── linux.rs
+│   │       │       ├── macos.rs
+│   │       │       ├── windows.rs
+│   │       │       └── unsupported.rs
 │   │       ├── message.rs        # Message enum (Elm-style)
-│   │       ├── state.rs          # Application state structs
-│   │       ├── theme.rs          # Light/dark themes and styles
+│   │       ├── state/            # Application state modules
+│   │       │   ├── mod.rs
+│   │       │   ├── main.rs
+│   │       │   ├── environment.rs
+│   │       │   ├── onboarding.rs
+│   │       │   ├── operations.rs
+│   │       │   └── ui.rs
+│   │       ├── theme/            # Theme palette and styles
 │   │       ├── settings.rs       # User settings persistence
 │   │       ├── logging.rs        # Debug log file management
+│   │       ├── cache.rs          # Cached remote data persistence
 │   │       ├── tray.rs           # System tray integration
 │   │       ├── single_instance.rs # Single-instance enforcement
 │   │       ├── views/            # UI views (main_view, settings_view, onboarding, loading, about)
@@ -45,29 +72,38 @@ versi/
 │   │       ├── types.rs          # Shared types (NodeVersion, InstalledVersion, RemoteVersion, etc.)
 │   │       ├── error.rs          # BackendError type
 │   │       └── lib.rs            # Re-exports
-│   ├── versi-core/               # Shared utilities (release schedule, app updates, HideWindow)
+│   ├── versi-core/               # Shared utilities (release schedule, app updates, metadata)
 │   │   └── src/
+│   │       ├── auto_update.rs    # Self-update download/extract/apply flow
 │   │       ├── schedule.rs       # Node.js release schedule fetching
+│   │       ├── metadata.rs       # nodejs.org index metadata fetching
 │   │       ├── update.rs         # App update checking, GitHubRelease, version comparison
 │   │       └── commands/mod.rs   # HideWindow trait + impls
 │   ├── versi-fnm/                # fnm backend implementation
 │   │   └── src/
 │   │       ├── provider.rs       # FnmProvider - implements BackendProvider
 │   │       ├── backend.rs        # FnmBackend - implements VersionManager
-│   │       ├── client.rs         # FnmClient - CLI command execution
 │   │       ├── version.rs        # Version parsing
-│   │       ├── progress.rs       # Install progress tracking
 │   │       ├── detection.rs      # fnm binary detection
 │   │       ├── update.rs         # fnm update checking
+│   │       └── error.rs          # Error types
+│   ├── versi-nvm/                # nvm backend implementation
+│   │   └── src/
+│   │       ├── provider.rs       # NvmProvider - implements BackendProvider
+│   │       ├── backend.rs        # NvmBackend - implements VersionManager
+│   │       ├── client.rs         # nvm command execution abstraction
+│   │       ├── detection.rs      # nvm detection
+│   │       ├── update.rs         # nvm update checking
+│   │       ├── version.rs        # nvm output parsing
 │   │       └── error.rs          # Error types
 │   ├── versi-shell/              # Shell detection & configuration (backend-agnostic)
 │   │   └── src/
 │   │       ├── detect.rs         # Shell detection
 │   │       ├── config.rs         # Config file editing (parameterized on marker/label)
-│   │       ├── shells/           # Shell-specific implementations
 │   │       └── verify.rs         # Configuration verification (parameterized on marker/backend_binary)
 │   └── versi-platform/           # Platform abstractions
 │       └── src/
+│           ├── commands.rs       # HideWindow trait implementations
 │           ├── paths.rs          # Platform-native paths
 │           ├── environment.rs    # Environment abstraction
 │           └── wsl.rs            # WSL distro detection (Windows)
@@ -79,9 +115,9 @@ versi/
 
 The application follows Iced's Elm-style architecture:
 
-1. **State** (`state.rs`): Immutable application state
+1. **State** (`state/`): Immutable application state modules
 2. **Message** (`message.rs`): Events that can modify state
-3. **Update** (`app.rs`): Handles messages and returns new state + tasks
+3. **Update** (`app/update.rs` + dispatch modules): Handles messages and returns new state + tasks
 4. **View** (`views/`): Pure functions that render state to UI
 
 ### Key Patterns
@@ -91,31 +127,32 @@ The application follows Iced's Elm-style architecture:
 - **Theming**: Dynamic light/dark themes based on system preference
 - **Operation Queue**: Installs run concurrently (`active_installs: Vec<Operation>`), while uninstall and set-default are exclusive (`exclusive_op: Option<Operation>`). Pending operations are queued and drained when capacity is available.
 - **System Tray**: Optional background tray icon with version switching support
-- **Backend Abstraction**: The `Versi` struct holds an `Arc<dyn BackendProvider>` which provides all backend-specific behavior. The GUI, shell, and platform crates have no direct dependency on any concrete backend.
+- **Backend Abstraction**: The app resolves backend providers (`fnm`/`nvm`) through `BackendProvider` and uses `VersionManager` trait objects. GUI/shell/platform crates avoid coupling to backend implementation details.
 
 ## Development Commands
 
 ```bash
 # Build the project
-cargo build
+cargo build --workspace
 
 # Run the application
-cargo run
+cargo run -p versi
 
 # Run with release optimizations
-cargo build --release
+cargo build --release --workspace
 
 # Check for errors without building
-cargo check
+cargo check --workspace
 
 # Run tests
-cargo test
+cargo test --workspace
 
 # Format code
-cargo fmt
+cargo fmt --all
+cargo fmt --all -- --check
 
-# Lint code
-cargo clippy
+# Lint code (recommended strict local check)
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```
 
 ## Code Style Guidelines
@@ -126,6 +163,8 @@ cargo clippy
 - Keep view functions pure (no side effects)
 - Use meaningful message names that describe the event
 - Group related functionality into separate crates
+- Extract deterministic logic into small helpers and cover it with unit tests
+- Keep tests local to modules when practical, and integration tests in `tests/` when cross-module behavior matters
 
 ## UI Guidelines
 
@@ -135,45 +174,45 @@ cargo clippy
 ## Key Files to Understand
 
 1. `crates/versi/src/app/mod.rs` - Main application logic and message dispatch
-2. `crates/versi/src/state.rs` - All state types and their relationships
-3. `crates/versi/src/message.rs` - All possible application events
-4. `crates/versi-backend/src/traits.rs` - `BackendProvider` and `VersionManager` trait definitions
-5. `crates/versi-fnm/src/provider.rs` - `FnmProvider` (concrete backend implementation)
+2. `crates/versi/src/app/update.rs` - Main update dispatcher and routing handoff
+3. `crates/versi/src/state/main.rs` - Main app state and environment coordination
+4. `crates/versi/src/message.rs` - All possible application events
+5. `crates/versi-backend/src/traits.rs` - `BackendProvider` and `VersionManager` trait definitions
+6. `crates/versi-fnm/src/provider.rs` - `FnmProvider` (concrete backend implementation)
+7. `crates/versi-nvm/src/provider.rs` - `NvmProvider` (concrete backend implementation)
 
 ## Common Tasks
 
 ### Adding a New Feature
 
 1. Add new message variant(s) to `message.rs`
-2. Add state fields to `state.rs` if needed
-3. Handle message in `app.rs` update function
+2. Add state fields in `state/` modules if needed
+3. Route and handle message in `app/update/*` dispatch handlers
 4. Update view in appropriate `views/` file
+5. Add unit tests for any deterministic logic introduced
 
 ### Adding a New Backend
 
 1. Create a new crate (e.g., `versi-volta`), following `versi-fnm` as a reference
 2. Implement `BackendProvider` trait (detection, installation, update checking)
 3. Implement `VersionManager` trait (list installed/remote, install, uninstall, set default)
-4. Wire the new provider into `Versi::new()` in `app/mod.rs`
-
-### Adding a New Command to the fnm Backend
-
-1. Add method to `FnmBackend` in `versi-fnm/src/backend.rs`
-2. Add any new types to `versi-backend/src/types.rs` if they're shared, or `versi-fnm/src/version.rs` if fnm-specific
-3. Expose via the `VersionManager` trait if applicable
-4. Create corresponding message and handler in versi
+4. Add the backend kind to `crates/versi/src/backend_kind.rs`
+5. Wire the provider into initialization in `crates/versi/src/app/mod.rs` / `crates/versi/src/app/init.rs`
 
 ### Modifying Styles
 
-- All styles are in `crates/versi/src/theme.rs`
-- Light/dark palettes defined at the top
-- Button and container styles as functions
+- Theme root: `crates/versi/src/theme/mod.rs`
+- Style functions: `crates/versi/src/theme/styles/`
+- Reuse existing style helpers instead of introducing ad-hoc inline style closures when possible
 
 ## Testing
 
 - Unit tests should be in the same file as the code
-- Integration tests in `tests/` directory
-- Test backend interactions with mock or real backend installation
+- Integration tests should live in `tests/` directories (example: `crates/versi-shell/tests/`)
+- Prefer deterministic tests that avoid external network/process dependencies unless specifically testing those integrations
+- Before finishing work, run:
+  - `cargo test --workspace`
+  - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 
 ## Dependencies
 
@@ -185,6 +224,8 @@ Key external crates:
 - `open` - Opening URLs in browser
 - `dirs` - Platform directories
 - `which` - Finding executables
+- `zbus` - Linux launcher badge integration
+- `gtk` - Linux display integration/bootstrap
 
 ## Data & Storage
 
@@ -199,19 +240,27 @@ Key external crates:
 
 ## Backend Interaction
 
-The GUI interacts with backends exclusively through the `BackendProvider` and `VersionManager` traits defined in `versi-backend`. The current backend (fnm) executes CLI commands as subprocesses via `FnmClient`.
+The GUI interacts with backends exclusively through the `BackendProvider` and `VersionManager` traits defined in `versi-backend`.
 
 - All operations run as async tasks, keeping the UI responsive via Iced's `Task` system
 - Parse stdout/stderr for status and results
 - Multiple installs can run concurrently; uninstall and set-default wait for all installs to finish
 
-**Key fnm commands used (in versi-fnm):**
+**Key fnm commands used (in `versi-fnm`):**
 - `fnm list` - Get installed versions
 - `fnm list-remote` - Get available versions
 - `fnm install <version>` - Install a version
 - `fnm uninstall <version>` - Remove a version
 - `fnm default <version>` - Set default version
 - `fnm current` - Get currently active version
+
+**Key nvm commands used (in `versi-nvm`):**
+- `nvm ls` - Get installed versions
+- `nvm ls-remote` - Get available versions
+- `nvm install <version>` - Install a version
+- `nvm uninstall <version>` - Remove a version
+- `nvm alias default <version>` - Set default version
+- `nvm current` - Get currently active version
 
 ## Platform-Specific Notes
 
@@ -230,7 +279,7 @@ The GUI interacts with backends exclusively through the `BackendProvider` and `V
 - Lists all WSL distros via `wsl.exe --list --verbose`
 - Separately checks which distros are running via `wsl.exe --list --running --quiet`
 - Only checks for the backend in running distros (avoids booting non-running distros)
-- Detects backend binary path by checking common locations (`~/.local/share/fnm/fnm`, `~/.cargo/bin/fnm`, etc.)
+- Detects backend paths using backend-specific search paths (e.g., `~/.local/share/fnm/fnm`, `~/.nvm/nvm.sh`)
 - Shows all distros as tabs; non-running or backend-less distros appear disabled with reason
 - Commands executed directly via `wsl.exe -d <distro> /path/to/backend ...` (no shell needed)
 - Shell detection in settings is environment-aware: shows Linux shells (bash/zsh/fish) for WSL environments
