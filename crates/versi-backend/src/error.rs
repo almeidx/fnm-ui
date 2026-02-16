@@ -38,3 +38,23 @@ impl From<std::io::Error> for BackendError {
         BackendError::IoError(err.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BackendError;
+
+    #[test]
+    fn io_error_conversion_maps_to_io_variant() {
+        let mapped = BackendError::from(std::io::Error::other("permission denied"));
+        assert!(matches!(mapped, BackendError::IoError(msg) if msg.contains("permission denied")));
+    }
+
+    #[test]
+    fn command_failed_display_includes_stderr() {
+        let error = BackendError::CommandFailed {
+            stderr: "nvm: command not found".to_string(),
+        };
+
+        assert_eq!(error.to_string(), "Command failed: nvm: command not found");
+    }
+}

@@ -32,3 +32,20 @@ impl From<std::io::Error> for NvmError {
         NvmError::IoError(err.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::NvmError;
+
+    #[test]
+    fn io_error_conversion_maps_to_io_variant() {
+        let mapped = NvmError::from(std::io::Error::other("disk full"));
+        assert!(matches!(mapped, NvmError::IoError(msg) if msg.contains("disk full")));
+    }
+
+    #[test]
+    fn parse_error_display_is_human_readable() {
+        let error = NvmError::ParseError("invalid semver".to_string());
+        assert_eq!(error.to_string(), "Failed to parse version: invalid semver");
+    }
+}

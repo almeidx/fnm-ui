@@ -140,3 +140,65 @@ impl BackendProvider for NvmProvider {
         vec!["$HOME/.nvm/nvm.sh"]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use versi_backend::{BackendDetection, BackendProvider};
+
+    use super::NvmProvider;
+
+    #[test]
+    fn provider_metadata_is_stable() {
+        let provider = NvmProvider::new();
+
+        assert_eq!(provider.name(), "nvm");
+        assert_eq!(provider.display_name(), "nvm (Node Version Manager)");
+        assert_eq!(provider.shell_config_marker(), "NVM_DIR");
+        assert_eq!(provider.shell_config_label(), "nvm (Node Version Manager)");
+    }
+
+    #[test]
+    fn create_manager_uses_detection_data_dir_for_unix_fallback() {
+        let provider = NvmProvider::new();
+        let detection = BackendDetection {
+            found: true,
+            path: Some(PathBuf::from("/custom/nvm.sh")),
+            version: Some("0.40.1".to_string()),
+            in_path: true,
+            data_dir: Some(PathBuf::from("/custom/.nvm")),
+        };
+
+        let manager = provider.create_manager(&detection);
+        let info = manager.backend_info();
+
+        assert_eq!(info.path, PathBuf::from("/custom/.nvm/nvm.sh"));
+        assert_eq!(info.data_dir, Some(PathBuf::from("/custom/.nvm")));
+        assert_eq!(info.version.as_deref(), Some("0.40.1"));
+    }
+
+    #[test]
+    fn create_wsl_manager_trims_nvm_script_suffix() {
+        let provider = NvmProvider::new();
+
+        let manager = provider
+            .create_manager_for_wsl("Ubuntu".to_string(), "/home/user/.nvm/nvm.sh".to_string());
+
+        assert_eq!(
+            manager.backend_info().path,
+            PathBuf::from("/home/user/.nvm/nvm.sh")
+        );
+        assert_eq!(
+            manager.backend_info().data_dir,
+            Some(PathBuf::from("/home/user/.nvm"))
+        );
+    }
+
+    #[test]
+    fn wsl_search_paths_contains_default_nvm_script_path() {
+        let provider = NvmProvider::new();
+
+        assert_eq!(provider.wsl_search_paths(), vec!["$HOME/.nvm/nvm.sh"]);
+    }
+}
