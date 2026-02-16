@@ -22,76 +22,103 @@ impl Versi {
             TrayMessage::HideWindow => self.tray_hide_window(),
             TrayMessage::Quit => iced::exit(),
             _ if !matches!(self.state, AppState::Main(_)) => Task::none(),
-            TrayMessage::OpenSettings => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.view = MainViewKind::Settings;
-                    state.settings_state.checking_shells = true;
-                }
-                let show_task = if let Some(id) = self.window_id {
-                    platform::set_dock_visible(true);
-                    Task::batch([
-                        iced::window::set_mode(id, iced::window::Mode::Windowed),
-                        iced::window::minimize(id, false),
-                        iced::window::gain_focus(id),
-                    ])
-                } else {
-                    Task::none()
-                };
-                let shell_task = self.handle_check_shell_setup();
-                let log_stats_task = Task::perform(
-                    async {
-                        let log_path = versi_platform::AppPaths::new().ok()?.log_file();
-                        std::fs::metadata(&log_path).ok().map(|m| m.len())
-                    },
-                    Message::LogFileStatsLoaded,
-                );
-                Task::batch([show_task, shell_task, log_stats_task])
-            }
-            TrayMessage::OpenAbout => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.view = MainViewKind::About;
-                }
-                if let Some(id) = self.window_id {
-                    platform::set_dock_visible(true);
-                    Task::batch([
-                        iced::window::set_mode(id, iced::window::Mode::Windowed),
-                        iced::window::minimize(id, false),
-                        iced::window::gain_focus(id),
-                    ])
-                } else {
-                    Task::none()
-                }
-            }
+            TrayMessage::OpenSettings => self.tray_open_settings(),
+            TrayMessage::OpenAbout => self.tray_open_about(),
             TrayMessage::SetDefault { env_index, version } => {
-                let mut switched_env: Option<(
-                    versi_platform::EnvironmentId,
-                    crate::backend_kind::BackendKind,
-                )> = None;
-
-                if let AppState::Main(state) = &mut self.state
-                    && env_index != state.active_environment_idx
-                    && let Some(env) = state.environments.get(env_index)
-                {
-                    state.active_environment_idx = env_index;
-                    state.backend_name = env.backend_name;
-                    state.backend_update = None;
-                    switched_env = Some((env.id.clone(), env.backend_name));
-                }
-
-                if let Some((env_id, backend_name)) = switched_env {
-                    let env_provider = self.provider_for_kind(backend_name);
-                    self.provider = env_provider.clone();
-                    if let AppState::Main(state) = &mut self.state {
-                        state.backend = create_backend_for_environment(
-                            &env_id,
-                            &self.backend_path,
-                            self.backend_dir.as_ref(),
-                            &env_provider,
-                        );
-                    }
-                }
-                self.handle_set_default(version)
+                self.tray_set_default_for_environment(env_index, version)
             }
+        }
+    }
+
+    fn tray_open_settings(&mut self) -> Task<Message> {
+        self.set_tray_view(MainViewKind::Settings, true);
+
+        let show_task = self.show_and_focus_window_from_tray();
+        let shell_task = self.handle_check_shell_setup();
+        let log_stats_task = Self::load_log_file_stats();
+
+        Task::batch([show_task, shell_task, log_stats_task])
+    }
+
+    fn tray_open_about(&mut self) -> Task<Message> {
+        self.set_tray_view(MainViewKind::About, false);
+        self.show_and_focus_window_from_tray()
+    }
+
+    fn set_tray_view(&mut self, view: MainViewKind, check_shells: bool) {
+        if let AppState::Main(state) = &mut self.state {
+            state.view = view;
+            state.settings_state.checking_shells = check_shells;
+        }
+    }
+
+    fn show_and_focus_window_from_tray(&self) -> Task<Message> {
+        if let Some(id) = self.window_id {
+            platform::set_dock_visible(true);
+            Task::batch([
+                iced::window::set_mode(id, iced::window::Mode::Windowed),
+                iced::window::minimize(id, false),
+                iced::window::gain_focus(id),
+            ])
+        } else {
+            Task::none()
+        }
+    }
+
+    fn load_log_file_stats() -> Task<Message> {
+        Task::perform(
+            async {
+                let log_path = versi_platform::AppPaths::new().ok()?.log_file();
+                std::fs::metadata(&log_path).ok().map(|m| m.len())
+            },
+            Message::LogFileStatsLoaded,
+        )
+    }
+
+    fn tray_set_default_for_environment(
+        &mut self,
+        env_index: usize,
+        version: String,
+    ) -> Task<Message> {
+        if let Some((env_id, backend_name)) = self.switch_environment_from_tray(env_index) {
+            self.activate_tray_environment_backend(&env_id, backend_name);
+        }
+        self.handle_set_default(version)
+    }
+
+    fn switch_environment_from_tray(
+        &mut self,
+        env_index: usize,
+    ) -> Option<(
+        versi_platform::EnvironmentId,
+        crate::backend_kind::BackendKind,
+    )> {
+        if let AppState::Main(state) = &mut self.state
+            && env_index != state.active_environment_idx
+            && let Some(env) = state.environments.get(env_index)
+        {
+            state.active_environment_idx = env_index;
+            state.backend_name = env.backend_name;
+            state.backend_update = None;
+            return Some((env.id.clone(), env.backend_name));
+        }
+        None
+    }
+
+    fn activate_tray_environment_backend(
+        &mut self,
+        env_id: &versi_platform::EnvironmentId,
+        backend_name: crate::backend_kind::BackendKind,
+    ) {
+        let env_provider = self.provider_for_kind(backend_name);
+        self.provider = env_provider.clone();
+        if let AppState::Main(state) = &mut self.state {
+            state.backend = create_backend_for_environment(
+                env_id,
+                &self.backend_path,
+                self.backend_dir.as_ref(),
+                &env_provider,
+            );
         }
     }
 
