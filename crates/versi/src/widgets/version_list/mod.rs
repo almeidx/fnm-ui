@@ -15,7 +15,7 @@ use crate::message::Message;
 use crate::state::{EnvironmentState, OperationQueue, SearchFilter};
 use crate::theme::styles;
 
-use filters::{filter_available_versions, resolve_alias};
+use filters::search_available_versions;
 
 pub struct VersionListContext<'a> {
     pub schedule: Option<&'a ReleaseSchedule>,
@@ -272,8 +272,7 @@ fn search_results_content<'a>(
         return None;
     }
 
-    let alias_resolved = resolve_alias(remote_versions, search_query);
-    let available_list = filter_available_versions(
+    let search = search_available_versions(
         remote_versions,
         search_query,
         search_results_limit,
@@ -282,12 +281,12 @@ fn search_results_content<'a>(
         ctx.schedule,
     );
 
-    if available_list.is_empty() {
+    if search.versions.is_empty() {
         return None;
     }
 
     let mut card_items: Vec<Element<Message>> = Vec::new();
-    if alias_resolved.is_some() {
+    if search.alias_resolved {
         card_items.push(
             text(format!("\"{search_query}\" resolves to:"))
                 .size(12)
@@ -296,7 +295,7 @@ fn search_results_content<'a>(
         );
         card_items.push(Space::new().height(4).into());
     }
-    for version in &available_list {
+    for version in &search.versions {
         card_items.push(available::available_version_row(version, ctx));
     }
 

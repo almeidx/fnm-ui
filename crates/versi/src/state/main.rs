@@ -7,6 +7,7 @@ use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 
 use crate::backend_kind::BackendKind;
 use crate::error::AppError;
+use crate::version_query::search_available_versions;
 
 use super::{
     ContextMenu, EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast,
@@ -140,49 +141,16 @@ impl MainState {
                 }
             }
         } else {
-            let query = &self.search_query;
-            let query_lower = query.to_lowercase();
-            let versions = &self.available_versions.versions;
+            let search = search_available_versions(
+                &self.available_versions.versions,
+                &self.search_query,
+                search_results_limit,
+                &self.active_filters,
+                &env.installed_set,
+                self.available_versions.schedule.as_ref(),
+            );
 
-            if let Some(resolved) = resolve_alias_query(versions, &query_lower) {
-                result.push(resolved.version.to_string());
-                return result;
-            }
-
-            let mut filtered: Vec<&RemoteVersion> = versions
-                .iter()
-                .filter(|v| {
-                    if query_lower == "lts" {
-                        return v.lts_codename.is_some();
-                    }
-                    let version_str = v.version.to_string();
-                    version_str.contains(query.as_str())
-                        || v.lts_codename
-                            .as_ref()
-                            .is_some_and(|c| c.to_lowercase().contains(&query_lower))
-                })
-                .collect();
-
-            filtered.sort_by(|a, b| b.version.cmp(&a.version));
-
-            let mut latest_by_minor: HashMap<(u32, u32), &RemoteVersion> = HashMap::new();
-            for v in &filtered {
-                let key = (v.version.major, v.version.minor);
-                latest_by_minor
-                    .entry(key)
-                    .and_modify(|existing| {
-                        if v.version.patch > existing.version.patch {
-                            *existing = v;
-                        }
-                    })
-                    .or_insert(v);
-            }
-
-            let mut available: Vec<&RemoteVersion> = latest_by_minor.into_values().collect();
-            available.sort_by(|a, b| b.version.cmp(&a.version));
-            available.truncate(search_results_limit);
-
-            for v in available {
+            for v in search.versions {
                 result.push(v.version.to_string());
             }
         }
@@ -278,31 +246,6 @@ pub enum NetworkStatus {
     Fetching,
     Offline,
     Stale,
-}
-
-fn resolve_alias_query<'a>(
-    versions: &'a [RemoteVersion],
-    query_lower: &str,
-) -> Option<&'a RemoteVersion> {
-    match query_lower {
-        "latest" | "stable" | "current" => versions.iter().max_by_key(|v| &v.version),
-        "lts/*" => versions
-            .iter()
-            .filter(|v| v.lts_codename.is_some())
-            .max_by_key(|v| &v.version),
-        q if q.starts_with("lts/") => {
-            let codename = &q[4..];
-            versions
-                .iter()
-                .filter(|v| {
-                    v.lts_codename
-                        .as_ref()
-                        .is_some_and(|c| c.to_lowercase() == codename)
-                })
-                .max_by_key(|v| &v.version)
-        }
-        _ => None,
-    }
 }
 
 #[cfg(test)]

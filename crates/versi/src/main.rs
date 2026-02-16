@@ -14,6 +14,7 @@ mod single_instance;
 mod state;
 mod theme;
 mod tray;
+mod version_query;
 mod views;
 mod widgets;
 
