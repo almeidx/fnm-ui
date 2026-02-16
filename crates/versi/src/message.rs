@@ -37,8 +37,8 @@ pub enum Message {
     SearchFilterToggled(SearchFilter),
 
     FetchRemoteVersions,
-    RemoteVersionsFetched(Result<Vec<RemoteVersion>, String>),
-    ReleaseScheduleFetched(Box<Result<ReleaseSchedule, String>>),
+    RemoteVersionsFetched(Result<Vec<RemoteVersion>, AppError>),
+    ReleaseScheduleFetched(Box<Result<ReleaseSchedule, AppError>>),
 
     CloseModal,
     OpenChangelog(String),
@@ -100,13 +100,13 @@ pub enum Message {
     LogFileStatsLoaded(Option<u64>),
     ShellSetupChecked(Vec<(ShellType, versi_shell::VerificationResult)>),
     ConfigureShell(ShellType),
-    ShellConfigured(ShellType, Result<(), String>),
+    ShellConfigured(ShellType, Result<(), AppError>),
     ShellFlagsUpdated,
 
     ExportSettings,
-    SettingsExported(Result<std::path::PathBuf, String>),
+    SettingsExported(Result<std::path::PathBuf, AppError>),
     ImportSettings,
-    SettingsImported(Result<(), String>),
+    SettingsImported(Result<(), AppError>),
 
     PreferredBackendChanged(BackendKind),
 
@@ -114,9 +114,9 @@ pub enum Message {
     OnboardingBack,
     OnboardingSelectBackend(BackendKind),
     OnboardingInstallBackend,
-    OnboardingBackendInstallResult(Result<(), String>),
+    OnboardingBackendInstallResult(Result<(), AppError>),
     OnboardingConfigureShell(ShellType),
-    OnboardingShellConfigResult(Result<(), String>),
+    OnboardingShellConfigResult(Result<(), AppError>),
     OnboardingComplete,
 
     AnimationTick,
@@ -131,7 +131,7 @@ pub enum Message {
     LaunchAtLoginToggled(bool),
     WindowOpened(iced::window::Id),
 
-    AppUpdateChecked(Box<Result<Option<AppUpdate>, String>>),
+    AppUpdateChecked(Box<Result<Option<AppUpdate>, AppError>>),
     OpenAppUpdate,
     StartAppUpdate,
     AppUpdateProgress {
@@ -140,13 +140,13 @@ pub enum Message {
     },
     AppUpdateExtracting,
     AppUpdateApplying,
-    AppUpdateComplete(Box<Result<versi_core::auto_update::ApplyResult, String>>),
+    AppUpdateComplete(Box<Result<versi_core::auto_update::ApplyResult, AppError>>),
     RestartApp,
-    BackendUpdateChecked(Box<Result<Option<BackendUpdate>, String>>),
+    BackendUpdateChecked(Box<Result<Option<BackendUpdate>, AppError>>),
     OpenBackendUpdate,
 
     FetchReleaseSchedule,
-    VersionMetadataFetched(Box<Result<HashMap<String, VersionMeta>, String>>),
+    VersionMetadataFetched(Box<Result<HashMap<String, VersionMeta>, AppError>>),
     ShowVersionDetail(String),
 
     VersionListCursorMoved(iced::Point),

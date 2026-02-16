@@ -1,6 +1,7 @@
 use iced::Task;
 
 use crate::backend_kind::BackendKind;
+use crate::error::AppError;
 use crate::message::Message;
 use crate::state::{AppState, OnboardingStep};
 
@@ -63,7 +64,12 @@ impl Versi {
 
             let provider = self.provider.clone();
             return Task::perform(
-                async move { provider.install_backend().await.map_err(|e| e.to_string()) },
+                async move {
+                    provider
+                        .install_backend()
+                        .await
+                        .map_err(|e| AppError::message(e.to_string()))
+                },
                 Message::OnboardingBackendInstallResult,
             );
         }
@@ -72,7 +78,7 @@ impl Versi {
 
     pub(super) fn handle_onboarding_backend_install_result(
         &mut self,
-        result: Result<(), String>,
+        result: Result<(), AppError>,
     ) -> Task<Message> {
         if let AppState::Onboarding(state) = &mut self.state {
             state.backend_installing = false;
@@ -81,7 +87,7 @@ impl Versi {
                     state.step = OnboardingStep::ConfigureShell;
                 }
                 Err(error) => {
-                    state.install_error = Some(error);
+                    state.install_error = Some(error.to_string());
                 }
             }
         }
@@ -120,15 +126,18 @@ impl Versi {
                     use versi_shell::{ShellConfig, get_or_create_config_path};
 
                     let config_path = get_or_create_config_path(&shell_type)
-                        .ok_or_else(|| "No config file path found".to_string())?;
+                        .ok_or_else(|| AppError::message("No config file path found"))?;
 
                     let mut config =
-                        ShellConfig::load(shell_type, config_path).map_err(|e| e.to_string())?;
+                        ShellConfig::load(shell_type, config_path)
+                            .map_err(|e| AppError::message(e.to_string()))?;
 
                     if config.has_init(&backend_marker) {
                         let edit = config.update_flags(&backend_marker, &options);
                         if edit.has_changes() {
-                            config.apply_edit(&edit).map_err(|e| e.to_string())?;
+                            config
+                                .apply_edit(&edit)
+                                .map_err(|e| AppError::message(e.to_string()))?;
                         }
                     } else {
                         let init_command = backend
@@ -140,15 +149,17 @@ impl Versi {
                                 data_dir: None,
                             })
                             .shell_init_command(shell_type_to_str(&config.shell_type), &options)
-                            .ok_or_else(|| "Shell not supported".to_string())?;
+                            .ok_or_else(|| AppError::message("Shell not supported"))?;
 
                         let edit = config.add_init(&init_command, &backend_label);
                         if edit.has_changes() {
-                            config.apply_edit(&edit).map_err(|e| e.to_string())?;
+                            config
+                                .apply_edit(&edit)
+                                .map_err(|e| AppError::message(e.to_string()))?;
                         }
                     }
 
-                    Ok(())
+                    Ok::<(), AppError>(())
                 },
                 Message::OnboardingShellConfigResult,
             );
@@ -156,7 +167,7 @@ impl Versi {
         Task::none()
     }
 
-    pub(super) fn handle_onboarding_shell_config_result(&mut self, result: Result<(), String>) {
+    pub(super) fn handle_onboarding_shell_config_result(&mut self, result: Result<(), AppError>) {
         if let AppState::Onboarding(state) = &mut self.state {
             for shell in &mut state.detected_shells {
                 if shell.configuring {
@@ -167,7 +178,7 @@ impl Versi {
                             shell.error = None;
                         }
                         Err(error) => {
-                            shell.error = Some(error.clone());
+                            shell.error = Some(error.to_string());
                         }
                     }
                     break;

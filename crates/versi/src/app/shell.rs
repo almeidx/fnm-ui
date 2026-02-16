@@ -9,6 +9,7 @@ use iced::Task;
 use versi_platform::EnvironmentId;
 use versi_shell::{ShellInitOptions, detect_shells};
 
+use crate::error::AppError;
 use crate::message::Message;
 use crate::state::{AppState, ShellSetupStatus, ShellVerificationStatus};
 
@@ -175,21 +176,24 @@ impl Versi {
                         &init_command,
                         &options,
                     )
-                    .await?;
+                    .await
+                    .map_err(AppError::from)?;
 
-                    return Ok::<_, String>(());
+                    return Ok::<_, AppError>(());
                 }
 
                 let config_path = get_or_create_config_path(&shell_type)
-                    .ok_or_else(|| "No config file path found".to_string())?;
+                    .ok_or_else(|| AppError::message("No config file path found"))?;
 
                 let mut config = ShellConfig::load(shell_type.clone(), config_path)
-                    .map_err(|e| e.to_string())?;
+                    .map_err(|e| AppError::message(e.to_string()))?;
 
                 if config.has_init(&marker) {
                     let edit = config.update_flags(&marker, &options);
                     if edit.has_changes() {
-                        config.apply_edit(&edit).map_err(|e| e.to_string())?;
+                        config
+                            .apply_edit(&edit)
+                            .map_err(|e| AppError::message(e.to_string()))?;
                     }
                 } else {
                     let init_command = provider
@@ -201,15 +205,17 @@ impl Versi {
                             data_dir: None,
                         })
                         .shell_init_command(shell_type.shell_arg(), &options)
-                        .ok_or_else(|| "Shell not supported".to_string())?;
+                        .ok_or_else(|| AppError::message("Shell not supported"))?;
 
                     let edit = config.add_init(&init_command, &label);
                     if edit.has_changes() {
-                        config.apply_edit(&edit).map_err(|e| e.to_string())?;
+                        config
+                            .apply_edit(&edit)
+                            .map_err(|e| AppError::message(e.to_string()))?;
                     }
                 }
 
-                Ok::<_, String>(())
+                Ok::<_, AppError>(())
             },
             move |result| Message::ShellConfigured(shell_type_for_callback.clone(), result),
         )
@@ -218,7 +224,7 @@ impl Versi {
     pub(super) fn handle_shell_configured(
         &mut self,
         shell_type: versi_shell::ShellType,
-        result: Result<(), String>,
+        result: Result<(), AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state
             && let Some(shell) = state

@@ -9,6 +9,7 @@ use log::info;
 
 use versi_core::auto_update::{ApplyResult, UpdateProgress};
 
+use crate::error::AppError;
 use crate::message::Message;
 use crate::state::{AppState, AppUpdateState};
 
@@ -66,8 +67,8 @@ impl Versi {
                     }
 
                     let result = match download_handle.await {
-                        Ok(r) => r,
-                        Err(e) => Err(format!("Update task panicked: {e}")),
+                        Ok(r) => r.map_err(AppError::from),
+                        Err(e) => Err(AppError::message(format!("Update task panicked: {e}"))),
                     };
 
                     let _ = sender.send(Message::AppUpdateComplete(Box::new(result))).await;
@@ -97,7 +98,7 @@ impl Versi {
 
     pub(super) fn handle_app_update_complete(
         &mut self,
-        result: Result<ApplyResult, String>,
+        result: Result<ApplyResult, AppError>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             match result {
@@ -108,7 +109,7 @@ impl Versi {
                     return iced::exit();
                 }
                 Err(e) => {
-                    state.app_update_state = AppUpdateState::Failed(e);
+                    state.app_update_state = AppUpdateState::Failed(e.to_string());
                 }
             }
         }

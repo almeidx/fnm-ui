@@ -4,6 +4,7 @@
 
 use iced::Task;
 
+use crate::error::AppError;
 use crate::message::Message;
 use crate::state::AppState;
 
@@ -23,15 +24,15 @@ impl Versi {
                     .await;
                 match dialog {
                     Some(handle) => {
-                        let content =
-                            serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+                        let content = serde_json::to_string_pretty(&settings)
+                            .map_err(|e| AppError::message(e.to_string()))?;
                         let path = handle.path().to_path_buf();
                         tokio::fs::write(&path, content)
                             .await
-                            .map_err(|e| e.to_string())?;
+                            .map_err(|e| AppError::message(e.to_string()))?;
                         Ok(path)
                     }
-                    None => Err(SETTINGS_DIALOG_CANCELLED.to_string()),
+                    None => Err(AppError::from(SETTINGS_DIALOG_CANCELLED)),
                 }
             },
             Message::SettingsExported,
@@ -40,17 +41,14 @@ impl Versi {
 
     pub(super) fn handle_settings_exported(
         &mut self,
-        result: Result<std::path::PathBuf, String>,
+        result: Result<std::path::PathBuf, AppError>,
     ) -> Task<Message> {
         if let Err(e) = result
-            && e != SETTINGS_DIALOG_CANCELLED
+            && !is_settings_dialog_cancelled(&e)
             && let AppState::Main(state) = &mut self.state
         {
             let id = state.next_toast_id();
-            state.add_toast(crate::state::Toast::error(
-                id,
-                format!("Export failed: {}", e),
-            ));
+            state.add_toast(crate::state::Toast::error(id, format!("Export failed: {}", e)));
         }
         Task::none()
     }
@@ -66,35 +64,38 @@ impl Versi {
                     Some(handle) => {
                         let content = tokio::fs::read_to_string(handle.path())
                             .await
-                            .map_err(|e| e.to_string())?;
+                            .map_err(|e| AppError::message(e.to_string()))?;
                         let imported: crate::settings::AppSettings =
-                            serde_json::from_str(&content).map_err(|e| e.to_string())?;
-                        imported.save().map_err(|e| e.to_string())?;
+                            serde_json::from_str(&content).map_err(|e| AppError::message(e.to_string()))?;
+                        imported
+                            .save()
+                            .map_err(|e| AppError::message(e.to_string()))?;
                         Ok(())
                     }
-                    None => Err(SETTINGS_DIALOG_CANCELLED.to_string()),
+                    None => Err(AppError::from(SETTINGS_DIALOG_CANCELLED)),
                 }
             },
             Message::SettingsImported,
         )
     }
 
-    pub(super) fn handle_settings_imported(&mut self, result: Result<(), String>) -> Task<Message> {
+    pub(super) fn handle_settings_imported(&mut self, result: Result<(), AppError>) -> Task<Message> {
         match result {
             Ok(()) => {
                 self.settings = crate::settings::AppSettings::load();
             }
-            Err(e) if e != SETTINGS_DIALOG_CANCELLED => {
+            Err(e) if !is_settings_dialog_cancelled(&e) => {
                 if let AppState::Main(state) = &mut self.state {
                     let id = state.next_toast_id();
-                    state.add_toast(crate::state::Toast::error(
-                        id,
-                        format!("Import failed: {}", e),
-                    ));
+                    state.add_toast(crate::state::Toast::error(id, format!("Import failed: {}", e)));
                 }
             }
             _ => {}
         }
         Task::none()
     }
+}
+
+fn is_settings_dialog_cancelled(error: &AppError) -> bool {
+    matches!(error, AppError::Message(message) if message == SETTINGS_DIALOG_CANCELLED)
 }

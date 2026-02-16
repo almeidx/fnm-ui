@@ -11,6 +11,7 @@ use iced::Task;
 
 use versi_core::{check_for_update, fetch_release_schedule, fetch_version_metadata};
 
+use crate::error::AppError;
 use crate::message::Message;
 use crate::state::AppState;
 
@@ -30,23 +31,24 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let mut last_err = String::new();
+                    let mut last_err = AppError::message("Unknown error");
                     for (attempt, &delay) in retry_delays.iter().enumerate() {
                         if delay > 0 {
                             tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
                         }
                         match tokio::time::timeout(fetch_timeout, backend.list_remote()).await {
                             Err(_) => {
-                                last_err = "Request timed out".to_string();
+                                last_err =
+                                    AppError::timeout("Fetch remote versions", fetch_timeout.as_secs());
                                 debug!("Remote versions fetch attempt {} timed out", attempt + 1,);
                             }
                             Ok(Ok(versions)) => return Ok(versions),
                             Ok(Err(e)) => {
-                                last_err = e.to_string();
+                                last_err = AppError::message(e.to_string());
                                 debug!(
                                     "Remote versions fetch attempt {} failed: {}",
                                     attempt + 1,
-                                    last_err
+                                    last_err,
                                 );
                             }
                         }
@@ -61,7 +63,7 @@ impl Versi {
 
     pub(super) fn handle_remote_versions_fetched(
         &mut self,
-        result: Result<Vec<versi_backend::RemoteVersion>, String>,
+        result: Result<Vec<versi_backend::RemoteVersion>, AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state {
             state.available_versions.loading = false;
@@ -102,7 +104,7 @@ impl Versi {
                     });
                 }
                 Err(error) => {
-                    state.available_versions.error = Some(error);
+                    state.available_versions.error = Some(error.to_string());
                 }
             }
         }
@@ -115,7 +117,7 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let mut last_err = String::new();
+                    let mut last_err = AppError::message("Unknown error");
                     for (attempt, &delay) in retry_delays.iter().enumerate() {
                         if delay > 0 {
                             tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
@@ -123,11 +125,11 @@ impl Versi {
                         match fetch_release_schedule(&client).await {
                             Ok(schedule) => return Ok(schedule),
                             Err(e) => {
-                                last_err = e;
+                                last_err = AppError::message(e);
                                 debug!(
                                     "Release schedule fetch attempt {} failed: {}",
                                     attempt + 1,
-                                    last_err
+                                    last_err,
                                 );
                             }
                         }
@@ -142,7 +144,7 @@ impl Versi {
 
     pub(super) fn handle_release_schedule_fetched(
         &mut self,
-        result: Result<versi_core::ReleaseSchedule, String>,
+        result: Result<versi_core::ReleaseSchedule, AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state {
             match result {
@@ -165,7 +167,7 @@ impl Versi {
                 }
                 Err(error) => {
                     debug!("Release schedule fetch failed: {}", error);
-                    state.available_versions.schedule_error = Some(error);
+                    state.available_versions.schedule_error = Some(error.to_string());
                 }
             }
         }
@@ -178,7 +180,7 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let mut last_err = String::new();
+                    let mut last_err = AppError::message("Unknown error");
                     for (attempt, &delay) in retry_delays.iter().enumerate() {
                         if delay > 0 {
                             tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
@@ -186,11 +188,11 @@ impl Versi {
                         match fetch_version_metadata(&client).await {
                             Ok(metadata) => return Ok(metadata),
                             Err(e) => {
-                                last_err = e;
+                                last_err = AppError::message(e);
                                 debug!(
                                     "Version metadata fetch attempt {} failed: {}",
                                     attempt + 1,
-                                    last_err
+                                    last_err,
                                 );
                             }
                         }
@@ -205,7 +207,7 @@ impl Versi {
 
     pub(super) fn handle_version_metadata_fetched(
         &mut self,
-        result: Result<std::collections::HashMap<String, versi_core::VersionMeta>, String>,
+        result: Result<std::collections::HashMap<String, versi_core::VersionMeta>, AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state {
             match result {
@@ -235,14 +237,18 @@ impl Versi {
         let current_version = env!("CARGO_PKG_VERSION").to_string();
         let client = self.http_client.clone();
         Task::perform(
-            async move { check_for_update(&client, &current_version).await },
+            async move {
+                check_for_update(&client, &current_version)
+                    .await
+                    .map_err(AppError::from)
+            },
             |result| Message::AppUpdateChecked(Box::new(result)),
         )
     }
 
     pub(super) fn handle_app_update_checked(
         &mut self,
-        result: Result<Option<versi_core::AppUpdate>, String>,
+        result: Result<Option<versi_core::AppUpdate>, AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state {
             match result {
@@ -260,7 +266,12 @@ impl Versi {
             let client = self.http_client.clone();
             let provider = self.provider_for_kind(state.backend_name);
             return Task::perform(
-                async move { provider.check_for_update(&client, &version).await },
+                async move {
+                    provider
+                        .check_for_update(&client, &version)
+                        .await
+                        .map_err(AppError::from)
+                },
                 |result| Message::BackendUpdateChecked(Box::new(result)),
             );
         }
@@ -269,7 +280,7 @@ impl Versi {
 
     pub(super) fn handle_backend_update_checked(
         &mut self,
-        result: Result<Option<versi_backend::BackendUpdate>, String>,
+        result: Result<Option<versi_backend::BackendUpdate>, AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state {
             match result {
