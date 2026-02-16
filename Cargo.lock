@@ -5372,6 +5372,7 @@ dependencies = [
  "simplelog",
  "tempfile",
  "tokio",
+ "tokio-util",
  "tray-icon",
  "versi-backend",
  "versi-core",

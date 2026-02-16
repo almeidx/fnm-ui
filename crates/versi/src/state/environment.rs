@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use tokio_util::sync::CancellationToken;
 use versi_backend::{InstalledVersion, NodeVersion, VersionGroup};
 use versi_platform::EnvironmentId;
 
@@ -19,6 +20,7 @@ pub struct EnvironmentState {
     pub loading: bool,
     pub error: Option<AppError>,
     pub load_request_seq: u64,
+    pub load_cancel_token: Option<CancellationToken>,
     pub available: bool,
 }
 
@@ -41,6 +43,7 @@ impl EnvironmentState {
             loading: true,
             error: None,
             load_request_seq: 0,
+            load_cancel_token: None,
             available: true,
         }
     }
@@ -59,6 +62,7 @@ impl EnvironmentState {
             loading: false,
             error: Some(AppError::message(reason)),
             load_request_seq: 0,
+            load_cancel_token: None,
             available: false,
         }
     }

@@ -8,6 +8,7 @@ use std::time::Duration;
 use log::{debug, info, trace};
 
 use iced::Task;
+use tokio_util::sync::CancellationToken;
 
 use versi_platform::EnvironmentId;
 
@@ -55,6 +56,8 @@ impl Versi {
                 );
                 return Task::none();
             }
+
+            env.load_cancel_token = None;
 
             match result {
                 Ok(versions) => env.update_versions(versions),
@@ -128,10 +131,15 @@ impl Versi {
             let load_task = if needs_load {
                 info!("Loading versions for environment: {env_id:?}");
                 let env = state.active_environment_mut();
+                if let Some(token) = env.load_cancel_token.take() {
+                    token.cancel();
+                }
                 env.loading = true;
                 env.error = None;
                 env.load_request_seq = env.load_request_seq.wrapping_add(1);
                 let request_seq = env.load_request_seq;
+                let cancel_token = CancellationToken::new();
+                env.load_cancel_token = Some(cancel_token.clone());
 
                 let backend = state.backend.clone();
                 let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
@@ -139,13 +147,17 @@ impl Versi {
                 Task::perform(
                     async move {
                         debug!("Fetching installed versions for {env_id:?}...");
-                        let result = run_with_timeout(
-                            fetch_timeout,
-                            "Loading versions",
-                            backend.list_installed(),
-                            |error| AppError::message(format!("Failed to load versions: {error}")),
-                        )
-                        .await;
+                        let result = tokio::select! {
+                            () = cancel_token.cancelled() => {
+                                Err(AppError::message("Loading versions cancelled"))
+                            }
+                            result = run_with_timeout(
+                                fetch_timeout,
+                                "Loading versions",
+                                backend.list_installed(),
+                                |error| AppError::message(format!("Failed to load versions: {error}")),
+                            ) => result
+                        };
 
                         if let Ok(versions) = &result {
                             debug!(
@@ -181,11 +193,16 @@ impl Versi {
     pub(super) fn handle_refresh_environment(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
             let env = state.active_environment_mut();
+            if let Some(token) = env.load_cancel_token.take() {
+                token.cancel();
+            }
             env.loading = true;
             env.error = None;
             env.load_request_seq = env.load_request_seq.wrapping_add(1);
             let env_id = env.id.clone();
             let request_seq = env.load_request_seq;
+            let cancel_token = CancellationToken::new();
+            env.load_cancel_token = Some(cancel_token.clone());
 
             state.refresh_rotation = std::f32::consts::TAU / 40.0;
             let backend = state.backend.clone();
@@ -193,13 +210,17 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let result = run_with_timeout(
-                        fetch_timeout,
-                        "Loading versions",
-                        backend.list_installed(),
-                        |error| AppError::message(format!("Failed to load versions: {error}")),
-                    )
-                    .await;
+                    let result = tokio::select! {
+                        () = cancel_token.cancelled() => {
+                            Err(AppError::message("Loading versions cancelled"))
+                        }
+                        result = run_with_timeout(
+                            fetch_timeout,
+                            "Loading versions",
+                            backend.list_installed(),
+                            |error| AppError::message(format!("Failed to load versions: {error}")),
+                        ) => result
+                    };
                     (env_id, request_seq, result)
                 },
                 |(env_id, request_seq, result)| Message::EnvironmentLoaded {
@@ -259,6 +280,8 @@ impl Versi {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
+
+    use tokio_util::sync::CancellationToken;
 
     use super::super::test_app_with_two_environments;
     use super::*;
@@ -335,5 +358,22 @@ mod tests {
         let groups = &state.active_environment().version_groups;
         assert!(groups.iter().any(|g| g.major == 20 && g.is_expanded));
         assert!(groups.iter().any(|g| g.major == 22 && g.is_expanded));
+    }
+
+    #[test]
+    fn refresh_environment_cancels_previous_load_token() {
+        let mut app = test_app_with_two_environments();
+        let old_token = CancellationToken::new();
+        if let AppState::Main(state) = &mut app.state {
+            state.active_environment_mut().load_cancel_token = Some(old_token.clone());
+        }
+
+        let _ = app.handle_refresh_environment();
+
+        assert!(old_token.is_cancelled());
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.active_environment().load_cancel_token.is_some());
     }
 }

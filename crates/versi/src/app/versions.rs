@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use log::debug;
 
 use iced::Task;
+use tokio_util::sync::CancellationToken;
 
 use versi_core::{check_for_update, fetch_release_schedule, fetch_version_metadata};
 
@@ -21,13 +22,17 @@ use super::async_helpers::{retry_with_delays, run_with_timeout};
 impl Versi {
     pub(super) fn handle_fetch_remote_versions(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            if state.available_versions.loading {
-                return Task::none();
+            if state.available_versions.loading
+                && let Some(cancel_token) = state.available_versions.remote_cancel_token.take()
+            {
+                cancel_token.cancel();
             }
             state.available_versions.loading = true;
             state.available_versions.remote_request_seq =
                 state.available_versions.remote_request_seq.wrapping_add(1);
             let request_seq = state.available_versions.remote_request_seq;
+            let cancel_token = CancellationToken::new();
+            state.available_versions.remote_cancel_token = Some(cancel_token.clone());
 
             let backend = state.backend.clone();
             let fetch_timeout = Duration::from_secs(self.settings.fetch_timeout_secs);
@@ -35,19 +40,23 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    retry_with_delays("Remote versions fetch", &retry_delays, || {
-                        let backend = backend.clone();
-                        async move {
-                            run_with_timeout(
-                                fetch_timeout,
-                                "Fetch remote versions",
-                                backend.list_remote(),
-                                |error| AppError::message(error.to_string()),
-                            )
-                            .await
+                    tokio::select! {
+                        () = cancel_token.cancelled() => {
+                            Err(AppError::message("Remote versions fetch cancelled"))
                         }
-                    })
-                    .await
+                        result = retry_with_delays("Remote versions fetch", &retry_delays, || {
+                            let backend = backend.clone();
+                            async move {
+                                run_with_timeout(
+                                    fetch_timeout,
+                                    "Fetch remote versions",
+                                    backend.list_remote(),
+                                    |error| AppError::message(error.to_string()),
+                                )
+                                .await
+                            }
+                        }) => result
+                    }
                 },
                 move |result| Message::RemoteVersionsFetched {
                     request_seq,
@@ -73,6 +82,7 @@ impl Versi {
             }
 
             state.available_versions.loading = false;
+            state.available_versions.remote_cancel_token = None;
             match result {
                 Ok(versions) => {
                     state.available_versions.set_versions(versions.clone());
@@ -118,25 +128,34 @@ impl Versi {
 
     pub(super) fn handle_fetch_release_schedule(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if let Some(cancel_token) = state.available_versions.schedule_cancel_token.take() {
+                cancel_token.cancel();
+            }
             state.available_versions.schedule_request_seq = state
                 .available_versions
                 .schedule_request_seq
                 .wrapping_add(1);
             let request_seq = state.available_versions.schedule_request_seq;
+            let cancel_token = CancellationToken::new();
+            state.available_versions.schedule_cancel_token = Some(cancel_token.clone());
             let client = self.http_client.clone();
             let retry_delays = self.settings.retry_delays_secs.clone();
 
             return Task::perform(
                 async move {
-                    retry_with_delays("Release schedule fetch", &retry_delays, || {
-                        let client = client.clone();
-                        async move {
-                            fetch_release_schedule(&client)
-                                .await
-                                .map_err(AppError::message)
+                    tokio::select! {
+                        () = cancel_token.cancelled() => {
+                            Err(AppError::message("Release schedule fetch cancelled"))
                         }
-                    })
-                    .await
+                        result = retry_with_delays("Release schedule fetch", &retry_delays, || {
+                            let client = client.clone();
+                            async move {
+                                fetch_release_schedule(&client)
+                                    .await
+                                    .map_err(AppError::message)
+                            }
+                        }) => result
+                    }
                 },
                 move |result| Message::ReleaseScheduleFetched {
                     request_seq,
@@ -161,6 +180,7 @@ impl Versi {
                 return;
             }
 
+            state.available_versions.schedule_cancel_token = None;
             match result {
                 Ok(schedule) => {
                     state.available_versions.schedule = Some(schedule.clone());
@@ -189,25 +209,34 @@ impl Versi {
 
     pub(super) fn handle_fetch_version_metadata(&mut self) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            if let Some(cancel_token) = state.available_versions.metadata_cancel_token.take() {
+                cancel_token.cancel();
+            }
             state.available_versions.metadata_request_seq = state
                 .available_versions
                 .metadata_request_seq
                 .wrapping_add(1);
             let request_seq = state.available_versions.metadata_request_seq;
+            let cancel_token = CancellationToken::new();
+            state.available_versions.metadata_cancel_token = Some(cancel_token.clone());
             let client = self.http_client.clone();
             let retry_delays = self.settings.retry_delays_secs.clone();
 
             return Task::perform(
                 async move {
-                    retry_with_delays("Version metadata fetch", &retry_delays, || {
-                        let client = client.clone();
-                        async move {
-                            fetch_version_metadata(&client)
-                                .await
-                                .map_err(AppError::message)
+                    tokio::select! {
+                        () = cancel_token.cancelled() => {
+                            Err(AppError::message("Version metadata fetch cancelled"))
                         }
-                    })
-                    .await
+                        result = retry_with_delays("Version metadata fetch", &retry_delays, || {
+                            let client = client.clone();
+                            async move {
+                                fetch_version_metadata(&client)
+                                    .await
+                                    .map_err(AppError::message)
+                            }
+                        }) => result
+                    }
                 },
                 move |result| Message::VersionMetadataFetched {
                     request_seq,
@@ -232,6 +261,7 @@ impl Versi {
                 return;
             }
 
+            state.available_versions.metadata_cancel_token = None;
             match result {
                 Ok(metadata) => {
                     state.available_versions.metadata = Some(metadata.clone());
@@ -316,6 +346,8 @@ impl Versi {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+
+    use tokio_util::sync::CancellationToken;
 
     use super::super::test_app_with_two_environments;
     use super::*;
@@ -518,5 +550,58 @@ mod tests {
                 .map(|value| value.latest_version.as_str()),
             Some("1.1.0")
         );
+    }
+
+    #[test]
+    fn fetch_release_schedule_cancels_previous_token() {
+        let mut app = test_app_with_two_environments();
+        let old_token = CancellationToken::new();
+        if let AppState::Main(state) = &mut app.state {
+            state.available_versions.schedule_cancel_token = Some(old_token.clone());
+        }
+
+        let _ = app.handle_fetch_release_schedule();
+
+        assert!(old_token.is_cancelled());
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.available_versions.schedule_cancel_token.is_some());
+    }
+
+    #[test]
+    fn fetch_version_metadata_cancels_previous_token() {
+        let mut app = test_app_with_two_environments();
+        let old_token = CancellationToken::new();
+        if let AppState::Main(state) = &mut app.state {
+            state.available_versions.metadata_cancel_token = Some(old_token.clone());
+        }
+
+        let _ = app.handle_fetch_version_metadata();
+
+        assert!(old_token.is_cancelled());
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.available_versions.metadata_cancel_token.is_some());
+    }
+
+    #[test]
+    fn fetch_remote_versions_cancels_previous_token_when_loading() {
+        let mut app = test_app_with_two_environments();
+        let old_token = CancellationToken::new();
+        if let AppState::Main(state) = &mut app.state {
+            state.available_versions.loading = true;
+            state.available_versions.remote_cancel_token = Some(old_token.clone());
+        }
+
+        let _ = app.handle_fetch_remote_versions();
+
+        assert!(old_token.is_cancelled());
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.available_versions.loading);
+        assert!(state.available_versions.remote_cancel_token.is_some());
     }
 }

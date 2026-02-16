@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 use chrono::{DateTime, Utc};
+use tokio_util::sync::CancellationToken;
 use versi_backend::{BackendUpdate, NodeVersion, RemoteVersion, VersionManager};
 use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 
@@ -173,12 +174,15 @@ pub struct VersionCache {
     pub fetched_at: Option<Instant>,
     pub loading: bool,
     pub remote_request_seq: u64,
+    pub remote_cancel_token: Option<CancellationToken>,
     pub error: Option<AppError>,
     pub schedule: Option<ReleaseSchedule>,
     pub schedule_request_seq: u64,
+    pub schedule_cancel_token: Option<CancellationToken>,
     pub schedule_error: Option<AppError>,
     pub metadata: Option<HashMap<String, VersionMeta>>,
     pub metadata_request_seq: u64,
+    pub metadata_cancel_token: Option<CancellationToken>,
     pub loaded_from_disk: bool,
     pub disk_cached_at: Option<DateTime<Utc>>,
 }
@@ -191,12 +195,15 @@ impl VersionCache {
             fetched_at: None,
             loading: false,
             remote_request_seq: 0,
+            remote_cancel_token: None,
             error: None,
             schedule: None,
             schedule_request_seq: 0,
+            schedule_cancel_token: None,
             schedule_error: None,
             metadata: None,
             metadata_request_seq: 0,
+            metadata_cancel_token: None,
             loaded_from_disk: false,
             disk_cached_at: None,
         }
