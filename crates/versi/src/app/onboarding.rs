@@ -204,3 +204,207 @@ fn shell_type_to_str(shell_type: &versi_shell::ShellType) -> &'static str {
         versi_shell::ShellType::Cmd => "cmd",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use versi_backend::BackendProvider;
+
+    use super::{Versi, shell_type_to_str};
+    use crate::backend_kind::BackendKind;
+    use crate::error::AppError;
+    use crate::settings::AppSettings;
+    use crate::state::{
+        AppState, BackendOption, OnboardingState, OnboardingStep, ShellConfigStatus,
+    };
+
+    fn test_onboarding_app(backend_count: usize) -> Versi {
+        let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
+        let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
+
+        let mut providers: HashMap<BackendKind, Arc<dyn BackendProvider>> = HashMap::new();
+        providers.insert(BackendKind::Fnm, fnm_provider.clone());
+        providers.insert(BackendKind::Nvm, nvm_provider);
+
+        let mut onboarding = OnboardingState::new();
+        onboarding.available_backends = if backend_count > 1 {
+            vec![
+                BackendOption {
+                    kind: BackendKind::Fnm,
+                    display_name: "fnm",
+                    detected: true,
+                },
+                BackendOption {
+                    kind: BackendKind::Nvm,
+                    display_name: "nvm",
+                    detected: true,
+                },
+            ]
+        } else {
+            vec![BackendOption {
+                kind: BackendKind::Fnm,
+                display_name: "fnm",
+                detected: true,
+            }]
+        };
+
+        Versi {
+            state: AppState::Onboarding(onboarding),
+            settings: AppSettings::default(),
+            window_id: None,
+            pending_minimize: false,
+            pending_show: false,
+            window_visible: true,
+            backend_path: PathBuf::from("fnm"),
+            backend_dir: None,
+            window_size: None,
+            window_position: None,
+            http_client: reqwest::Client::new(),
+            providers,
+            provider: fnm_provider,
+            system_theme_mode: iced::theme::Mode::None,
+        }
+    }
+
+    #[test]
+    fn onboarding_next_from_welcome_uses_backend_count() {
+        let mut multi = test_onboarding_app(2);
+        let _ = multi.handle_onboarding_next();
+        let AppState::Onboarding(state) = &multi.state else {
+            panic!("expected onboarding state");
+        };
+        assert_eq!(state.step, OnboardingStep::SelectBackend);
+
+        let mut single = test_onboarding_app(1);
+        let _ = single.handle_onboarding_next();
+        let AppState::Onboarding(state) = &single.state else {
+            panic!("expected onboarding state");
+        };
+        assert_eq!(state.step, OnboardingStep::InstallBackend);
+    }
+
+    #[test]
+    fn onboarding_back_from_install_uses_backend_count() {
+        let mut multi = test_onboarding_app(2);
+        if let AppState::Onboarding(state) = &mut multi.state {
+            state.step = OnboardingStep::InstallBackend;
+        }
+        multi.handle_onboarding_back();
+        let AppState::Onboarding(state) = &multi.state else {
+            panic!("expected onboarding state");
+        };
+        assert_eq!(state.step, OnboardingStep::SelectBackend);
+
+        let mut single = test_onboarding_app(1);
+        if let AppState::Onboarding(state) = &mut single.state {
+            state.step = OnboardingStep::InstallBackend;
+        }
+        single.handle_onboarding_back();
+        let AppState::Onboarding(state) = &single.state else {
+            panic!("expected onboarding state");
+        };
+        assert_eq!(state.step, OnboardingStep::Welcome);
+    }
+
+    #[test]
+    fn onboarding_backend_install_result_updates_flags_and_step() {
+        let mut app = test_onboarding_app(1);
+        if let AppState::Onboarding(state) = &mut app.state {
+            state.backend_installing = true;
+            state.step = OnboardingStep::InstallBackend;
+            state.install_error = Some(AppError::message("old error"));
+        }
+
+        let _ = app.handle_onboarding_backend_install_result(Ok(()));
+        let AppState::Onboarding(state) = &app.state else {
+            panic!("expected onboarding state");
+        };
+        assert!(!state.backend_installing);
+        assert_eq!(state.step, OnboardingStep::ConfigureShell);
+
+        let mut app = test_onboarding_app(1);
+        if let AppState::Onboarding(state) = &mut app.state {
+            state.backend_installing = true;
+        }
+        let _ =
+            app.handle_onboarding_backend_install_result(Err(AppError::message("install failed")));
+        let AppState::Onboarding(state) = &app.state else {
+            panic!("expected onboarding state");
+        };
+        assert!(!state.backend_installing);
+        assert_eq!(
+            state.install_error,
+            Some(AppError::Message("install failed".to_string()))
+        );
+    }
+
+    #[test]
+    fn onboarding_shell_config_result_applies_to_first_configuring_shell() {
+        let mut app = test_onboarding_app(1);
+        if let AppState::Onboarding(state) = &mut app.state {
+            state.detected_shells = vec![
+                ShellConfigStatus {
+                    shell_type: versi_shell::ShellType::Bash,
+                    shell_name: "bash".to_string(),
+                    configured: false,
+                    config_path: None,
+                    configuring: true,
+                    error: None,
+                },
+                ShellConfigStatus {
+                    shell_type: versi_shell::ShellType::Zsh,
+                    shell_name: "zsh".to_string(),
+                    configured: false,
+                    config_path: None,
+                    configuring: true,
+                    error: None,
+                },
+            ];
+        }
+
+        app.handle_onboarding_shell_config_result(&Ok(()));
+        let AppState::Onboarding(state) = &app.state else {
+            panic!("expected onboarding state");
+        };
+        assert!(state.detected_shells[0].configured);
+        assert!(!state.detected_shells[0].configuring);
+        assert!(state.detected_shells[0].error.is_none());
+        assert!(state.detected_shells[1].configuring);
+
+        let mut app = test_onboarding_app(1);
+        if let AppState::Onboarding(state) = &mut app.state {
+            state.detected_shells = vec![ShellConfigStatus {
+                shell_type: versi_shell::ShellType::Fish,
+                shell_name: "fish".to_string(),
+                configured: false,
+                config_path: None,
+                configuring: true,
+                error: None,
+            }];
+        }
+
+        let err = AppError::message("config failed");
+        app.handle_onboarding_shell_config_result(&Err(err.clone()));
+        let AppState::Onboarding(state) = &app.state else {
+            panic!("expected onboarding state");
+        };
+        assert_eq!(state.detected_shells[0].error, Some(err));
+        assert!(!state.detected_shells[0].configured);
+        assert!(!state.detected_shells[0].configuring);
+    }
+
+    #[test]
+    fn shell_type_to_str_maps_expected_values() {
+        assert_eq!(shell_type_to_str(&versi_shell::ShellType::Bash), "bash");
+        assert_eq!(shell_type_to_str(&versi_shell::ShellType::Zsh), "zsh");
+        assert_eq!(shell_type_to_str(&versi_shell::ShellType::Fish), "fish");
+        assert_eq!(
+            shell_type_to_str(&versi_shell::ShellType::PowerShell),
+            "powershell"
+        );
+        assert_eq!(shell_type_to_str(&versi_shell::ShellType::Cmd), "cmd");
+    }
+}
