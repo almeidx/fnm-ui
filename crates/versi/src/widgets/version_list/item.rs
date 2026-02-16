@@ -23,7 +23,6 @@ pub(super) fn version_item_view<'a>(
     let meta = ctx.metadata.and_then(|m| m.get(&version_str));
     let version_display = version_str.clone();
     let version_for_default = version_str.clone();
-    let version_for_changelog = version_str.clone();
     let version_for_row_click = version_str.clone();
     let version_for_hover = version_str.clone();
     let version_for_ctx = version_str.clone();
@@ -42,9 +41,7 @@ pub(super) fn version_item_view<'a>(
     let show_actions = is_hovered || is_default;
 
     let mut row_content = row![
-        button(text(version_display).size(14))
-            .on_press(Message::ShowVersionDetail(version_for_changelog))
-            .style(styles::ghost_button)
+        container(text(version_display).size(14))
             .padding([2, 4])
             .width(Length::Fixed(120.0)),
     ]
