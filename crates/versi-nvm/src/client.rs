@@ -45,47 +45,42 @@ impl NvmClient {
         matches!(self.environment, NvmEnvironment::Windows { .. })
     }
 
-    fn build_nvm_command(&self, nvm_args: &str) -> Command {
+    fn build_nvm_command(&self, nvm_args: &[&str]) -> Command {
         match &self.environment {
             NvmEnvironment::Unix { nvm_dir } => {
                 let script = format!(
-                    "export NVM_DIR=\"{}\"; [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; {}",
+                    "export NVM_DIR=\"{}\"; [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; nvm \"$@\"",
                     nvm_dir.display(),
-                    nvm_args
                 );
                 let mut cmd = Command::new("bash");
-                cmd.args(["-c", &script]);
+                cmd.args(["-c", &script, "bash"]);
+                cmd.args(nvm_args);
                 cmd.env("TERM", "dumb");
                 cmd.env("NO_COLOR", "1");
                 cmd.hide_window();
                 cmd
             }
             NvmEnvironment::Windows { nvm_exe } => {
-                let parts: Vec<&str> = nvm_args.split_whitespace().collect();
-                let (_, args) = if !parts.is_empty() && parts[0] == "nvm" {
-                    ("nvm", &parts[1..])
-                } else {
-                    ("nvm", parts.as_slice())
-                };
                 let mut cmd = Command::new(nvm_exe);
-                cmd.args(args);
+                cmd.args(nvm_args);
                 cmd.hide_window();
                 cmd
             }
             NvmEnvironment::Wsl { distro, nvm_dir } => {
                 let script = format!(
-                    "export NVM_DIR=\"{}\"; [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; {}",
-                    nvm_dir, nvm_args
+                    "export NVM_DIR=\"{}\"; [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; nvm \"$@\"",
+                    nvm_dir
                 );
                 let mut cmd = Command::new("wsl.exe");
-                cmd.args(["-d", distro, "--", "bash", "-c", &script]);
+                cmd.args(["-d", distro, "--", "bash", "-c", &script, "bash"]);
+                cmd.args(nvm_args);
                 cmd.hide_window();
                 cmd
             }
         }
     }
 
-    async fn execute(&self, nvm_args: &str) -> Result<String, NvmError> {
+    async fn execute(&self, nvm_args: &[&str]) -> Result<String, NvmError> {
         let output = self.build_nvm_command(nvm_args).output().await?;
 
         if output.status.success() {
@@ -98,7 +93,7 @@ impl NvmClient {
     }
 
     pub async fn list_installed(&self) -> Result<Vec<InstalledVersion>, NvmError> {
-        let output = self.execute("nvm list").await?;
+        let output = self.execute(&["list"]).await?;
         Ok(if self.is_windows() {
             parse_windows_installed(&output)
         } else {
@@ -108,10 +103,10 @@ impl NvmClient {
 
     pub async fn list_remote(&self) -> Result<Vec<RemoteVersion>, NvmError> {
         if self.is_windows() {
-            let output = self.execute("nvm list available").await?;
+            let output = self.execute(&["list", "available"]).await?;
             Ok(parse_windows_remote(&output))
         } else {
-            let output = self.execute("nvm ls-remote").await?;
+            let output = self.execute(&["ls-remote"]).await?;
             Ok(parse_unix_remote(&output))
         }
     }
@@ -124,13 +119,13 @@ impl NvmClient {
                 .filter(|v| v.lts_codename.is_some())
                 .collect())
         } else {
-            let output = self.execute("nvm ls-remote --lts").await?;
+            let output = self.execute(&["ls-remote", "--lts"]).await?;
             Ok(parse_unix_remote(&output))
         }
     }
 
     pub async fn current(&self) -> Result<Option<NodeVersion>, NvmError> {
-        let output = self.execute("nvm current").await?;
+        let output = self.execute(&["current"]).await?;
         let output = output.trim().trim_start_matches('v');
 
         if output.is_empty() || output == "none" || output == "system" {
@@ -151,7 +146,7 @@ impl NvmClient {
                 .find(|v| v.is_default)
                 .map(|v| v.version))
         } else {
-            let output = self.execute("nvm alias default").await;
+            let output = self.execute(&["alias", "default"]).await;
             match output {
                 Ok(text) => {
                     let trimmed = text.trim();
@@ -181,36 +176,35 @@ impl NvmClient {
     }
 
     pub async fn install(&self, version: &str) -> Result<(), NvmError> {
-        self.execute(&format!("nvm install {}", version)).await?;
+        self.execute(&["install", version]).await?;
         Ok(())
     }
 
     pub async fn uninstall(&self, version: &str) -> Result<(), NvmError> {
-        self.execute(&format!("nvm uninstall {}", version)).await?;
+        self.execute(&["uninstall", version]).await?;
         Ok(())
     }
 
     pub async fn set_default(&self, version: &str) -> Result<(), NvmError> {
         if self.is_windows() {
-            self.execute(&format!("nvm use {}", version)).await?;
+            self.execute(&["use", version]).await?;
         } else {
-            self.execute(&format!("nvm alias default {}", version))
-                .await?;
+            self.execute(&["alias", "default", version]).await?;
         }
         Ok(())
     }
 
     pub async fn use_version(&self, version: &str) -> Result<(), NvmError> {
-        self.execute(&format!("nvm use {}", version)).await?;
+        self.execute(&["use", version]).await?;
         Ok(())
     }
 
     pub async fn version(&self) -> Result<String, NvmError> {
         if self.is_windows() {
-            let output = self.execute("nvm version").await?;
+            let output = self.execute(&["version"]).await?;
             Ok(output.trim().to_string())
         } else {
-            let output = self.execute("nvm --version").await?;
+            let output = self.execute(&["--version"]).await?;
             Ok(output.trim().to_string())
         }
     }
