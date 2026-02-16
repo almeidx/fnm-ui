@@ -84,3 +84,77 @@ impl Versi {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_app_with_two_environments;
+
+    fn assert_close(actual: f32, expected: f32) {
+        assert!(
+            (actual - expected).abs() < f32::EPSILON,
+            "expected {expected}, got {actual}"
+        );
+    }
+
+    #[test]
+    fn window_opened_with_pending_show_updates_visibility_flags() {
+        let mut app = test_app_with_two_environments();
+        app.pending_show = true;
+        app.pending_minimize = true;
+        app.window_visible = false;
+
+        let id = iced::window::Id::unique();
+        let _ = app.handle_window_opened(id);
+
+        assert_eq!(app.window_id, Some(id));
+        assert!(!app.pending_show);
+        assert!(!app.pending_minimize);
+        assert!(app.window_visible);
+    }
+
+    #[test]
+    fn window_opened_with_pending_minimize_marks_window_hidden() {
+        let mut app = test_app_with_two_environments();
+        app.pending_show = false;
+        app.pending_minimize = true;
+        app.window_visible = true;
+
+        let id = iced::window::Id::unique();
+        let _ = app.handle_window_opened(id);
+
+        assert_eq!(app.window_id, Some(id));
+        assert!(!app.pending_minimize);
+        assert!(!app.window_visible);
+    }
+
+    #[test]
+    fn save_window_geometry_persists_in_memory_when_dimensions_present() {
+        let mut app = test_app_with_two_environments();
+        app.window_size = Some(iced::Size::new(1200.0, 800.0));
+        app.window_position = Some(iced::Point::new(100.0, 150.0));
+
+        app.save_window_geometry();
+
+        let geometry = app
+            .settings
+            .window_geometry
+            .as_ref()
+            .expect("window geometry should be stored");
+        assert_close(geometry.width, 1200.0);
+        assert_close(geometry.height, 800.0);
+        assert_close(geometry.x, 100.0);
+        assert_close(geometry.y, 150.0);
+    }
+
+    #[test]
+    fn save_window_geometry_noop_when_size_or_position_missing() {
+        let mut app = test_app_with_two_environments();
+        app.settings.window_geometry = None;
+        app.window_size = Some(iced::Size::new(1200.0, 800.0));
+        app.window_position = None;
+
+        app.save_window_geometry();
+
+        assert!(app.settings.window_geometry.is_none());
+    }
+}
