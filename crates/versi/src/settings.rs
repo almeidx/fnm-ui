@@ -294,3 +294,132 @@ pub enum TrayBehavior {
     AlwaysRunning,
     Disabled,
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{AppSettings, BackendKind, ShellOptions, WindowGeometry};
+
+    #[test]
+    fn shell_options_default_enables_use_on_cd_only() {
+        let options = ShellOptions::default();
+
+        assert!(options.use_on_cd);
+        assert!(!options.resolve_engines);
+        assert!(!options.corepack_enabled);
+    }
+
+    #[test]
+    fn app_settings_defaults_match_expected_timeouts() {
+        let settings = AppSettings::default();
+
+        assert_eq!(settings.cache_ttl_hours, 1);
+        assert_eq!(settings.install_timeout_secs, 600);
+        assert_eq!(settings.uninstall_timeout_secs, 60);
+        assert_eq!(settings.set_default_timeout_secs, 60);
+        assert_eq!(settings.fetch_timeout_secs, 30);
+        assert_eq!(settings.http_timeout_secs, 10);
+        assert_eq!(settings.toast_timeout_secs, 5);
+        assert_eq!(settings.max_visible_toasts, 3);
+        assert_eq!(settings.search_results_limit, 20);
+        assert_eq!(settings.modal_preview_limit, 10);
+        assert_eq!(settings.max_log_size_bytes, 5 * 1024 * 1024);
+        assert_eq!(settings.retry_delays_secs, vec![0, 2, 5, 15]);
+    }
+
+    #[test]
+    fn backend_shell_options_deserialization_ignores_unknown_backends() {
+        let value = json!({
+            "backend_shell_options": {
+                "fnm": { "use_on_cd": true, "resolve_engines": true, "corepack_enabled": false },
+                "nvm": { "use_on_cd": false, "resolve_engines": false, "corepack_enabled": true },
+                "volta": { "use_on_cd": true, "resolve_engines": true, "corepack_enabled": true }
+            }
+        });
+
+        let settings: AppSettings =
+            serde_json::from_value(value).expect("settings JSON should deserialize");
+
+        assert_eq!(settings.backend_shell_options.len(), 2);
+        assert!(settings.backend_shell_options.contains_key(&BackendKind::Fnm));
+        assert!(settings.backend_shell_options.contains_key(&BackendKind::Nvm));
+    }
+
+    #[test]
+    fn backend_shell_options_serialization_uses_backend_names() {
+        let mut settings = AppSettings::default();
+        settings.backend_shell_options.insert(
+            BackendKind::Fnm,
+            ShellOptions {
+                use_on_cd: false,
+                resolve_engines: true,
+                corepack_enabled: true,
+            },
+        );
+
+        let value = serde_json::to_value(settings).expect("settings should serialize");
+        let backend_options = &value["backend_shell_options"];
+
+        assert!(backend_options.get("fnm").is_some());
+        assert!(backend_options.get("nvm").is_none());
+    }
+
+    #[test]
+    fn shell_options_for_returns_default_if_not_overridden() {
+        let settings = AppSettings::default();
+
+        let options = settings.shell_options_for(BackendKind::Nvm);
+
+        assert_eq!(options.use_on_cd, ShellOptions::default().use_on_cd);
+        assert_eq!(
+            options.resolve_engines,
+            ShellOptions::default().resolve_engines
+        );
+        assert_eq!(
+            options.corepack_enabled,
+            ShellOptions::default().corepack_enabled
+        );
+    }
+
+    #[test]
+    fn shell_options_for_mut_inserts_default_entry() {
+        let mut settings = AppSettings::default();
+
+        settings.shell_options_for_mut(BackendKind::Fnm).resolve_engines = true;
+
+        let stored = settings
+            .backend_shell_options
+            .get(&BackendKind::Fnm)
+            .expect("mutable accessor should insert missing backend options");
+        assert!(stored.resolve_engines);
+        assert!(stored.use_on_cd);
+    }
+
+    #[test]
+    fn window_geometry_visibility_checks_bounds() {
+        let visible = WindowGeometry {
+            width: 900.0,
+            height: 600.0,
+            x: 200.0,
+            y: 100.0,
+        };
+        assert!(visible.is_likely_visible());
+
+        let too_small = WindowGeometry {
+            width: 90.0,
+            height: 99.0,
+            x: 0.0,
+            y: 0.0,
+        };
+        assert!(!too_small.is_likely_visible());
+
+        let out_of_bounds = WindowGeometry {
+            width: 900.0,
+            height: 600.0,
+            x: 20_000.0,
+            y: 100.0,
+        };
+        assert!(!out_of_bounds.is_likely_visible());
+    }
+}

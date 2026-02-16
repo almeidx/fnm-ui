@@ -41,3 +41,40 @@ impl std::fmt::Display for AppError {
 }
 
 impl std::error::Error for AppError {}
+
+#[cfg(test)]
+mod tests {
+    use super::AppError;
+
+    #[test]
+    fn message_constructor_and_display_match() {
+        let error = AppError::message("something failed");
+        assert_eq!(error, AppError::Message("something failed".to_string()));
+        assert_eq!(error.to_string(), "something failed");
+    }
+
+    #[test]
+    fn timeout_constructor_and_display_match() {
+        let error = AppError::timeout("install", 30);
+        assert_eq!(
+            error,
+            AppError::Timeout {
+                operation: "install",
+                seconds: 30
+            }
+        );
+        assert_eq!(error.to_string(), "install timed out after 30s");
+    }
+
+    #[test]
+    fn string_conversions_build_message_variant() {
+        assert_eq!(
+            AppError::from("from str"),
+            AppError::Message("from str".to_string())
+        );
+        assert_eq!(
+            AppError::from("from string".to_string()),
+            AppError::Message("from string".to_string())
+        );
+    }
+}
