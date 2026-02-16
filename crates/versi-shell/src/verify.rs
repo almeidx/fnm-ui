@@ -351,3 +351,48 @@ pub async fn configure_wsl_shell_config(
 ) -> Result<(), String> {
     Err("WSL is only available on Windows".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::detect::ShellType;
+
+    use super::{configure_wsl_shell_config, get_config_path_for_shell, get_or_create_config_path};
+    use versi_backend::ShellInitOptions;
+
+    #[test]
+    fn cmd_shell_has_no_config_path() {
+        assert!(get_config_path_for_shell(&ShellType::Cmd).is_none());
+        assert!(get_or_create_config_path(&ShellType::Cmd).is_none());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[tokio::test]
+    async fn wsl_verify_returns_platform_error_on_non_windows() {
+        let result =
+            super::verify_wsl_shell_config(&ShellType::Bash, "Ubuntu", "fnm env", "fnm").await;
+
+        assert!(matches!(
+            result,
+            super::VerificationResult::Error(ref msg) if msg == "WSL is only available on Windows"
+        ));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[tokio::test]
+    async fn wsl_configure_returns_platform_error_on_non_windows() {
+        let result = configure_wsl_shell_config(
+            &ShellType::Bash,
+            "Ubuntu",
+            "fnm env",
+            "fnm",
+            "eval \"$(fnm env)\"",
+            &ShellInitOptions::default(),
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            Err("WSL is only available on Windows".to_string())
+        );
+    }
+}
