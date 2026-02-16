@@ -5,7 +5,7 @@ pub(crate) fn set_update_badge(visible: bool) {
         let result = (|| -> Result<(), Box<dyn std::error::Error>> {
             let connection = zbus::blocking::Connection::session()?;
 
-            let count: i64 = if visible { 1 } else { 0 };
+            let count = i64::from(visible);
             let mut props = std::collections::HashMap::new();
             props.insert("count", zbus::zvariant::Value::from(count));
             props.insert("count-visible", zbus::zvariant::Value::from(visible));
@@ -25,7 +25,7 @@ pub(crate) fn set_update_badge(visible: bool) {
         })();
 
         if let Err(e) = result {
-            debug!("Failed to set update badge: {}", e);
+            debug!("Failed to set update badge: {e}");
         }
     });
 }
@@ -34,8 +34,7 @@ pub(crate) fn set_dock_visible(_visible: bool) {}
 
 pub(crate) fn is_wayland() -> bool {
     std::env::var("XDG_SESSION_TYPE")
-        .map(|v| v == "wayland")
-        .unwrap_or_else(|_| std::env::var("WAYLAND_DISPLAY").is_ok())
+        .map_or_else(|_| std::env::var("WAYLAND_DISPLAY").is_ok(), |v| v == "wayland")
 }
 
 pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {

@@ -38,7 +38,7 @@ fn main() -> iced::Result {
     #[cfg(target_os = "linux")]
     {
         if let Err(e) = gtk::init() {
-            log::warn!("Failed to initialize GTK: {}", e);
+            log::warn!("Failed to initialize GTK: {e}");
         }
     }
 
