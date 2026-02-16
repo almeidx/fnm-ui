@@ -208,3 +208,28 @@ fn format_tenths(value: u64, unit: u64, suffix: &str) -> String {
     let tenth = scaled % 10;
     format!("{whole}.{tenth} {suffix}")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{format_bytes, format_tenths};
+
+    #[test]
+    fn format_bytes_uses_bytes_for_small_values() {
+        assert_eq!(format_bytes(0), "0 B");
+        assert_eq!(format_bytes(999), "999 B");
+    }
+
+    #[test]
+    fn format_bytes_uses_kilobytes_megabytes_and_gigabytes() {
+        assert_eq!(format_bytes(1024), "1.0 KB");
+        assert_eq!(format_bytes(1536), "1.5 KB");
+        assert_eq!(format_bytes(1024 * 1024), "1.0 MB");
+        assert_eq!(format_bytes(1024 * 1024 * 1024), "1.0 GB");
+    }
+
+    #[test]
+    fn format_tenths_rounds_to_nearest_tenth() {
+        assert_eq!(format_tenths(1280, 1024, "KB"), "1.3 KB");
+        assert_eq!(format_tenths(1228, 1024, "KB"), "1.2 KB");
+    }
+}
