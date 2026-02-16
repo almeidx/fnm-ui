@@ -255,3 +255,85 @@ impl Versi {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::AppState;
+
+    #[test]
+    fn search_changed_clears_filters_when_query_becomes_empty() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.active_filters = HashSet::from([SearchFilter::Lts, SearchFilter::Installed]);
+            state.search_query = "lts".to_string();
+        }
+
+        app.handle_search_changed(String::new());
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.active_filters.is_empty());
+        assert_eq!(state.search_query, "");
+    }
+
+    #[test]
+    fn search_filter_toggle_enforces_installed_not_installed_exclusivity() {
+        let mut app = test_app_with_two_environments();
+
+        app.handle_search_filter_toggled(SearchFilter::Installed);
+        app.handle_search_filter_toggled(SearchFilter::NotInstalled);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(!state.active_filters.contains(&SearchFilter::Installed));
+        assert!(state.active_filters.contains(&SearchFilter::NotInstalled));
+    }
+
+    #[test]
+    fn search_filter_toggle_enforces_eol_active_exclusivity() {
+        let mut app = test_app_with_two_environments();
+
+        app.handle_search_filter_toggled(SearchFilter::Active);
+        app.handle_search_filter_toggled(SearchFilter::Eol);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(!state.active_filters.contains(&SearchFilter::Active));
+        assert!(state.active_filters.contains(&SearchFilter::Eol));
+    }
+
+    #[test]
+    fn version_group_toggled_flips_target_group_only() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.active_environment_mut().version_groups = vec![
+                versi_backend::VersionGroup {
+                    major: 22,
+                    versions: Vec::new(),
+                    is_expanded: true,
+                },
+                versi_backend::VersionGroup {
+                    major: 20,
+                    versions: Vec::new(),
+                    is_expanded: false,
+                },
+            ];
+        }
+
+        app.handle_version_group_toggled(20);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        let groups = &state.active_environment().version_groups;
+        assert!(groups.iter().any(|g| g.major == 20 && g.is_expanded));
+        assert!(groups.iter().any(|g| g.major == 22 && g.is_expanded));
+    }
+}

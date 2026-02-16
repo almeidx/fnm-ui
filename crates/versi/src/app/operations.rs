@@ -303,3 +303,131 @@ impl Versi {
         Task::none()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::AppState;
+
+    #[test]
+    fn close_modal_clears_existing_modal() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.modal = Some(Modal::KeyboardShortcuts);
+        }
+
+        app.handle_close_modal();
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.modal.is_none());
+    }
+
+    #[test]
+    fn start_install_ignores_duplicate_active_version() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.operation_queue.start_install("v20.11.0".to_string());
+        }
+
+        let _ = app.handle_start_install("v20.11.0".to_string());
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.operation_queue.active_installs.len(), 1);
+        assert!(state.operation_queue.pending.is_empty());
+    }
+
+    #[test]
+    fn start_install_queues_when_exclusive_operation_is_active() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state
+                .operation_queue
+                .start_exclusive(Operation::SetDefault {
+                    version: "v20.11.0".to_string(),
+                });
+        }
+
+        let _ = app.handle_start_install("v22.1.0".to_string());
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.operation_queue.pending.len(), 1);
+        assert!(matches!(
+            state.operation_queue.pending.front().map(|queued| &queued.request),
+            Some(OperationRequest::Install { version }) if version == "v22.1.0"
+        ));
+    }
+
+    #[test]
+    fn uninstall_default_opens_confirmation_modal() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.active_environment_mut().default_version = Some(
+                "v20.11.0"
+                    .parse()
+                    .expect("test default version should parse"),
+            );
+        }
+
+        let _ = app.handle_uninstall("v20.11.0".to_string());
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.modal,
+            Some(Modal::ConfirmUninstallDefault { ref version }) if version == "v20.11.0"
+        ));
+    }
+
+    #[test]
+    fn uninstall_queues_when_exclusive_queue_is_busy() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.active_environment_mut().default_version = None;
+            state
+                .operation_queue
+                .start_exclusive(Operation::Uninstall {
+                    version: "v18.0.0".to_string(),
+                });
+        }
+
+        let _ = app.handle_uninstall("v20.11.0".to_string());
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.operation_queue.pending.front().map(|queued| &queued.request),
+            Some(OperationRequest::Uninstall { version }) if version == "v20.11.0"
+        ));
+    }
+
+    #[test]
+    fn set_default_queues_when_exclusive_queue_is_busy() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state
+                .operation_queue
+                .start_exclusive(Operation::Uninstall {
+                    version: "v18.0.0".to_string(),
+                });
+        }
+
+        let _ = app.handle_set_default("v22.0.0".to_string());
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.operation_queue.pending.front().map(|queued| &queued.request),
+            Some(OperationRequest::SetDefault { version }) if version == "v22.0.0"
+        ));
+    }
+}
