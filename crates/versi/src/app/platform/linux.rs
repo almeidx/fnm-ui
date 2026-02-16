@@ -33,8 +33,10 @@ pub(crate) fn set_update_badge(visible: bool) {
 pub(crate) fn set_dock_visible(_visible: bool) {}
 
 pub(crate) fn is_wayland() -> bool {
-    std::env::var("XDG_SESSION_TYPE")
-        .map_or_else(|_| std::env::var("WAYLAND_DISPLAY").is_ok(), |v| v == "wayland")
+    std::env::var("XDG_SESSION_TYPE").map_or_else(
+        |_| std::env::var("WAYLAND_DISPLAY").is_ok(),
+        |v| v == "wayland",
+    )
 }
 
 pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
