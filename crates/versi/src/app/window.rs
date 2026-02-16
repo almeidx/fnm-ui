@@ -1,6 +1,6 @@
 //! Window lifecycle: open, close, hide-to-tray, and geometry persistence.
 //!
-//! Handles messages: WindowClose, WindowOpened
+//! Handles messages: `WindowClose`, `WindowOpened`
 
 use log::info;
 
@@ -70,6 +70,7 @@ impl Versi {
         }
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub(super) fn save_window_geometry(&mut self) {
         if let (Some(size), Some(pos)) = (self.window_size, self.window_position) {
             self.settings.window_geometry = Some(crate::settings::WindowGeometry {

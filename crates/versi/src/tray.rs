@@ -63,8 +63,8 @@ impl TrayMenuData {
     }
 }
 
-pub fn init_tray(behavior: &TrayBehavior) -> Result<(), Box<dyn std::error::Error>> {
-    if *behavior == TrayBehavior::Disabled {
+pub fn init_tray(behavior: TrayBehavior) -> Result<(), Box<dyn std::error::Error>> {
+    if behavior == TrayBehavior::Disabled {
         return Ok(());
     }
 

@@ -73,7 +73,7 @@ impl std::fmt::Debug for MainState {
             .field("backend_update", &self.backend_update)
             .field("view", &self.view)
             .field("hovered_version", &self.hovered_version)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -159,8 +159,7 @@ impl MainState {
                     version_str.contains(query.as_str())
                         || v.lts_codename
                             .as_ref()
-                            .map(|c| c.to_lowercase().contains(&query_lower))
-                            .unwrap_or(false)
+                            .is_some_and(|c| c.to_lowercase().contains(&query_lower))
                 })
                 .collect();
 

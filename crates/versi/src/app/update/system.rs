@@ -6,6 +6,7 @@ use crate::state::AppState;
 use super::super::{Versi, platform};
 
 impl Versi {
+    #[allow(clippy::too_many_lines)]
     pub(super) fn dispatch_system(&mut self, message: Message) -> super::DispatchResult {
         match message {
             Message::AnimationTick => {
@@ -33,8 +34,9 @@ impl Versi {
                 }
                 Ok(Task::none())
             }
-            Message::WindowEvent(iced::window::Event::CloseRequested)
-            | Message::WindowEvent(iced::window::Event::Closed)
+            Message::WindowEvent(
+                iced::window::Event::CloseRequested | iced::window::Event::Closed,
+            )
             | Message::CloseWindow => Ok(self.handle_window_close()),
             Message::WindowEvent(iced::window::Event::Resized(size)) => {
                 self.window_size = Some(size);
@@ -63,7 +65,7 @@ impl Versi {
                         async move {
                             let _ = open::that(&url);
                         },
-                        |_| Message::NoOp,
+                        |()| Message::NoOp,
                     ));
                 }
                 Ok(Task::none())
@@ -96,7 +98,7 @@ impl Versi {
                         async move {
                             let _ = open::that(&url);
                         },
-                        |_| Message::NoOp,
+                        |()| Message::NoOp,
                     ));
                 }
                 Ok(Task::none())
@@ -138,7 +140,7 @@ impl Versi {
                 async move {
                     let _ = open::that(&url);
                 },
-                |_| Message::NoOp,
+                |()| Message::NoOp,
             )),
             Message::TrayEvent(tray_msg) => Ok(self.handle_tray_event(tray_msg)),
             other => Err(Box::new(other)),

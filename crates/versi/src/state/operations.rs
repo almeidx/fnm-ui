@@ -17,9 +17,9 @@ pub enum OperationRequest {
 impl OperationRequest {
     pub fn version(&self) -> &str {
         match self {
-            Self::Install { version } => version,
-            Self::Uninstall { version } => version,
-            Self::SetDefault { version } => version,
+            Self::Install { version }
+            | Self::Uninstall { version }
+            | Self::SetDefault { version } => version,
         }
     }
 }
@@ -85,12 +85,7 @@ impl OperationQueue {
         }
         self.exclusive_op
             .as_ref()
-            .map(|op| match op {
-                Operation::Install { version: v, .. } => v == version,
-                Operation::Uninstall { version: v } => v == version,
-                Operation::SetDefault { version: v } => v == version,
-            })
-            .unwrap_or(false)
+            .is_some_and(|op| matches!(op, Operation::Install { version: v, .. } | Operation::Uninstall { version: v } | Operation::SetDefault { version: v } if v == version))
     }
 
     pub fn active_operation_for(&self, version: &str) -> Option<&Operation> {
@@ -101,11 +96,9 @@ impl OperationQueue {
         {
             return Some(op);
         }
-        self.exclusive_op.as_ref().filter(|op| match op {
-            Operation::Install { version: v, .. } => v == version,
-            Operation::Uninstall { version: v } => v == version,
-            Operation::SetDefault { version: v } => v == version,
-        })
+        self.exclusive_op.as_ref().filter(
+            |op| matches!(op, Operation::Install { version: v, .. } | Operation::Uninstall { version: v } | Operation::SetDefault { version: v } if v == version),
+        )
     }
 
     pub fn has_active_install(&self, version: &str) -> bool {
@@ -146,22 +139,19 @@ impl OperationQueue {
         }
 
         while let Some(next) = self.pending.front() {
-            match &next.request {
-                OperationRequest::Install { version } => {
-                    if !self.has_active_install(version) && !install_versions.contains(version) {
-                        install_versions.push(version.clone());
-                    }
-                    self.pending.pop_front();
+            if let OperationRequest::Install { version } = &next.request {
+                if !self.has_active_install(version) && !install_versions.contains(version) {
+                    install_versions.push(version.clone());
                 }
-                _ => {
-                    if self.active_installs.is_empty()
-                        && install_versions.is_empty()
-                        && let Some(queued) = self.pending.pop_front()
-                    {
-                        exclusive_request = Some(queued.request);
-                    }
-                    break;
+                self.pending.pop_front();
+            } else {
+                if self.active_installs.is_empty()
+                    && install_versions.is_empty()
+                    && let Some(queued) = self.pending.pop_front()
+                {
+                    exclusive_request = Some(queued.request);
                 }
+                break;
             }
         }
 
@@ -202,7 +192,7 @@ mod tests {
     use super::*;
 
     fn version_tag(tag: u8) -> String {
-        format!("v{}.0.0", tag)
+        format!("v{tag}.0.0")
     }
 
     fn exclusive_op(kind: u8, tag: u8) -> Operation {
@@ -227,7 +217,9 @@ mod tests {
         let mut state = seed;
         let mut out = Vec::with_capacity(len);
         for _ in 0..len {
-            state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1);
             let kind = ((state >> 8) % 3) as u8;
             let tag = ((state >> 16) % 20) as u8;
             out.push((kind, tag));

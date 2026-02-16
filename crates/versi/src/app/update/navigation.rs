@@ -6,6 +6,7 @@ use crate::state::{AppState, MainViewKind};
 use super::super::Versi;
 
 impl Versi {
+    #[allow(clippy::too_many_lines)]
     pub(super) fn dispatch_navigation(&mut self, message: Message) -> super::DispatchResult {
         match message {
             Message::Initialized(result) => Ok(self.handle_initialized(*result)),
@@ -13,7 +14,7 @@ impl Versi {
                 env_id,
                 request_seq,
                 result,
-            } => Ok(self.handle_environment_loaded(env_id, request_seq, result)),
+            } => Ok(self.handle_environment_loaded(&env_id, request_seq, result)),
             Message::RefreshEnvironment => Ok(self.handle_refresh_environment()),
             Message::FocusSearch => {
                 if let AppState::Main(state) = &mut self.state {
@@ -34,8 +35,7 @@ impl Versi {
                             Some(current) => versions
                                 .iter()
                                 .position(|v| v == current)
-                                .map(|i| i.saturating_sub(1))
-                                .unwrap_or(0),
+                                .map_or(0, |i| i.saturating_sub(1)),
                             None => versions.len() - 1,
                         };
                         state.hovered_version = Some(versions[new_idx].clone());
@@ -54,8 +54,7 @@ impl Versi {
                             Some(current) => versions
                                 .iter()
                                 .position(|v| v == current)
-                                .map(|i| (i + 1).min(versions.len() - 1))
-                                .unwrap_or(0),
+                                .map_or(0, |i| (i + 1).min(versions.len() - 1)),
                             None => 0,
                         };
                         state.hovered_version = Some(versions[new_idx].clone());
@@ -71,9 +70,8 @@ impl Versi {
                 {
                     if state.is_version_installed(&version) {
                         return Ok(self.update(Message::SetDefault(version)));
-                    } else {
-                        return Ok(self.update(Message::StartInstall(version)));
                     }
+                    return Ok(self.update(Message::StartInstall(version)));
                 }
                 Ok(Task::none())
             }
@@ -130,12 +128,12 @@ impl Versi {
                 Ok(Task::none())
             }
             Message::OpenChangelog(version) => {
-                let url = format!("https://nodejs.org/en/blog/release/{}", version);
+                let url = format!("https://nodejs.org/en/blog/release/{version}");
                 Ok(Task::perform(
                     async move {
                         let _ = open::that(&url);
                     },
-                    |_| Message::NoOp,
+                    |()| Message::NoOp,
                 ))
             }
             Message::EnvironmentSelected(idx) => Ok(self.handle_environment_selected(idx)),

@@ -1,7 +1,7 @@
 //! Shell configuration detection, setup, and flag updates.
 //!
-//! Handles messages: ShellSetupChecked, ConfigureShell, ShellConfigured,
-//! ShellFlagsUpdated
+//! Handles messages: `ShellSetupChecked`, `ConfigureShell`, `ShellConfigured`,
+//! `ShellFlagsUpdated`
 
 use iced::Task;
 
@@ -223,15 +223,15 @@ impl Versi {
 
     pub(super) fn handle_shell_configured(
         &mut self,
-        shell_type: versi_shell::ShellType,
-        result: Result<(), AppError>,
+        shell_type: &versi_shell::ShellType,
+        result: &Result<(), AppError>,
     ) {
         if let AppState::Main(state) = &mut self.state
             && let Some(shell) = state
                 .settings_state
                 .shell_statuses
                 .iter_mut()
-                .find(|s| s.shell_type == shell_type)
+                .find(|s| &s.shell_type == shell_type)
         {
             shell.configuring = false;
             match result {

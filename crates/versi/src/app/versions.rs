@@ -1,7 +1,7 @@
 //! Remote version fetching, release schedule, and update checks.
 //!
-//! Handles messages: RemoteVersionsFetched, ReleaseScheduleFetched,
-//! AppUpdateChecked, BackendUpdateChecked
+//! Handles messages: `RemoteVersionsFetched`, `ReleaseScheduleFetched`,
+//! `AppUpdateChecked`, `BackendUpdateChecked`
 
 use std::time::{Duration, Instant};
 
@@ -180,7 +180,7 @@ impl Versi {
                     });
                 }
                 Err(error) => {
-                    debug!("Release schedule fetch failed: {}", error);
+                    debug!("Release schedule fetch failed: {error}");
                     state.available_versions.schedule_error = Some(error);
                 }
             }
@@ -249,7 +249,7 @@ impl Versi {
                     });
                 }
                 Err(error) => {
-                    debug!("Version metadata fetch failed: {}", error);
+                    debug!("Version metadata fetch failed: {error}");
                 }
             }
         }
@@ -275,7 +275,7 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             match result {
                 Ok(update) => state.app_update = update,
-                Err(e) => debug!("App update check failed: {}", e),
+                Err(e) => debug!("App update check failed: {e}"),
             }
         }
     }
@@ -307,7 +307,7 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             match result {
                 Ok(update) => state.backend_update = update,
-                Err(e) => debug!("Backend update check failed: {}", e),
+                Err(e) => debug!("Backend update check failed: {e}"),
             }
         }
     }

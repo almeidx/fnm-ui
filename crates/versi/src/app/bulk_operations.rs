@@ -78,11 +78,7 @@ impl Versi {
             let eol_versions: Vec<String> = env
                 .installed_versions
                 .iter()
-                .filter(|v| {
-                    schedule
-                        .map(|s| !s.is_active(v.version.major))
-                        .unwrap_or(false)
-                })
+                .filter(|v| schedule.is_some_and(|s| !s.is_active(v.version.major)))
                 .map(|v| v.version.to_string())
                 .collect();
 

@@ -17,13 +17,11 @@ mod tray;
 mod views;
 mod widgets;
 
+#[allow(clippy::cast_precision_loss)]
 fn main() -> iced::Result {
-    let _instance_guard = match single_instance::SingleInstance::acquire() {
-        Ok(guard) => guard,
-        Err(_) => {
-            single_instance::bring_existing_window_to_front();
-            return Ok(());
-        }
+    let Ok(_instance_guard) = single_instance::SingleInstance::acquire() else {
+        single_instance::bring_existing_window_to_front();
+        return Ok(());
     };
 
     if let Err(e) = versi_platform::AppPaths::new() {
@@ -45,8 +43,8 @@ fn main() -> iced::Result {
         }
     }
 
-    if let Err(e) = tray::init_tray(&settings.tray_behavior) {
-        log::warn!("Failed to initialize tray icon: {}", e);
+    if let Err(e) = tray::init_tray(settings.tray_behavior) {
+        log::warn!("Failed to initialize tray icon: {e}");
     }
 
     let icon = window::icon::from_file_data(include_bytes!("../../../assets/logo.png"), None).ok();
@@ -65,7 +63,7 @@ fn main() -> iced::Result {
         ..Default::default()
     };
     #[cfg(not(target_os = "linux"))]
-    let platform_specific = Default::default();
+    let platform_specific = window::settings::PlatformSpecific::default();
 
     iced::application(app::Versi::new, app::Versi::update, app::Versi::view)
         .title(|state: &app::Versi| state.title())

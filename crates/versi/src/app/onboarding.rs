@@ -29,8 +29,7 @@ impl Versi {
     pub(super) fn handle_onboarding_back(&mut self) {
         if let AppState::Onboarding(state) = &mut self.state {
             state.step = match state.step {
-                OnboardingStep::Welcome => OnboardingStep::Welcome,
-                OnboardingStep::SelectBackend => OnboardingStep::Welcome,
+                OnboardingStep::Welcome | OnboardingStep::SelectBackend => OnboardingStep::Welcome,
                 OnboardingStep::InstallBackend => {
                     if state.available_backends.len() > 1 {
                         OnboardingStep::SelectBackend
@@ -166,12 +165,12 @@ impl Versi {
         Task::none()
     }
 
-    pub(super) fn handle_onboarding_shell_config_result(&mut self, result: Result<(), AppError>) {
+    pub(super) fn handle_onboarding_shell_config_result(&mut self, result: &Result<(), AppError>) {
         if let AppState::Onboarding(state) = &mut self.state {
             for shell in &mut state.detected_shells {
                 if shell.configuring {
                     shell.configuring = false;
-                    match &result {
+                    match result {
                         Ok(()) => {
                             shell.configured = true;
                             shell.error = None;

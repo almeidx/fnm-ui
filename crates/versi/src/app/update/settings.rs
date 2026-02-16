@@ -7,6 +7,7 @@ use crate::state::{AppState, MainViewKind};
 use super::super::{Versi, platform};
 
 impl Versi {
+    #[allow(clippy::too_many_lines)]
     pub(super) fn dispatch_settings(&mut self, message: Message) -> super::DispatchResult {
         match message {
             Message::ToastDismiss(id) => {
@@ -87,7 +88,7 @@ impl Versi {
                             let _ = std::fs::write(&log_path, "");
                         }
                     },
-                    |_| Message::LogFileCleared,
+                    |()| Message::LogFileCleared,
                 ))
             }
             Message::LogFileCleared => {
@@ -103,7 +104,7 @@ impl Versi {
                 };
                 Ok(Task::perform(
                     async move { platform::reveal_in_file_manager(&log_path) },
-                    |_| Message::NoOp,
+                    |()| Message::NoOp,
                 ))
             }
             Message::RevealSettingsFile => {
@@ -116,7 +117,7 @@ impl Versi {
                 };
                 Ok(Task::perform(
                     async move { platform::reveal_in_file_manager(&settings_path) },
-                    |_| Message::NoOp,
+                    |()| Message::NoOp,
                 ))
             }
             Message::LogFileStatsLoaded(size) => {
@@ -128,7 +129,7 @@ impl Versi {
             Message::ShellFlagsUpdated => Ok(Task::none()),
             Message::ExportSettings => Ok(self.handle_export_settings()),
             Message::SettingsExported(result) => Ok(self.handle_settings_exported(result)),
-            Message::ImportSettings => Ok(self.handle_import_settings()),
+            Message::ImportSettings => Ok(Self::handle_import_settings()),
             Message::SettingsImported(result) => Ok(self.handle_settings_imported(result)),
             Message::ShellSetupChecked(results) => {
                 self.handle_shell_setup_checked(results);
@@ -136,7 +137,7 @@ impl Versi {
             }
             Message::ConfigureShell(shell_type) => Ok(self.handle_configure_shell(shell_type)),
             Message::ShellConfigured(shell_type, result) => {
-                self.handle_shell_configured(shell_type, result);
+                self.handle_shell_configured(&shell_type, &result);
                 Ok(Task::none())
             }
             Message::PreferredBackendChanged(name) => {
@@ -159,7 +160,7 @@ impl Versi {
                 Ok(self.handle_onboarding_configure_shell(shell_type))
             }
             Message::OnboardingShellConfigResult(result) => {
-                self.handle_onboarding_shell_config_result(result);
+                self.handle_onboarding_shell_config_result(&result);
                 Ok(Task::none())
             }
             Message::OnboardingComplete => Ok(self.handle_onboarding_complete()),

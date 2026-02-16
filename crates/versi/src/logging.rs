@@ -22,7 +22,10 @@ impl ResilientFileWriter {
     }
 
     fn ensure_file(&self) -> io::Result<()> {
-        let mut guard = self.file.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self
+            .file
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         if !self.path.exists() {
             if let Some(parent) = self.path.parent() {
@@ -42,7 +45,10 @@ impl ResilientFileWriter {
 impl Write for ResilientFileWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.ensure_file()?;
-        let mut guard = self.file.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self
+            .file
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(ref mut file) = *guard {
             file.write(buf)
         } else {
@@ -51,7 +57,10 @@ impl Write for ResilientFileWriter {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        let mut guard = self.file.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self
+            .file
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(ref mut file) = *guard {
             file.flush()
         } else {
@@ -75,8 +84,7 @@ pub fn init_logging(debug_enabled: bool, max_log_size: u64) {
         let keep_from = contents[half..]
             .iter()
             .position(|&b| b == b'\n')
-            .map(|p| half + p + 1)
-            .unwrap_or(half);
+            .map_or(half, |p| half + p + 1);
         let _ = std::fs::write(&log_path, &contents[keep_from..]);
     }
 
@@ -115,7 +123,10 @@ pub fn init_logging(debug_enabled: bool, max_log_size: u64) {
     set_logging_enabled(debug_enabled);
 
     if debug_enabled {
-        log::info!("Debug logging initialized, log file: {:?}", log_path);
+        log::info!(
+            "Debug logging initialized, log file: {}",
+            log_path.display()
+        );
     }
 }
 

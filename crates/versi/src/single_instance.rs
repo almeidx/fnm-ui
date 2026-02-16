@@ -58,6 +58,7 @@ mod other_impl {
     pub struct SingleInstance;
 
     impl SingleInstance {
+        #[allow(clippy::unnecessary_wraps)]
         pub fn acquire() -> Result<Self, ()> {
             Ok(Self)
         }

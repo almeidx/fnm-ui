@@ -1,7 +1,7 @@
 //! Install, uninstall, and set-default operations with queuing.
 //!
-//! Handles messages: StartInstall, InstallComplete, Uninstall, UninstallComplete,
-//! SetDefault, DefaultChanged, CloseModal
+//! Handles messages: `StartInstall`, `InstallComplete`, Uninstall, `UninstallComplete`,
+//! `SetDefault`, `DefaultChanged`, `CloseModal`
 
 use std::time::Duration;
 
@@ -76,12 +76,12 @@ impl Versi {
 
     pub(super) fn handle_install_complete(
         &mut self,
-        version: String,
+        version: &str,
         success: bool,
         error: Option<AppError>,
     ) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
-            state.operation_queue.remove_completed_install(&version);
+            state.operation_queue.remove_completed_install(version);
 
             if !success {
                 let toast_id = state.next_toast_id();
@@ -90,9 +90,7 @@ impl Versi {
                     format!(
                         "Failed to install Node {}: {}",
                         version,
-                        error
-                            .map(|e| e.to_string())
-                            .unwrap_or_else(|| "unknown error".to_string())
+                        error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
                     ),
                 ));
             }
@@ -125,7 +123,7 @@ impl Versi {
                 return Task::none();
             }
 
-            return self.start_uninstall_internal(version);
+            return self.start_uninstall_internal(&version);
         }
         Task::none()
     }
@@ -141,19 +139,20 @@ impl Versi {
                 return Task::none();
             }
 
-            return self.start_uninstall_internal(version);
+            return self.start_uninstall_internal(&version);
         }
         Task::none()
     }
 
-    pub(super) fn start_uninstall_internal(&mut self, version: String) -> Task<Message> {
+    pub(super) fn start_uninstall_internal(&mut self, version: &str) -> Task<Message> {
         if let AppState::Main(state) = &mut self.state {
+            let version_owned = version.to_string();
             state.operation_queue.start_exclusive(Operation::Uninstall {
-                version: version.clone(),
+                version: version_owned.clone(),
             });
 
             let backend = state.backend.clone();
-            let version_clone = version.clone();
+            let version_clone = version_owned.clone();
             let timeout = Duration::from_secs(self.settings.uninstall_timeout_secs);
 
             return Task::perform(
@@ -182,7 +181,7 @@ impl Versi {
 
     pub(super) fn handle_uninstall_complete(
         &mut self,
-        version: String,
+        version: &str,
         success: bool,
         error: Option<AppError>,
     ) -> Task<Message> {
@@ -196,9 +195,7 @@ impl Versi {
                     format!(
                         "Failed to uninstall Node {}: {}",
                         version,
-                        error
-                            .map(|e| e.to_string())
-                            .unwrap_or_else(|| "unknown error".to_string())
+                        error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
                     ),
                 ));
             }
@@ -268,9 +265,7 @@ impl Versi {
                     toast_id,
                     format!(
                         "Failed to set default: {}",
-                        error
-                            .map(|e| e.to_string())
-                            .unwrap_or_else(|| "unknown error".to_string())
+                        error.map_or_else(|| "unknown error".to_string(), |e| e.to_string())
                     ),
                 ));
             }
@@ -292,7 +287,7 @@ impl Versi {
             if let Some(request) = exclusive_request {
                 match request {
                     OperationRequest::Uninstall { version } => {
-                        tasks.push(self.start_uninstall_internal(version));
+                        tasks.push(self.start_uninstall_internal(&version));
                     }
                     OperationRequest::SetDefault { version } => {
                         tasks.push(self.start_set_default_internal(version));

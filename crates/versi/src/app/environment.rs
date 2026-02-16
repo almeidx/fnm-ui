@@ -1,7 +1,7 @@
 //! Environment switching, version loading, and search.
 //!
-//! Handles messages: EnvironmentSelected, EnvironmentLoaded, RefreshEnvironment,
-//! VersionGroupToggled, SearchChanged
+//! Handles messages: `EnvironmentSelected`, `EnvironmentLoaded`, `RefreshEnvironment`,
+//! `VersionGroupToggled`, `SearchChanged`
 
 use std::time::Duration;
 
@@ -22,7 +22,7 @@ use super::init::create_backend_for_environment;
 impl Versi {
     pub(super) fn handle_environment_loaded(
         &mut self,
-        env_id: EnvironmentId,
+        env_id: &EnvironmentId,
         request_seq: u64,
         result: Result<Vec<versi_backend::InstalledVersion>, AppError>,
     ) -> Task<Message> {
@@ -41,12 +41,12 @@ impl Versi {
                 }
             }
             Err(error) => {
-                info!("Environment load failed for {:?}: {}", env_id, error);
+                info!("Environment load failed for {env_id:?}: {error}");
             }
         }
 
         if let AppState::Main(state) = &mut self.state
-            && let Some(env) = state.environments.iter_mut().find(|e| e.id == env_id)
+            && let Some(env) = state.environments.iter_mut().find(|e| &e.id == env_id)
         {
             if env.load_request_seq != request_seq {
                 debug!(
@@ -92,15 +92,15 @@ impl Versi {
                 return Task::none();
             }
 
-            info!("Switching to environment {}", idx);
+            info!("Switching to environment {idx}");
             state.active_environment_idx = idx;
 
             let env = &state.environments[idx];
             let env_id = env.id.clone();
-            debug!("Selected environment: {:?}", env_id);
+            debug!("Selected environment: {env_id:?}");
 
             let needs_load = env.loading || env.installed_versions.is_empty();
-            debug!("Environment needs loading: {}", needs_load);
+            debug!("Environment needs loading: {needs_load}");
 
             let env_provider = self
                 .providers
@@ -112,7 +112,7 @@ impl Versi {
             let new_backend = create_backend_for_environment(
                 &env_id,
                 &self.backend_path,
-                &self.backend_dir,
+                self.backend_dir.as_ref(),
                 &env_provider,
             );
             state.backend = new_backend;
@@ -126,7 +126,7 @@ impl Versi {
             }
 
             let load_task = if needs_load {
-                info!("Loading versions for environment: {:?}", env_id);
+                info!("Loading versions for environment: {env_id:?}");
                 let env = state.active_environment_mut();
                 env.loading = true;
                 env.error = None;
@@ -138,7 +138,7 @@ impl Versi {
 
                 Task::perform(
                     async move {
-                        debug!("Fetching installed versions for {:?}...", env_id);
+                        debug!("Fetching installed versions for {env_id:?}...");
                         let result = run_with_timeout(
                             fetch_timeout,
                             "Loading versions",
@@ -248,7 +248,7 @@ impl Versi {
                     SearchFilter::Active => {
                         state.active_filters.remove(&SearchFilter::Eol);
                     }
-                    _ => {}
+                    SearchFilter::Lts => {}
                 }
                 state.active_filters.insert(filter);
             }

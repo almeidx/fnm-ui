@@ -1,6 +1,6 @@
 //! System tray event handling and menu updates.
 //!
-//! Handles messages: TrayEvent, TrayBehaviorChanged
+//! Handles messages: `TrayEvent`, `TrayBehaviorChanged`
 
 use log::error;
 
@@ -85,7 +85,7 @@ impl Versi {
                         state.backend = create_backend_for_environment(
                             &env_id,
                             &self.backend_path,
-                            &self.backend_dir,
+                            self.backend_dir.as_ref(),
                             &env_provider,
                         );
                     }
@@ -141,8 +141,8 @@ impl Versi {
     }
 
     pub(super) fn handle_tray_behavior_changed(&mut self, behavior: TrayBehavior) -> Task<Message> {
-        let old_behavior = self.settings.tray_behavior.clone();
-        self.settings.tray_behavior = behavior.clone();
+        let old_behavior = self.settings.tray_behavior;
+        self.settings.tray_behavior = behavior;
 
         if behavior != TrayBehavior::AlwaysRunning && self.settings.launch_at_login {
             self.settings.launch_at_login = false;
@@ -156,8 +156,8 @@ impl Versi {
         }
 
         if old_behavior == TrayBehavior::Disabled && behavior != TrayBehavior::Disabled {
-            if let Err(e) = tray::init_tray(&behavior) {
-                error!("Failed to initialize tray: {}", e);
+            if let Err(e) = tray::init_tray(behavior) {
+                error!("Failed to initialize tray: {e}");
             } else {
                 self.update_tray_menu();
             }

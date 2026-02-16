@@ -279,7 +279,7 @@ impl WindowGeometry {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub enum ThemeSetting {
     #[default]
     System,
@@ -287,7 +287,7 @@ pub enum ThemeSetting {
     Dark,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub enum TrayBehavior {
     #[default]
     WhenWindowOpen,

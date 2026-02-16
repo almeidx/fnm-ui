@@ -19,6 +19,7 @@ use super::Versi;
 use super::async_helpers::run_with_timeout;
 
 impl Versi {
+    #[allow(clippy::too_many_lines)]
     pub(super) fn handle_initialized(&mut self, result: InitResult) -> Task<Message> {
         versi_core::auto_update::cleanup_old_app_bundle();
 
@@ -63,9 +64,7 @@ impl Versi {
         }
 
         let native_env = result.environments.first();
-        let active_backend_name = native_env
-            .map(|e| e.backend_name)
-            .unwrap_or(BackendKind::DEFAULT);
+        let active_backend_name = native_env.map_or(BackendKind::DEFAULT, |e| e.backend_name);
 
         if let Some(provider) = self.providers.get(&active_backend_name) {
             self.provider = provider.clone();
@@ -76,8 +75,8 @@ impl Versi {
             .unwrap_or_else(|| PathBuf::from(self.provider.name()));
         let backend_dir = result.backend_dir;
 
-        self.backend_path = backend_path.clone();
-        self.backend_dir = backend_dir.clone();
+        self.backend_path.clone_from(&backend_path);
+        self.backend_dir.clone_from(&backend_dir);
 
         let detection = BackendDetection {
             found: true,
@@ -159,8 +158,12 @@ impl Versi {
                 .cloned()
                 .unwrap_or_else(|| self.provider.clone());
 
-            let backend =
-                create_backend_for_environment(&env_id, &backend_path, &backend_dir, &provider);
+            let backend = create_backend_for_environment(
+                &env_id,
+                &backend_path,
+                backend_dir.as_ref(),
+                &provider,
+            );
             let request_seq = if let AppState::Main(state) = &mut self.state {
                 if let Some(env) = state.environments.iter_mut().find(|e| e.id == env_id) {
                     env.loading = true;
@@ -212,6 +215,7 @@ impl Versi {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(super) async fn initialize(
     providers: Vec<Arc<dyn BackendProvider>>,
     preferred: Option<BackendKind>,
@@ -251,25 +255,24 @@ pub(super) async fn initialize(
         .find(|(name, det)| det.found && *name == preferred_name)
         .or_else(|| detections.iter().find(|(_, det)| det.found));
 
-    let (backend_name, detection) = match chosen {
-        Some((name, det)) => (*name, det.clone()),
-        None => {
-            info!("No backend found on system");
-            return InitResult {
-                backend_found: false,
-                backend_path: None,
-                backend_dir: None,
+    let (backend_name, detection) = if let Some((name, det)) = chosen {
+        (*name, det.clone())
+    } else {
+        info!("No backend found on system");
+        return InitResult {
+            backend_found: false,
+            backend_path: None,
+            backend_dir: None,
+            backend_version: None,
+            environments: vec![EnvironmentInfo {
+                id: EnvironmentId::Native,
+                backend_name: preferred_name,
                 backend_version: None,
-                environments: vec![EnvironmentInfo {
-                    id: EnvironmentId::Native,
-                    backend_name: preferred_name,
-                    backend_version: None,
-                    available: false,
-                    unavailable_reason: Some("No backend installed".to_string()),
-                }],
-                detected_backends,
-            };
-        }
+                available: false,
+                unavailable_reason: Some("No backend installed".to_string()),
+            }],
+            detected_backends,
+        };
     };
 
     let native_env = EnvironmentInfo {
@@ -362,7 +365,7 @@ pub(super) async fn initialize(
         environments.len()
     );
     for (i, env) in environments.iter().enumerate() {
-        trace!("  Environment {}: {:?}", i, env);
+        trace!("  Environment {i}: {env:?}");
     }
 
     InitResult {
@@ -415,7 +418,7 @@ async fn get_wsl_backend_version(distro: &str, backend_path: &str) -> Option<Str
 pub(super) fn create_backend_for_environment(
     env_id: &EnvironmentId,
     detected_path: &Path,
-    detected_dir: &Option<PathBuf>,
+    detected_dir: Option<&PathBuf>,
     provider: &Arc<dyn BackendProvider>,
 ) -> Box<dyn VersionManager> {
     match env_id {
@@ -425,7 +428,7 @@ pub(super) fn create_backend_for_environment(
                 path: Some(detected_path.to_path_buf()),
                 version: None,
                 in_path: true,
-                data_dir: detected_dir.clone(),
+                data_dir: detected_dir.cloned(),
             };
             provider.create_manager(&detection)
         }

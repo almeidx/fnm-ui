@@ -1,6 +1,6 @@
 //! Settings import/export flows.
 //!
-//! Handles messages: ExportSettings, SettingsExported, ImportSettings, SettingsImported
+//! Handles messages: `ExportSettings`, `SettingsExported`, `ImportSettings`, `SettingsImported`
 
 use iced::Task;
 
@@ -42,13 +42,13 @@ impl Versi {
             let id = state.next_toast_id();
             state.add_toast(crate::state::Toast::error(
                 id,
-                format!("Export failed: {}", e),
+                format!("Export failed: {e}"),
             ));
         }
         Task::none()
     }
 
-    pub(super) fn handle_import_settings(&self) -> Task<Message> {
+    pub(super) fn handle_import_settings() -> Task<Message> {
         Task::perform(
             async {
                 let dialog = rfd::AsyncFileDialog::new()
@@ -83,7 +83,7 @@ impl Versi {
                     let id = state.next_toast_id();
                     state.add_toast(crate::state::Toast::error(
                         id,
-                        format!("Import failed: {}", e),
+                        format!("Import failed: {e}"),
                     ));
                 }
             }

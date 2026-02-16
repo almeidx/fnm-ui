@@ -119,7 +119,7 @@ impl Versi {
             AppState::Onboarding(_) => "Versi - Setup".to_string(),
             AppState::Main(state) => {
                 if let Some(v) = &state.active_environment().default_version {
-                    format!("Versi - Node {}", v)
+                    format!("Versi - Node {v}")
                 } else {
                     "Versi".to_string()
                 }
@@ -478,8 +478,7 @@ mod tests {
             backend_path: "/home/user/.nvm/nvm.sh".to_string(),
         };
 
-        let _ =
-            app.handle_environment_loaded(target_env.clone(), 0, Err("backend unavailable".into()));
+        let _ = app.handle_environment_loaded(&target_env, 0, Err("backend unavailable".into()));
 
         let AppState::Main(state) = &app.state else {
             panic!("expected main state");
@@ -509,9 +508,9 @@ mod tests {
         let mut app = test_app_with_two_environments();
         let target_env = EnvironmentId::Native;
 
-        let _ = app.handle_environment_loaded(target_env.clone(), 0, Err("timed out".into()));
+        let _ = app.handle_environment_loaded(&target_env, 0, Err("timed out".into()));
         let _ = app.handle_environment_loaded(
-            target_env.clone(),
+            &target_env,
             0,
             Ok(vec![InstalledVersion {
                 version: NodeVersion::new(20, 11, 0),
@@ -552,7 +551,7 @@ mod tests {
         }
 
         let _ = app.handle_environment_loaded(
-            target_env,
+            &target_env,
             1,
             Ok(vec![InstalledVersion {
                 version: NodeVersion::new(20, 11, 0),
