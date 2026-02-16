@@ -10,7 +10,7 @@ use crate::state::AppState;
 
 use super::{Versi, should_dismiss_context_menu};
 
-type DispatchResult = Result<Task<Message>, Message>;
+type DispatchResult = Result<Task<Message>, Box<Message>>;
 
 impl Versi {
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -18,19 +18,19 @@ impl Versi {
 
         let message = match self.dispatch_navigation(message) {
             Ok(task) => return task,
-            Err(message) => message,
+            Err(message) => *message,
         };
         let message = match self.dispatch_operations(message) {
             Ok(task) => return task,
-            Err(message) => message,
+            Err(message) => *message,
         };
         let message = match self.dispatch_settings(message) {
             Ok(task) => return task,
-            Err(message) => message,
+            Err(message) => *message,
         };
         let message = match self.dispatch_system(message) {
             Ok(task) => return task,
-            Err(message) => message,
+            Err(message) => *message,
         };
 
         let _ = message;

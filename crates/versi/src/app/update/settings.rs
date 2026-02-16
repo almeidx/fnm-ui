@@ -212,7 +212,7 @@ impl Versi {
                 self.system_theme_mode = mode;
                 Ok(Task::none())
             }
-            other => Err(other),
+            other => Err(Box::new(other)),
         }
     }
 }

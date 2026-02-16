@@ -151,7 +151,7 @@ impl Versi {
                 Ok(Task::none())
             }
             Message::FetchReleaseSchedule => Ok(self.handle_fetch_release_schedule()),
-            other => Err(other),
+            other => Err(Box::new(other)),
         }
     }
 }

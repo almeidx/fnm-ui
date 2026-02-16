@@ -46,7 +46,7 @@ impl Versi {
             Message::DefaultChanged { success, error } => {
                 Ok(self.handle_default_changed(success, error))
             }
-            other => Err(other),
+            other => Err(Box::new(other)),
         }
     }
 }

@@ -141,7 +141,7 @@ impl Versi {
                 |_| Message::NoOp,
             )),
             Message::TrayEvent(tray_msg) => Ok(self.handle_tray_event(tray_msg)),
-            other => Err(other),
+            other => Err(Box::new(other)),
         }
     }
 }
