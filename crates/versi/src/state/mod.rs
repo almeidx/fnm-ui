@@ -24,3 +24,13 @@ pub enum MainViewKind {
     Settings,
     About,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::MainViewKind;
+
+    #[test]
+    fn main_view_kind_default_is_versions() {
+        assert_eq!(MainViewKind::default(), MainViewKind::Versions);
+    }
+}

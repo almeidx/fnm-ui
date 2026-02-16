@@ -75,3 +75,81 @@ impl EnvironmentState {
         self.error = None;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+    use versi_backend::NodeVersion;
+    use versi_platform::EnvironmentId;
+
+    use super::EnvironmentState;
+    use crate::backend_kind::BackendKind;
+
+    fn installed(version: &str, is_default: bool) -> versi_backend::InstalledVersion {
+        versi_backend::InstalledVersion {
+            version: version.parse().expect("test version should parse"),
+            is_default,
+            lts_codename: Some("LTS".to_string()),
+            install_date: Some(Utc::now()),
+            disk_size: Some(1024),
+        }
+    }
+
+    #[test]
+    fn new_environment_state_starts_loading_and_available() {
+        let state = EnvironmentState::new(
+            EnvironmentId::Native,
+            BackendKind::Fnm,
+            Some("1.38.0".to_string()),
+        );
+
+        assert_eq!(state.id, EnvironmentId::Native);
+        assert_eq!(state.backend_name, BackendKind::Fnm);
+        assert_eq!(state.backend_version.as_deref(), Some("1.38.0"));
+        assert!(state.loading);
+        assert!(state.available);
+        assert!(state.error.is_none());
+        assert!(state.installed_versions.is_empty());
+    }
+
+    #[test]
+    fn unavailable_state_sets_error_and_availability_flags() {
+        let state = EnvironmentState::unavailable(
+            EnvironmentId::Native,
+            BackendKind::Nvm,
+            "backend unavailable",
+        );
+
+        assert!(!state.loading);
+        assert!(!state.available);
+        assert_eq!(state.backend_name, BackendKind::Nvm);
+        assert!(matches!(
+            state.error,
+            Some(crate::error::AppError::Message(ref msg)) if msg == "backend unavailable"
+        ));
+    }
+
+    #[test]
+    fn update_versions_refreshes_collections_and_default() {
+        let mut state = EnvironmentState::new(EnvironmentId::Native, BackendKind::Fnm, None);
+        state.loading = true;
+        state.error = Some(crate::error::AppError::message("old error"));
+
+        state.update_versions(vec![installed("v20.11.0", true), installed("v18.19.1", false)]);
+
+        assert_eq!(state.installed_versions.len(), 2);
+        assert_eq!(
+            state.default_version,
+            Some(NodeVersion {
+                major: 20,
+                minor: 11,
+                patch: 0,
+            })
+        );
+        assert!(state.installed_set.contains("v20.11.0"));
+        assert!(state.installed_set.contains("v18.19.1"));
+        assert_eq!(state.version_groups.len(), 2);
+        assert!(!state.loading);
+        assert!(state.error.is_none());
+    }
+}

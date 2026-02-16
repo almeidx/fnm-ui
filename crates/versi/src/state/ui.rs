@@ -62,3 +62,44 @@ pub enum ShellVerificationStatus {
     FunctionalButNotInConfig,
     Error,
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use super::{SettingsModalState, Toast};
+
+    #[test]
+    fn toast_error_sets_id_and_message() {
+        let toast = Toast::error(7, "operation failed".to_string());
+
+        assert_eq!(toast.id, 7);
+        assert_eq!(toast.message, "operation failed");
+    }
+
+    #[test]
+    fn toast_expiration_respects_timeout_boundary() {
+        let fresh = Toast {
+            id: 1,
+            message: "fresh".to_string(),
+            created_at: Instant::now(),
+        };
+        assert!(!fresh.is_expired(0));
+
+        let stale = Toast {
+            id: 2,
+            message: "stale".to_string(),
+            created_at: Instant::now() - Duration::from_secs(2),
+        };
+        assert!(stale.is_expired(1));
+    }
+
+    #[test]
+    fn settings_modal_state_new_starts_empty() {
+        let state = SettingsModalState::new();
+
+        assert!(state.shell_statuses.is_empty());
+        assert!(!state.checking_shells);
+        assert!(state.log_file_size.is_none());
+    }
+}

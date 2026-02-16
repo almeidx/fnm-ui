@@ -28,6 +28,23 @@ impl OnboardingState {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::{OnboardingState, OnboardingStep};
+
+    #[test]
+    fn onboarding_state_new_has_expected_defaults() {
+        let state = OnboardingState::new();
+
+        assert_eq!(state.step, OnboardingStep::Welcome);
+        assert!(!state.backend_installing);
+        assert!(state.install_error.is_none());
+        assert!(state.detected_shells.is_empty());
+        assert!(state.available_backends.is_empty());
+        assert!(state.selected_backend.is_none());
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum OnboardingStep {
     Welcome,
