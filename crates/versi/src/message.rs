@@ -21,7 +21,7 @@ pub enum Message {
     SelectPreviousEnvironment,
     EnvironmentLoaded {
         env_id: EnvironmentId,
-        versions: Vec<InstalledVersion>,
+        result: Result<Vec<InstalledVersion>, String>,
     },
     RefreshEnvironment,
     FocusSearch,

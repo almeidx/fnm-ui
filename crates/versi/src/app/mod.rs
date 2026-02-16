@@ -137,8 +137,8 @@ impl Versi {
 
         match message {
             Message::Initialized(result) => self.handle_initialized(result),
-            Message::EnvironmentLoaded { env_id, versions } => {
-                self.handle_environment_loaded(env_id, versions)
+            Message::EnvironmentLoaded { env_id, result } => {
+                self.handle_environment_loaded(env_id, result)
             }
             Message::RefreshEnvironment => self.handle_refresh_environment(),
             Message::FocusSearch => {
@@ -658,9 +658,7 @@ impl Versi {
         match &self.state {
             AppState::Loading => views::loading::view(),
             AppState::Onboarding(state) => {
-                let backend_name = state
-                    .selected_backend
-                    .unwrap_or(self.active_backend_kind());
+                let backend_name = state.selected_backend.unwrap_or(self.active_backend_kind());
                 views::onboarding::view(state, backend_name)
             }
             AppState::Main(state) => {
@@ -923,7 +921,8 @@ mod tests {
             BackendKind::Nvm,
             None,
         );
-        let main_state = MainState::new_with_environments(backend, vec![native, wsl], BackendKind::Fnm);
+        let main_state =
+            MainState::new_with_environments(backend, vec![native, wsl], BackendKind::Fnm);
 
         Versi {
             state: AppState::Main(Box::new(main_state)),

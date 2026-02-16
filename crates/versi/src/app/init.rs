@@ -163,13 +163,18 @@ impl Versi {
             let fetch_timeout = std::time::Duration::from_secs(self.settings.fetch_timeout_secs);
             load_tasks.push(Task::perform(
                 async move {
-                    let versions = tokio::time::timeout(fetch_timeout, backend.list_installed())
-                        .await
-                        .unwrap_or(Ok(Vec::new()))
-                        .unwrap_or_default();
-                    (env_id, versions)
+                    let result =
+                        match tokio::time::timeout(fetch_timeout, backend.list_installed()).await {
+                            Ok(Ok(versions)) => Ok(versions),
+                            Ok(Err(error)) => Err(format!("Failed to load versions: {error}")),
+                            Err(_) => Err(format!(
+                                "Loading versions timed out after {}s",
+                                fetch_timeout.as_secs()
+                            )),
+                        };
+                    (env_id, result)
                 },
-                move |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },
+                move |(env_id, result)| Message::EnvironmentLoaded { env_id, result },
             ));
         }
 

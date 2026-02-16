@@ -21,24 +21,37 @@ impl Versi {
     pub(super) fn handle_environment_loaded(
         &mut self,
         env_id: EnvironmentId,
-        versions: Vec<versi_backend::InstalledVersion>,
+        result: Result<Vec<versi_backend::InstalledVersion>, String>,
     ) -> Task<Message> {
-        info!(
-            "Environment loaded: {:?} with {} versions",
-            env_id,
-            versions.len()
-        );
-        for v in &versions {
-            trace!(
-                "  Installed version: {} (default={})",
-                v.version, v.is_default
-            );
+        match &result {
+            Ok(versions) => {
+                info!(
+                    "Environment loaded: {:?} with {} versions",
+                    env_id,
+                    versions.len()
+                );
+                for v in versions {
+                    trace!(
+                        "  Installed version: {} (default={})",
+                        v.version, v.is_default
+                    );
+                }
+            }
+            Err(error) => {
+                info!("Environment load failed for {:?}: {}", env_id, error);
+            }
         }
 
         if let AppState::Main(state) = &mut self.state
             && let Some(env) = state.environments.iter_mut().find(|e| e.id == env_id)
         {
-            env.update_versions(versions);
+            match result {
+                Ok(versions) => env.update_versions(versions),
+                Err(error) => {
+                    env.loading = false;
+                    env.error = Some(error);
+                }
+            }
         }
         self.update_tray_menu();
 
@@ -75,8 +88,7 @@ impl Versi {
             let env_id = env.id.clone();
             debug!("Selected environment: {:?}", env_id);
 
-            let needs_load =
-                env.loading || (env.installed_versions.is_empty() && env.error.is_none());
+            let needs_load = env.loading || env.installed_versions.is_empty();
             debug!("Environment needs loading: {}", needs_load);
 
             let env_provider = self
@@ -113,19 +125,28 @@ impl Versi {
                 Task::perform(
                     async move {
                         debug!("Fetching installed versions for {:?}...", env_id);
-                        let versions =
-                            tokio::time::timeout(fetch_timeout, backend.list_installed())
+                        let result =
+                            match tokio::time::timeout(fetch_timeout, backend.list_installed())
                                 .await
-                                .unwrap_or(Ok(Vec::new()))
-                                .unwrap_or_default();
-                        debug!(
-                            "Environment {:?} loaded: {} versions",
-                            env_id,
-                            versions.len(),
-                        );
-                        (env_id, versions)
+                            {
+                                Ok(Ok(versions)) => Ok(versions),
+                                Ok(Err(error)) => Err(format!("Failed to load versions: {error}")),
+                                Err(_) => Err(format!(
+                                    "Loading versions timed out after {}s",
+                                    fetch_timeout.as_secs()
+                                )),
+                            };
+
+                        if let Ok(versions) = &result {
+                            debug!(
+                                "Environment {:?} loaded: {} versions",
+                                env_id,
+                                versions.len(),
+                            );
+                        }
+                        (env_id, result)
                     },
-                    |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },
+                    |(env_id, result)| Message::EnvironmentLoaded { env_id, result },
                 )
             } else {
                 Task::none()
@@ -156,13 +177,18 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    let versions = tokio::time::timeout(fetch_timeout, backend.list_installed())
-                        .await
-                        .unwrap_or(Ok(Vec::new()))
-                        .unwrap_or_default();
-                    (env_id, versions)
+                    let result =
+                        match tokio::time::timeout(fetch_timeout, backend.list_installed()).await {
+                            Ok(Ok(versions)) => Ok(versions),
+                            Ok(Err(error)) => Err(format!("Failed to load versions: {error}")),
+                            Err(_) => Err(format!(
+                                "Loading versions timed out after {}s",
+                                fetch_timeout.as_secs()
+                            )),
+                        };
+                    (env_id, result)
                 },
-                |(env_id, versions)| Message::EnvironmentLoaded { env_id, versions },
+                |(env_id, result)| Message::EnvironmentLoaded { env_id, result },
             );
         }
         Task::none()
