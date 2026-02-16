@@ -46,3 +46,64 @@ impl Versi {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_app_with_two_environments;
+    use super::*;
+    use crate::state::ContextMenu;
+
+    fn context_menu() -> ContextMenu {
+        ContextMenu {
+            version: "v20.11.0".to_string(),
+            is_installed: true,
+            is_default: false,
+            position: iced::Point::new(10.0, 20.0),
+        }
+    }
+
+    #[test]
+    fn dismiss_context_menu_clears_for_unrelated_messages() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.context_menu = Some(context_menu());
+        }
+
+        app.dismiss_context_menu_if_needed(&Message::RefreshEnvironment);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.context_menu.is_none());
+    }
+
+    #[test]
+    fn dismiss_context_menu_keeps_for_allowed_messages() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.context_menu = Some(context_menu());
+        }
+
+        app.dismiss_context_menu_if_needed(&Message::Tick);
+        app.dismiss_context_menu_if_needed(&Message::ShowContextMenu {
+            version: "v20.11.0".to_string(),
+            is_installed: true,
+            is_default: false,
+        });
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(state.context_menu.is_some());
+    }
+
+    #[test]
+    fn dismiss_context_menu_ignores_non_main_state() {
+        let mut app = test_app_with_two_environments();
+        app.state = AppState::Loading;
+
+        app.dismiss_context_menu_if_needed(&Message::RefreshEnvironment);
+
+        assert!(matches!(app.state, AppState::Loading));
+    }
+}
