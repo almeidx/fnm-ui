@@ -883,8 +883,65 @@ impl Versi {
 
 #[cfg(test)]
 mod tests {
-    use super::should_dismiss_context_menu;
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use versi_backend::{BackendDetection, BackendProvider};
+    use versi_platform::EnvironmentId;
+
+    use super::{Versi, should_dismiss_context_menu};
+    use crate::backend_kind::BackendKind;
     use crate::message::Message;
+    use crate::settings::AppSettings;
+    use crate::state::{AppState, EnvironmentState, MainState, Operation};
+    use crate::tray::TrayMessage;
+
+    fn test_app_with_two_environments() -> Versi {
+        let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
+        let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
+
+        let mut providers: HashMap<BackendKind, Arc<dyn BackendProvider>> = HashMap::new();
+        providers.insert(BackendKind::Fnm, fnm_provider.clone());
+        providers.insert(BackendKind::Nvm, nvm_provider.clone());
+
+        let detection = BackendDetection {
+            found: true,
+            path: Some(PathBuf::from("fnm")),
+            version: None,
+            in_path: true,
+            data_dir: None,
+        };
+        let backend = fnm_provider.create_manager(&detection);
+
+        let native = EnvironmentState::new(EnvironmentId::Native, BackendKind::Fnm, None);
+        let wsl = EnvironmentState::new(
+            EnvironmentId::Wsl {
+                distro: "Ubuntu".to_string(),
+                backend_path: "/home/user/.nvm/nvm.sh".to_string(),
+            },
+            BackendKind::Nvm,
+            None,
+        );
+        let main_state = MainState::new_with_environments(backend, vec![native, wsl], BackendKind::Fnm);
+
+        Versi {
+            state: AppState::Main(Box::new(main_state)),
+            settings: AppSettings::default(),
+            window_id: None,
+            pending_minimize: false,
+            pending_show: false,
+            window_visible: true,
+            backend_path: PathBuf::from("fnm"),
+            backend_dir: None,
+            window_size: None,
+            window_position: None,
+            http_client: reqwest::Client::new(),
+            providers,
+            provider: fnm_provider,
+            system_theme_mode: iced::theme::Mode::None,
+        }
+    }
 
     #[test]
     fn context_menu_is_dismissed_for_unrelated_messages() {
@@ -902,5 +959,40 @@ mod tests {
             is_installed: true,
             is_default: false,
         }));
+    }
+
+    #[test]
+    fn environment_switch_updates_active_backend_kind_and_provider() {
+        let mut app = test_app_with_two_environments();
+
+        let _ = app.handle_environment_selected(1);
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.active_environment_idx, 1);
+        assert_eq!(state.backend_name, BackendKind::Nvm);
+        assert_eq!(app.provider.name(), BackendKind::Nvm.as_str());
+    }
+
+    #[test]
+    fn tray_set_default_switches_environment_before_queueing_operation() {
+        let mut app = test_app_with_two_environments();
+
+        let _ = app.handle_tray_event(TrayMessage::SetDefault {
+            env_index: 1,
+            version: "20.11.0".to_string(),
+        });
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(state.active_environment_idx, 1);
+        assert_eq!(state.backend_name, BackendKind::Nvm);
+        assert_eq!(app.provider.name(), BackendKind::Nvm.as_str());
+        assert!(matches!(
+            state.operation_queue.exclusive_op,
+            Some(Operation::SetDefault { ref version }) if version == "20.11.0"
+        ));
     }
 }
