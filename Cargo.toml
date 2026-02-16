@@ -33,3 +33,6 @@ zip = { version = "8.0.0", default-features = false, features = ["deflate"] }
 tempfile = "3.25.0"
 self-replace = "1.5"
 futures-util = "0.3"
+
+[workspace.lints.clippy]
+pedantic = "warn"
