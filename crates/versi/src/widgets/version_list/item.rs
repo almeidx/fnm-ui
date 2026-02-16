@@ -24,6 +24,7 @@ pub(super) fn version_item_view<'a>(
     let version_display = version_str.clone();
     let version_for_default = version_str.clone();
     let version_for_changelog = version_str.clone();
+    let version_for_row_click = version_str.clone();
     let version_for_hover = version_str.clone();
     let version_for_ctx = version_str.clone();
 
@@ -145,9 +146,12 @@ pub(super) fn version_item_view<'a>(
         |_: &_| iced::widget::container::Style::default()
     };
 
-    let row_container = container(row_content.padding([4, 8])).style(row_style);
+    let row_container = container(row_content.padding([4, 8]))
+        .style(row_style)
+        .width(Length::Fill);
 
     mouse_area(row_container)
+        .on_press(Message::ShowVersionDetail(version_for_row_click))
         .on_enter(Message::VersionRowHovered(Some(version_for_hover)))
         .on_exit(Message::VersionRowHovered(None))
         .on_right_press(Message::ShowContextMenu {

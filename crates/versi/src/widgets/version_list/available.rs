@@ -20,6 +20,7 @@ pub(super) fn available_version_row<'a>(
         .unwrap_or(false);
     let version_display = version_str.clone();
     let version_for_changelog = version_str.clone();
+    let version_for_row_click = version_str.clone();
     let version_for_hover = version_str.clone();
     let version_for_ctx = version_str.clone();
     let is_installed = ctx.installed_set.contains(&version_str);
@@ -98,26 +99,27 @@ pub(super) fn available_version_row<'a>(
         Space::new().into()
     };
 
-    mouse_area(
-        row![
-            button(text(version_display).size(14))
-                .on_press(Message::ShowVersionDetail(version_for_changelog))
-                .style(styles::ghost_button)
-                .padding([2, 4])
-                .width(Length::Fixed(120.0)),
-            container(date_text).width(Length::Fixed(80.0)),
-            badges,
-            Space::new().width(Length::Fill),
-            action_button,
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center)
-        .padding([4, 8]),
-    )
-    .on_right_press(Message::ShowContextMenu {
-        version: version_for_ctx,
-        is_installed,
-        is_default: false,
-    })
-    .into()
+    let row_content = row![
+        button(text(version_display).size(14))
+            .on_press(Message::ShowVersionDetail(version_for_changelog))
+            .style(styles::ghost_button)
+            .padding([2, 4])
+            .width(Length::Fixed(120.0)),
+        container(date_text).width(Length::Fixed(80.0)),
+        badges,
+        Space::new().width(Length::Fill),
+        action_button,
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center)
+    .padding([4, 8]);
+
+    mouse_area(container(row_content).width(Length::Fill))
+        .on_press(Message::ShowVersionDetail(version_for_row_click))
+        .on_right_press(Message::ShowContextMenu {
+            version: version_for_ctx,
+            is_installed,
+            is_default: false,
+        })
+        .into()
 }
