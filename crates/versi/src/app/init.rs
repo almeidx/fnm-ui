@@ -19,7 +19,6 @@ use super::Versi;
 use super::async_helpers::run_with_timeout;
 
 impl Versi {
-    #[allow(clippy::too_many_lines)]
     pub(super) fn handle_initialized(&mut self, result: InitResult) -> Task<Message> {
         versi_core::auto_update::cleanup_old_app_bundle();
 
@@ -30,50 +29,70 @@ impl Versi {
         );
 
         if !result.backend_found {
-            info!("No backend found, entering onboarding flow");
-            let shells = detect_shells();
-            debug!("Detected {} shells for configuration", shells.len());
-
-            let shell_statuses: Vec<ShellConfigStatus> = shells
-                .into_iter()
-                .map(|s| ShellConfigStatus {
-                    shell_type: s.shell_type.clone(),
-                    shell_name: s.shell_type.name().to_string(),
-                    configured: s.is_configured,
-                    config_path: s.config_file,
-                    configuring: false,
-                    error: None,
-                })
-                .collect();
-
-            let mut onboarding = OnboardingState::new();
-            onboarding.detected_shells = shell_statuses;
-
-            onboarding.available_backends = self
-                .providers
-                .iter()
-                .map(|(kind, p)| BackendOption {
-                    kind: *kind,
-                    display_name: p.display_name(),
-                    detected: false,
-                })
-                .collect();
-
-            self.state = AppState::Onboarding(onboarding);
-            return Task::none();
+            return self.enter_onboarding_flow();
         }
 
         let native_env = result.environments.first();
         let active_backend_name = native_env.map_or(BackendKind::DEFAULT, |e| e.backend_name);
 
+        let (backend_path, backend_dir, backend) =
+            self.prepare_main_backend(&result, active_backend_name);
+
+        let mut main_state = MainState::new_with_environments(
+            backend,
+            build_environment_states(&result),
+            active_backend_name,
+        );
+        main_state.detected_backends = result.detected_backends;
+        load_disk_cache_into_state(&mut main_state);
+
+        self.state = AppState::Main(Box::new(main_state));
+
+        let mut tasks = self.build_environment_load_tasks(
+            &result.environments,
+            &backend_path,
+            backend_dir.as_ref(),
+        );
+        tasks.extend(self.build_post_init_tasks());
+
+        Task::batch(tasks)
+    }
+
+    fn enter_onboarding_flow(&mut self) -> Task<Message> {
+        info!("No backend found, entering onboarding flow");
+        let shell_statuses = detect_onboarding_shell_statuses();
+        let mut onboarding = OnboardingState::new();
+        onboarding.detected_shells = shell_statuses;
+        onboarding.available_backends = self.available_backend_options_for_onboarding();
+        self.state = AppState::Onboarding(onboarding);
+        Task::none()
+    }
+
+    fn available_backend_options_for_onboarding(&self) -> Vec<BackendOption> {
+        self.providers
+            .iter()
+            .map(|(kind, p)| BackendOption {
+                kind: *kind,
+                display_name: p.display_name(),
+                detected: false,
+            })
+            .collect()
+    }
+
+    fn prepare_main_backend(
+        &mut self,
+        result: &InitResult,
+        active_backend_name: BackendKind,
+    ) -> (PathBuf, Option<PathBuf>, Box<dyn VersionManager>) {
         if let Some(provider) = self.providers.get(&active_backend_name) {
             self.provider = provider.clone();
         }
 
         let backend_path = result
             .backend_path
+            .clone()
             .unwrap_or_else(|| PathBuf::from(self.provider.name()));
-        let backend_dir = result.backend_dir;
+        let backend_dir = result.backend_dir.clone();
 
         self.backend_path.clone_from(&backend_path);
         self.backend_dir.clone_from(&backend_dir);
@@ -86,61 +105,17 @@ impl Versi {
             data_dir: backend_dir.clone(),
         };
         let backend = self.provider.create_manager(&detection);
+        (backend_path, backend_dir, backend)
+    }
 
-        let environments: Vec<EnvironmentState> = result
-            .environments
-            .iter()
-            .map(|env_info| {
-                if env_info.available {
-                    EnvironmentState::new(
-                        env_info.id.clone(),
-                        env_info.backend_name,
-                        env_info.backend_version.clone(),
-                    )
-                } else {
-                    EnvironmentState::unavailable(
-                        env_info.id.clone(),
-                        env_info.backend_name,
-                        env_info
-                            .unavailable_reason
-                            .as_deref()
-                            .unwrap_or("Unavailable"),
-                    )
-                }
-            })
-            .collect();
-
-        let mut main_state =
-            MainState::new_with_environments(backend, environments, active_backend_name);
-        main_state.detected_backends = result.detected_backends;
-
-        if let Some(disk_cache) = crate::cache::DiskCache::load() {
-            debug!(
-                "Loaded disk cache from {:?} ({} versions, schedule={})",
-                disk_cache.cached_at,
-                disk_cache.remote_versions.len(),
-                disk_cache.release_schedule.is_some()
-            );
-            main_state.available_versions.disk_cached_at = Some(disk_cache.cached_at);
-            if !disk_cache.remote_versions.is_empty() {
-                main_state
-                    .available_versions
-                    .set_versions(disk_cache.remote_versions);
-                main_state.available_versions.loaded_from_disk = true;
-            }
-            if let Some(schedule) = disk_cache.release_schedule {
-                main_state.available_versions.schedule = Some(schedule);
-            }
-            if let Some(metadata) = disk_cache.version_metadata {
-                main_state.available_versions.metadata = Some(metadata);
-            }
-        }
-
-        self.state = AppState::Main(Box::new(main_state));
-
-        let mut load_tasks: Vec<Task<Message>> = Vec::new();
-
-        for env_info in &result.environments {
+    fn build_environment_load_tasks(
+        &mut self,
+        environments: &[EnvironmentInfo],
+        backend_path: &Path,
+        backend_dir: Option<&PathBuf>,
+    ) -> Vec<Task<Message>> {
+        let mut tasks = Vec::new();
+        for env_info in environments {
             if !env_info.available {
                 debug!(
                     "Skipping load for unavailable environment: {:?}",
@@ -149,73 +124,138 @@ impl Versi {
                 continue;
             }
 
-            let env_id = env_info.id.clone();
-            let env_backend_name = env_info.backend_name;
-
-            let provider = self
-                .providers
-                .get(&env_backend_name)
-                .cloned()
-                .unwrap_or_else(|| self.provider.clone());
-
-            let backend = create_backend_for_environment(
-                &env_id,
-                &backend_path,
-                backend_dir.as_ref(),
-                &provider,
-            );
-            let request_seq = if let AppState::Main(state) = &mut self.state {
-                if let Some(env) = state.environments.iter_mut().find(|e| e.id == env_id) {
-                    env.loading = true;
-                    env.error = None;
-                    env.load_request_seq = env.load_request_seq.wrapping_add(1);
-                    env.load_request_seq
-                } else {
-                    continue;
-                }
-            } else {
-                continue;
-            };
-
-            let fetch_timeout = std::time::Duration::from_secs(self.settings.fetch_timeout_secs);
-            load_tasks.push(Task::perform(
-                async move {
-                    let result = run_with_timeout(
-                        fetch_timeout,
-                        "Loading versions",
-                        backend.list_installed(),
-                        |error| AppError::message(format!("Failed to load versions: {error}")),
-                    )
-                    .await;
-                    (env_id, request_seq, result)
-                },
-                move |(env_id, request_seq, result)| Message::EnvironmentLoaded {
-                    env_id,
-                    request_seq,
-                    result,
-                },
-            ));
+            if let Some(task) =
+                self.build_environment_load_task(env_info, backend_path, backend_dir)
+            {
+                tasks.push(task);
+            }
         }
+        tasks
+    }
 
-        let fetch_remote = self.handle_fetch_remote_versions();
-        let fetch_schedule = self.handle_fetch_release_schedule();
-        let fetch_metadata = self.handle_fetch_version_metadata();
-        let check_app_update = self.handle_check_for_app_update();
-        let check_backend_update = self.handle_check_for_backend_update();
+    fn build_environment_load_task(
+        &mut self,
+        env_info: &EnvironmentInfo,
+        backend_path: &Path,
+        backend_dir: Option<&PathBuf>,
+    ) -> Option<Task<Message>> {
+        let env_id = env_info.id.clone();
+        let provider = self
+            .providers
+            .get(&env_info.backend_name)
+            .cloned()
+            .unwrap_or_else(|| self.provider.clone());
 
-        load_tasks.extend([
-            fetch_remote,
-            fetch_schedule,
-            fetch_metadata,
-            check_app_update,
-            check_backend_update,
-        ]);
+        let backend = create_backend_for_environment(&env_id, backend_path, backend_dir, &provider);
+        let request_seq = self.mark_environment_loading(&env_id)?;
 
-        Task::batch(load_tasks)
+        let fetch_timeout = std::time::Duration::from_secs(self.settings.fetch_timeout_secs);
+        Some(Task::perform(
+            async move {
+                let result = run_with_timeout(
+                    fetch_timeout,
+                    "Loading versions",
+                    backend.list_installed(),
+                    |error| AppError::message(format!("Failed to load versions: {error}")),
+                )
+                .await;
+                (env_id, request_seq, result)
+            },
+            move |(env_id, request_seq, result)| Message::EnvironmentLoaded {
+                env_id,
+                request_seq,
+                result,
+            },
+        ))
+    }
+
+    fn mark_environment_loading(&mut self, env_id: &EnvironmentId) -> Option<u64> {
+        let AppState::Main(state) = &mut self.state else {
+            return None;
+        };
+        let env = state.environments.iter_mut().find(|e| &e.id == env_id)?;
+        env.loading = true;
+        env.error = None;
+        env.load_request_seq = env.load_request_seq.wrapping_add(1);
+        Some(env.load_request_seq)
+    }
+
+    fn build_post_init_tasks(&mut self) -> [Task<Message>; 5] {
+        [
+            self.handle_fetch_remote_versions(),
+            self.handle_fetch_release_schedule(),
+            self.handle_fetch_version_metadata(),
+            self.handle_check_for_app_update(),
+            self.handle_check_for_backend_update(),
+        ]
     }
 }
 
-#[allow(clippy::too_many_lines)]
+fn detect_onboarding_shell_statuses() -> Vec<ShellConfigStatus> {
+    let shells = detect_shells();
+    debug!("Detected {} shells for configuration", shells.len());
+    shells
+        .into_iter()
+        .map(|shell| ShellConfigStatus {
+            shell_type: shell.shell_type.clone(),
+            shell_name: shell.shell_type.name().to_string(),
+            configured: shell.is_configured,
+            config_path: shell.config_file,
+            configuring: false,
+            error: None,
+        })
+        .collect()
+}
+
+fn build_environment_states(result: &InitResult) -> Vec<EnvironmentState> {
+    result
+        .environments
+        .iter()
+        .map(|env_info| {
+            if env_info.available {
+                EnvironmentState::new(
+                    env_info.id.clone(),
+                    env_info.backend_name,
+                    env_info.backend_version.clone(),
+                )
+            } else {
+                EnvironmentState::unavailable(
+                    env_info.id.clone(),
+                    env_info.backend_name,
+                    env_info
+                        .unavailable_reason
+                        .as_deref()
+                        .unwrap_or("Unavailable"),
+                )
+            }
+        })
+        .collect()
+}
+
+fn load_disk_cache_into_state(main_state: &mut MainState) {
+    if let Some(disk_cache) = crate::cache::DiskCache::load() {
+        debug!(
+            "Loaded disk cache from {:?} ({} versions, schedule={})",
+            disk_cache.cached_at,
+            disk_cache.remote_versions.len(),
+            disk_cache.release_schedule.is_some()
+        );
+        main_state.available_versions.disk_cached_at = Some(disk_cache.cached_at);
+        if !disk_cache.remote_versions.is_empty() {
+            main_state
+                .available_versions
+                .set_versions(disk_cache.remote_versions);
+            main_state.available_versions.loaded_from_disk = true;
+        }
+        if let Some(schedule) = disk_cache.release_schedule {
+            main_state.available_versions.schedule = Some(schedule);
+        }
+        if let Some(metadata) = disk_cache.version_metadata {
+            main_state.available_versions.metadata = Some(metadata);
+        }
+    }
+}
+
 pub(super) async fn initialize(
     providers: Vec<Arc<dyn BackendProvider>>,
     preferred: Option<BackendKind>,
@@ -225,8 +265,41 @@ pub(super) async fn initialize(
         providers.len()
     );
 
-    let mut detections: Vec<(BackendKind, BackendDetection)> = Vec::new();
-    for provider in &providers {
+    let detections = detect_backends(&providers).await;
+    let preferred_name = preferred.unwrap_or(BackendKind::DEFAULT);
+    let detected_backends = collect_detected_backends(&detections);
+    let Some((backend_name, detection)) = choose_backend_detection(&detections, preferred_name)
+    else {
+        info!("No backend found on system");
+        return no_backend_init_result(preferred_name, detected_backends);
+    };
+
+    let native_env = native_environment(*backend_name, detection.version.clone());
+
+    #[cfg(not(windows))]
+    let environments = vec![native_env];
+
+    #[cfg(windows)]
+    let environments =
+        build_windows_environments(native_env, &providers, *backend_name, preferred_name).await;
+
+    log_detected_environments(&environments);
+
+    InitResult {
+        backend_found: detection.found,
+        backend_path: detection.path.clone(),
+        backend_dir: detection.data_dir.clone(),
+        backend_version: detection.version.clone(),
+        environments,
+        detected_backends,
+    }
+}
+
+async fn detect_backends(
+    providers: &[Arc<dyn BackendProvider>],
+) -> Vec<(BackendKind, BackendDetection)> {
+    let mut detections = Vec::new();
+    for provider in providers {
         let Some(kind) = BackendKind::from_name(provider.name()) else {
             continue;
         };
@@ -241,140 +314,162 @@ pub(super) async fn initialize(
         );
         detections.push((kind, detection));
     }
+    detections
+}
 
-    let preferred_name = preferred.unwrap_or(BackendKind::DEFAULT);
-
-    let detected_backends: Vec<BackendKind> = detections
+fn collect_detected_backends(detections: &[(BackendKind, BackendDetection)]) -> Vec<BackendKind> {
+    detections
         .iter()
-        .filter(|(_, det)| det.found)
-        .map(|(kind, _)| *kind)
-        .collect();
+        .filter_map(|(kind, detection)| detection.found.then_some(*kind))
+        .collect()
+}
 
-    let chosen = detections
+fn choose_backend_detection(
+    detections: &[(BackendKind, BackendDetection)],
+    preferred_name: BackendKind,
+) -> Option<&(BackendKind, BackendDetection)> {
+    detections
         .iter()
-        .find(|(name, det)| det.found && *name == preferred_name)
-        .or_else(|| detections.iter().find(|(_, det)| det.found));
+        .find(|(name, detection)| detection.found && *name == preferred_name)
+        .or_else(|| detections.iter().find(|(_, detection)| detection.found))
+}
 
-    let (backend_name, detection) = if let Some((name, det)) = chosen {
-        (*name, det.clone())
-    } else {
-        info!("No backend found on system");
-        return InitResult {
-            backend_found: false,
-            backend_path: None,
-            backend_dir: None,
+fn no_backend_init_result(
+    preferred_name: BackendKind,
+    detected_backends: Vec<BackendKind>,
+) -> InitResult {
+    InitResult {
+        backend_found: false,
+        backend_path: None,
+        backend_dir: None,
+        backend_version: None,
+        environments: vec![EnvironmentInfo {
+            id: EnvironmentId::Native,
+            backend_name: preferred_name,
             backend_version: None,
-            environments: vec![EnvironmentInfo {
-                id: EnvironmentId::Native,
-                backend_name: preferred_name,
-                backend_version: None,
-                available: false,
-                unavailable_reason: Some("No backend installed".to_string()),
-            }],
-            detected_backends,
-        };
-    };
+            available: false,
+            unavailable_reason: Some("No backend installed".to_string()),
+        }],
+        detected_backends,
+    }
+}
 
-    let native_env = EnvironmentInfo {
+fn native_environment(
+    backend_name: BackendKind,
+    backend_version: Option<String>,
+) -> EnvironmentInfo {
+    EnvironmentInfo {
         id: EnvironmentId::Native,
         backend_name,
-        backend_version: detection.version.clone(),
+        backend_version,
         available: true,
         unavailable_reason: None,
-    };
+    }
+}
 
-    #[cfg(not(windows))]
-    let environments = vec![native_env];
-
-    #[cfg(windows)]
-    let environments = {
-        let mut envs = vec![native_env];
-
-        use versi_platform::detect_wsl_distros;
-        info!("Running on Windows, detecting WSL distros...");
-
-        let mut all_search_paths: Vec<&str> = Vec::new();
-        for provider in &providers {
-            all_search_paths.extend(provider.wsl_search_paths());
-        }
-        all_search_paths.sort();
-        all_search_paths.dedup();
-
-        let distros = detect_wsl_distros(&all_search_paths);
-        debug!(
-            "WSL distros found: {:?}",
-            distros.iter().map(|d| &d.name).collect::<Vec<_>>()
-        );
-
-        for distro in distros {
-            if !distro.is_running {
-                info!(
-                    "Adding unavailable WSL environment: {} (not running)",
-                    distro.name
-                );
-                envs.push(EnvironmentInfo {
-                    id: EnvironmentId::Wsl {
-                        distro: distro.name,
-                        backend_path: String::new(),
-                    },
-                    backend_name,
-                    backend_version: None,
-                    available: false,
-                    unavailable_reason: Some("Not running".to_string()),
-                });
-            } else if let Some(bp) = distro.backend_path {
-                let wsl_backend_name = determine_wsl_backend(&bp, preferred_name);
-                info!(
-                    "Adding WSL environment: {} ({} at {})",
-                    distro.name, wsl_backend_name, bp
-                );
-                let backend_version = get_wsl_backend_version(&distro.name, &bp).await;
-                envs.push(EnvironmentInfo {
-                    id: EnvironmentId::Wsl {
-                        distro: distro.name,
-                        backend_path: bp,
-                    },
-                    backend_name: wsl_backend_name,
-                    backend_version,
-                    available: true,
-                    unavailable_reason: None,
-                });
-            } else {
-                info!(
-                    "Adding unavailable WSL environment: {} (no backend found)",
-                    distro.name
-                );
-                envs.push(EnvironmentInfo {
-                    id: EnvironmentId::Wsl {
-                        distro: distro.name,
-                        backend_path: String::new(),
-                    },
-                    backend_name,
-                    backend_version: None,
-                    available: false,
-                    unavailable_reason: Some("No backend installed".to_string()),
-                });
-            }
-        }
-
-        envs
-    };
-
+fn log_detected_environments(environments: &[EnvironmentInfo]) {
     info!(
         "Initialization complete with {} environments",
         environments.len()
     );
-    for (i, env) in environments.iter().enumerate() {
-        trace!("  Environment {i}: {env:?}");
+    for (idx, environment) in environments.iter().enumerate() {
+        trace!("  Environment {idx}: {environment:?}");
+    }
+}
+
+#[cfg(windows)]
+async fn build_windows_environments(
+    native_env: EnvironmentInfo,
+    providers: &[Arc<dyn BackendProvider>],
+    native_backend_name: BackendKind,
+    preferred_name: BackendKind,
+) -> Vec<EnvironmentInfo> {
+    use versi_platform::detect_wsl_distros;
+
+    info!("Running on Windows, detecting WSL distros...");
+
+    let mut environments = vec![native_env];
+    let search_paths = collect_wsl_search_paths(providers);
+    let distros = detect_wsl_distros(&search_paths);
+
+    debug!(
+        "WSL distros found: {:?}",
+        distros.iter().map(|d| &d.name).collect::<Vec<_>>()
+    );
+
+    for distro in distros {
+        environments.push(build_wsl_environment(distro, native_backend_name, preferred_name).await);
     }
 
-    InitResult {
-        backend_found: detection.found,
-        backend_path: detection.path,
-        backend_dir: detection.data_dir,
-        backend_version: detection.version,
-        environments,
-        detected_backends,
+    environments
+}
+
+#[cfg(windows)]
+fn collect_wsl_search_paths(providers: &[Arc<dyn BackendProvider>]) -> Vec<&'static str> {
+    let mut paths = Vec::new();
+    for provider in providers {
+        paths.extend(provider.wsl_search_paths());
+    }
+    paths.sort_unstable();
+    paths.dedup();
+    paths
+}
+
+#[cfg(windows)]
+async fn build_wsl_environment(
+    distro: versi_platform::WslDistro,
+    native_backend_name: BackendKind,
+    preferred_name: BackendKind,
+) -> EnvironmentInfo {
+    if !distro.is_running {
+        info!(
+            "Adding unavailable WSL environment: {} (not running)",
+            distro.name
+        );
+        return unavailable_wsl_environment(distro.name, native_backend_name, "Not running");
+    }
+
+    if let Some(backend_path) = distro.backend_path {
+        let backend_name = determine_wsl_backend(&backend_path, preferred_name);
+        info!(
+            "Adding WSL environment: {} ({} at {})",
+            distro.name, backend_name, backend_path
+        );
+        let backend_version = get_wsl_backend_version(&distro.name, &backend_path).await;
+        return EnvironmentInfo {
+            id: EnvironmentId::Wsl {
+                distro: distro.name,
+                backend_path,
+            },
+            backend_name,
+            backend_version,
+            available: true,
+            unavailable_reason: None,
+        };
+    }
+
+    info!(
+        "Adding unavailable WSL environment: {} (no backend found)",
+        distro.name
+    );
+    unavailable_wsl_environment(distro.name, native_backend_name, "No backend installed")
+}
+
+#[cfg(windows)]
+fn unavailable_wsl_environment(
+    distro: String,
+    backend_name: BackendKind,
+    reason: &str,
+) -> EnvironmentInfo {
+    EnvironmentInfo {
+        id: EnvironmentId::Wsl {
+            distro,
+            backend_path: String::new(),
+        },
+        backend_name,
+        backend_version: None,
+        available: false,
+        unavailable_reason: Some(reason.to_string()),
     }
 }
 

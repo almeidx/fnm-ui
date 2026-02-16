@@ -7,57 +7,14 @@ use crate::state::{AppState, MainViewKind};
 use super::super::{Versi, platform};
 
 impl Versi {
-    #[allow(clippy::too_many_lines)]
     pub(super) fn dispatch_settings(&mut self, message: Message) -> super::DispatchResult {
         match message {
-            Message::ToastDismiss(id) => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.remove_toast(id);
-                }
-                Ok(Task::none())
-            }
-            Message::NavigateToVersions => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.view = MainViewKind::Versions;
-                }
-                Ok(Task::none())
-            }
-            Message::NavigateToSettings => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.view = MainViewKind::Settings;
-                    state.settings_state.checking_shells = true;
-                }
-                let shell_task = self.handle_check_shell_setup();
-                let log_stats_task = Task::perform(
-                    async {
-                        let log_path = versi_platform::AppPaths::new().ok()?.log_file();
-                        std::fs::metadata(&log_path).ok().map(|m| m.len())
-                    },
-                    Message::LogFileStatsLoaded,
-                );
-                Ok(Task::batch([shell_task, log_stats_task]))
-            }
-            Message::NavigateToAbout => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.view = MainViewKind::About;
-                }
-                Ok(Task::none())
-            }
-            Message::VersionRowHovered(version) => {
-                if let AppState::Main(state) = &mut self.state {
-                    if state.modal.is_some() {
-                        state.hovered_version = None;
-                    } else {
-                        state.hovered_version = version;
-                    }
-                }
-                Ok(Task::none())
-            }
-            Message::ThemeChanged(theme) => {
-                self.settings.theme = theme;
-                self.save_settings_with_log();
-                Ok(Task::none())
-            }
+            Message::ToastDismiss(id) => Ok(self.handle_toast_dismiss(id)),
+            Message::NavigateToVersions => Ok(self.navigate_to_versions()),
+            Message::NavigateToSettings => Ok(self.navigate_to_settings()),
+            Message::NavigateToAbout => Ok(self.navigate_to_about()),
+            Message::VersionRowHovered(version) => Ok(self.handle_version_row_hovered(version)),
+            Message::ThemeChanged(theme) => Ok(self.handle_theme_changed(theme)),
             Message::ShellOptionUseOnCdToggled(value) => {
                 Ok(self.update_active_shell_options(|options| options.use_on_cd = value))
             }
@@ -67,82 +24,37 @@ impl Versi {
             Message::ShellOptionCorepackEnabledToggled(value) => {
                 Ok(self.update_active_shell_options(|options| options.corepack_enabled = value))
             }
-            Message::DebugLoggingToggled(value) => {
-                self.settings.debug_logging = value;
-                self.save_settings_with_log();
-                crate::logging::set_logging_enabled(value);
-                if value {
-                    info!("Debug logging enabled");
-                }
-                Ok(Task::none())
-            }
+            Message::DebugLoggingToggled(value) => Ok(self.handle_debug_logging_toggled(value)),
             Message::CopyToClipboard(text) => Ok(iced::clipboard::write(text)),
-            Message::ClearLogFile => {
-                let Some(log_path) = versi_platform::AppPaths::new().ok().map(|p| p.log_file())
-                else {
-                    return Ok(Task::none());
-                };
-                Ok(Task::perform(
-                    async move {
-                        if log_path.exists() {
-                            let _ = std::fs::write(&log_path, "");
-                        }
-                    },
-                    |()| Message::LogFileCleared,
-                ))
-            }
-            Message::LogFileCleared => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.settings_state.log_file_size = Some(0);
-                }
-                Ok(Task::none())
-            }
-            Message::RevealLogFile => {
-                let Some(log_path) = versi_platform::AppPaths::new().ok().map(|p| p.log_file())
-                else {
-                    return Ok(Task::none());
-                };
-                Ok(Task::perform(
-                    async move { platform::reveal_in_file_manager(&log_path) },
-                    |()| Message::NoOp,
-                ))
-            }
-            Message::RevealSettingsFile => {
-                self.save_settings_with_log();
-                let Some(settings_path) = versi_platform::AppPaths::new()
-                    .ok()
-                    .map(|p| p.settings_file())
-                else {
-                    return Ok(Task::none());
-                };
-                Ok(Task::perform(
-                    async move { platform::reveal_in_file_manager(&settings_path) },
-                    |()| Message::NoOp,
-                ))
-            }
-            Message::LogFileStatsLoaded(size) => {
-                if let AppState::Main(state) = &mut self.state {
-                    state.settings_state.log_file_size = size;
-                }
-                Ok(Task::none())
-            }
+            Message::ClearLogFile => Ok(Self::clear_log_file()),
+            Message::LogFileCleared => Ok(self.handle_log_file_cleared()),
+            Message::RevealLogFile => Ok(Self::reveal_log_file()),
+            Message::RevealSettingsFile => Ok(self.reveal_settings_file()),
+            Message::LogFileStatsLoaded(size) => Ok(self.handle_log_file_stats_loaded(size)),
             Message::ShellFlagsUpdated => Ok(Task::none()),
             Message::ExportSettings => Ok(self.handle_export_settings()),
             Message::SettingsExported(result) => Ok(self.handle_settings_exported(result)),
             Message::ImportSettings => Ok(Self::handle_import_settings()),
             Message::SettingsImported(result) => Ok(self.handle_settings_imported(result)),
             Message::ShellSetupChecked(results) => {
-                self.handle_shell_setup_checked(results);
-                Ok(Task::none())
+                Ok(self.handle_shell_setup_checked_message(results))
             }
             Message::ConfigureShell(shell_type) => Ok(self.handle_configure_shell(shell_type)),
             Message::ShellConfigured(shell_type, result) => {
-                self.handle_shell_configured(&shell_type, &result);
-                Ok(Task::none())
+                Ok(self.handle_shell_configured_message(&shell_type, &result))
             }
             Message::PreferredBackendChanged(name) => {
                 Ok(self.handle_preferred_backend_changed(name))
             }
+            other => self.dispatch_settings_onboarding_and_system(other),
+        }
+    }
+
+    fn dispatch_settings_onboarding_and_system(
+        &mut self,
+        message: Message,
+    ) -> super::DispatchResult {
+        match message {
             Message::OnboardingNext => Ok(self.handle_onboarding_next()),
             Message::OnboardingBack => {
                 self.handle_onboarding_back();
@@ -172,20 +84,149 @@ impl Versi {
                 self.save_settings_with_log();
                 Ok(Task::none())
             }
-            Message::LaunchAtLoginToggled(value) => {
-                self.settings.launch_at_login = value;
-                if let Err(e) = platform::set_launch_at_login(value) {
-                    log::error!("Failed to set launch at login: {e}");
-                }
-                self.save_settings_with_log();
-                Ok(Task::none())
-            }
+            Message::LaunchAtLoginToggled(value) => Ok(self.handle_launch_at_login_toggled(value)),
             Message::SystemThemeChanged(mode) => {
                 self.system_theme_mode = mode;
                 Ok(Task::none())
             }
             other => Err(Box::new(other)),
         }
+    }
+
+    fn handle_toast_dismiss(&mut self, id: usize) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            state.remove_toast(id);
+        }
+        Task::none()
+    }
+
+    fn navigate_to_versions(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            state.view = MainViewKind::Versions;
+        }
+        Task::none()
+    }
+
+    fn navigate_to_settings(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            state.view = MainViewKind::Settings;
+            state.settings_state.checking_shells = true;
+        }
+        let shell_task = self.handle_check_shell_setup();
+        let log_stats_task = load_log_file_stats_task();
+        Task::batch([shell_task, log_stats_task])
+    }
+
+    fn navigate_to_about(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            state.view = MainViewKind::About;
+        }
+        Task::none()
+    }
+
+    fn handle_version_row_hovered(&mut self, version: Option<String>) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            if state.modal.is_some() {
+                state.hovered_version = None;
+            } else {
+                state.hovered_version = version;
+            }
+        }
+        Task::none()
+    }
+
+    fn handle_theme_changed(&mut self, theme: crate::settings::ThemeSetting) -> Task<Message> {
+        self.settings.theme = theme;
+        self.save_settings_with_log();
+        Task::none()
+    }
+
+    fn handle_debug_logging_toggled(&mut self, enabled: bool) -> Task<Message> {
+        self.settings.debug_logging = enabled;
+        self.save_settings_with_log();
+        crate::logging::set_logging_enabled(enabled);
+        if enabled {
+            info!("Debug logging enabled");
+        }
+        Task::none()
+    }
+
+    fn clear_log_file() -> Task<Message> {
+        let Some(log_path) = versi_platform::AppPaths::new().ok().map(|p| p.log_file()) else {
+            return Task::none();
+        };
+        Task::perform(
+            async move {
+                if log_path.exists() {
+                    let _ = std::fs::write(&log_path, "");
+                }
+            },
+            |()| Message::LogFileCleared,
+        )
+    }
+
+    fn handle_log_file_cleared(&mut self) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            state.settings_state.log_file_size = Some(0);
+        }
+        Task::none()
+    }
+
+    fn reveal_log_file() -> Task<Message> {
+        let Some(log_path) = versi_platform::AppPaths::new().ok().map(|p| p.log_file()) else {
+            return Task::none();
+        };
+        Task::perform(
+            async move { platform::reveal_in_file_manager(&log_path) },
+            |()| Message::NoOp,
+        )
+    }
+
+    fn reveal_settings_file(&self) -> Task<Message> {
+        self.save_settings_with_log();
+        let Some(settings_path) = versi_platform::AppPaths::new()
+            .ok()
+            .map(|p| p.settings_file())
+        else {
+            return Task::none();
+        };
+        Task::perform(
+            async move { platform::reveal_in_file_manager(&settings_path) },
+            |()| Message::NoOp,
+        )
+    }
+
+    fn handle_log_file_stats_loaded(&mut self, size: Option<u64>) -> Task<Message> {
+        if let AppState::Main(state) = &mut self.state {
+            state.settings_state.log_file_size = size;
+        }
+        Task::none()
+    }
+
+    fn handle_shell_setup_checked_message(
+        &mut self,
+        results: Vec<(versi_shell::ShellType, versi_shell::VerificationResult)>,
+    ) -> Task<Message> {
+        self.handle_shell_setup_checked(results);
+        Task::none()
+    }
+
+    fn handle_shell_configured_message(
+        &mut self,
+        shell_type: &versi_shell::ShellType,
+        result: &Result<(), crate::error::AppError>,
+    ) -> Task<Message> {
+        self.handle_shell_configured(shell_type, result);
+        Task::none()
+    }
+
+    fn handle_launch_at_login_toggled(&mut self, value: bool) -> Task<Message> {
+        self.settings.launch_at_login = value;
+        if let Err(e) = platform::set_launch_at_login(value) {
+            log::error!("Failed to set launch at login: {e}");
+        }
+        self.save_settings_with_log();
+        Task::none()
     }
 
     fn update_active_shell_options<F>(&mut self, update: F) -> Task<Message>
@@ -203,4 +244,14 @@ impl Versi {
             log::error!("Failed to save settings: {e}");
         }
     }
+}
+
+fn load_log_file_stats_task() -> Task<Message> {
+    Task::perform(
+        async {
+            let log_path = versi_platform::AppPaths::new().ok()?.log_file();
+            std::fs::metadata(&log_path).ok().map(|m| m.len())
+        },
+        Message::LogFileStatsLoaded,
+    )
 }
