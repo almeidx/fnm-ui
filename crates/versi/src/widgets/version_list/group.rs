@@ -1,37 +1,36 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
 use versi_backend::{InstalledVersion, VersionGroup};
-use versi_core::{ReleaseSchedule, VersionMeta};
 
 use crate::icon;
 use crate::message::Message;
-use crate::state::{OperationQueue, SearchFilter};
+use crate::state::SearchFilter;
 use crate::theme::styles;
 
+use super::VersionListContext;
 use super::filter_version;
 use super::item::version_item_view;
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn version_group_view<'a>(
     group: &'a VersionGroup,
     default: &'a Option<versi_backend::NodeVersion>,
     search_query: &'a str,
     update_available: Option<String>,
-    schedule: Option<&ReleaseSchedule>,
-    operation_queue: &'a OperationQueue,
-    hovered_version: &'a Option<String>,
     active_filters: &'a HashSet<SearchFilter>,
-    metadata: Option<&'a HashMap<String, VersionMeta>>,
+    ctx: &VersionListContext<'a>,
 ) -> Element<'a, Message> {
     let has_lts = group.versions.iter().any(|v| v.lts_codename.is_some());
     let has_default = group
         .versions
         .iter()
         .any(|v| default.as_ref().map(|d| d == &v.version).unwrap_or(false));
-    let is_eol = schedule.map(|s| !s.is_active(group.major)).unwrap_or(false);
+    let is_eol = ctx
+        .schedule
+        .map(|s| !s.is_active(group.major))
+        .unwrap_or(false);
 
     let chevron = if group.is_expanded {
         icon::chevron_down(12.0)
@@ -119,12 +118,12 @@ pub(super) fn version_group_view<'a>(
         let filtered_versions: Vec<&InstalledVersion> = group
             .versions
             .iter()
-            .filter(|v| filter_version(v, search_query, active_filters, schedule))
+            .filter(|v| filter_version(v, search_query, active_filters, ctx.schedule))
             .collect();
 
         let items: Vec<Element<Message>> = filtered_versions
             .iter()
-            .map(|v| version_item_view(v, default, operation_queue, hovered_version, metadata))
+            .map(|v| version_item_view(v, default, ctx))
             .collect();
 
         container(

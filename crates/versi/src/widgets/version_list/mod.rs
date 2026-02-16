@@ -17,6 +17,14 @@ use crate::theme::styles;
 
 use filters::{filter_available_versions, resolve_alias};
 
+pub struct VersionListContext<'a> {
+    pub schedule: Option<&'a ReleaseSchedule>,
+    pub operation_queue: &'a OperationQueue,
+    pub hovered_version: &'a Option<String>,
+    pub metadata: Option<&'a HashMap<String, VersionMeta>>,
+    pub installed_set: &'a HashSet<String>,
+}
+
 fn filter_group(
     group: &VersionGroup,
     query: &str,
@@ -131,18 +139,14 @@ fn filter_version(
     true
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn view<'a>(
     env: &'a EnvironmentState,
     search_query: &'a str,
     remote_versions: &'a [RemoteVersion],
     latest_by_major: &'a HashMap<u32, NodeVersion>,
-    schedule: Option<&'a ReleaseSchedule>,
-    operation_queue: &'a OperationQueue,
-    hovered_version: &'a Option<String>,
     search_results_limit: usize,
     active_filters: &'a HashSet<SearchFilter>,
-    metadata: Option<&'a HashMap<String, VersionMeta>>,
+    ctx: &VersionListContext<'a>,
 ) -> Element<'a, Message> {
     if env.loading && env.installed_versions.is_empty() {
         return container(
@@ -179,7 +183,7 @@ pub fn view<'a>(
     let filtered_groups: Vec<&VersionGroup> = env
         .version_groups
         .iter()
-        .filter(|g| filter_group(g, search_query, active_filters, schedule))
+        .filter(|g| filter_group(g, search_query, active_filters, ctx.schedule))
         .collect();
 
     let default_version = &env.default_version;
@@ -203,11 +207,8 @@ pub fn view<'a>(
                 default_version,
                 search_query,
                 update_available,
-                schedule,
-                operation_queue,
-                hovered_version,
                 active_filters,
-                metadata,
+                ctx,
             ));
         }
     }
@@ -219,8 +220,8 @@ pub fn view<'a>(
             search_query,
             search_results_limit,
             active_filters,
-            &env.installed_set,
-            schedule,
+            ctx.installed_set,
+            ctx.schedule,
         );
 
         if !available_list.is_empty() {
@@ -237,14 +238,7 @@ pub fn view<'a>(
             }
 
             for v in &available_list {
-                card_items.push(available::available_version_row(
-                    v,
-                    schedule,
-                    operation_queue,
-                    &env.installed_set,
-                    hovered_version,
-                    metadata,
-                ));
+                card_items.push(available::available_version_row(v, ctx));
             }
 
             content_items.push(

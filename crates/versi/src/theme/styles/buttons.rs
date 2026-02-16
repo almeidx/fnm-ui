@@ -3,6 +3,46 @@ use iced::{Background, Border, Color, Shadow, Theme};
 
 use super::{darken, lighten};
 
+struct TintedStyle {
+    text: Color,
+    bg: Color,
+    bg_hovered: Color,
+    bg_pressed: Color,
+    radius: f32,
+}
+
+fn tinted_button(tint: TintedStyle, status: button::Status) -> button::Style {
+    let base = button::Style {
+        background: Some(Background::Color(tint.bg)),
+        text_color: tint.text,
+        border: Border {
+            radius: tint.radius.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        shadow: Shadow::default(),
+        snap: false,
+    };
+    match status {
+        button::Status::Active => base,
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(tint.bg_hovered)),
+            ..base
+        },
+        button::Status::Pressed => button::Style {
+            background: Some(Background::Color(tint.bg_pressed)),
+            ..base
+        },
+        button::Status::Disabled => button::Style {
+            text_color: Color {
+                a: 0.4,
+                ..tint.text
+            },
+            ..base
+        },
+    }
+}
+
 pub fn primary_button(theme: &Theme, status: button::Status) -> button::Style {
     let palette = theme.palette();
 
@@ -67,100 +107,44 @@ pub fn primary_button(theme: &Theme, status: button::Status) -> button::Style {
 }
 
 pub fn danger_button(_theme: &Theme, status: button::Status) -> button::Style {
-    let danger_muted = Color::from_rgb8(255, 69, 58);
-
-    let base = button::Style {
-        background: Some(Background::Color(Color::TRANSPARENT)),
-        text_color: danger_muted,
-        border: Border {
-            radius: crate::theme::tahoe::RADIUS_MD.into(),
-            width: 0.0,
-            color: Color::TRANSPARENT,
+    let danger = Color::from_rgb8(255, 69, 58);
+    tinted_button(
+        TintedStyle {
+            text: danger,
+            bg: Color::TRANSPARENT,
+            bg_hovered: Color { a: 0.1, ..danger },
+            bg_pressed: Color { a: 0.15, ..danger },
+            radius: crate::theme::tahoe::RADIUS_MD,
         },
-        shadow: Shadow::default(),
-        snap: false,
-    };
-
-    match status {
-        button::Status::Active => base,
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(Color {
-                r: 1.0,
-                g: 0.27,
-                b: 0.23,
-                a: 0.1,
-            })),
-            ..base
-        },
-        button::Status::Pressed => button::Style {
-            background: Some(Background::Color(Color {
-                r: 1.0,
-                g: 0.27,
-                b: 0.23,
-                a: 0.15,
-            })),
-            ..base
-        },
-        button::Status::Disabled => button::Style {
-            text_color: Color {
-                a: 0.4,
-                ..danger_muted
-            },
-            ..base
-        },
-    }
+        status,
+    )
 }
 
 pub fn secondary_button(theme: &Theme, status: button::Status) -> button::Style {
     let palette = theme.palette();
     let is_dark = palette.background.r < 0.5;
-
-    let bg_color = if is_dark {
-        Color::from_rgba8(255, 255, 255, 0.1)
-    } else {
-        Color::from_rgba8(0, 0, 0, 0.05)
-    };
-
-    let hover_bg = if is_dark {
-        Color::from_rgba8(255, 255, 255, 0.15)
-    } else {
-        Color::from_rgba8(0, 0, 0, 0.08)
-    };
-
-    let base = button::Style {
-        background: Some(Background::Color(bg_color)),
-        text_color: palette.text,
-        border: Border {
-            radius: crate::theme::tahoe::RADIUS_MD.into(),
-            width: 0.0,
-            color: Color::TRANSPARENT,
-        },
-        shadow: Shadow::default(),
-        snap: false,
-    };
-
-    match status {
-        button::Status::Active => base,
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(hover_bg)),
-            ..base
-        },
-        button::Status::Pressed => button::Style {
-            background: Some(Background::Color(if is_dark {
+    tinted_button(
+        TintedStyle {
+            text: palette.text,
+            bg: if is_dark {
+                Color::from_rgba8(255, 255, 255, 0.1)
+            } else {
+                Color::from_rgba8(0, 0, 0, 0.05)
+            },
+            bg_hovered: if is_dark {
+                Color::from_rgba8(255, 255, 255, 0.15)
+            } else {
+                Color::from_rgba8(0, 0, 0, 0.08)
+            },
+            bg_pressed: if is_dark {
                 Color::from_rgba8(255, 255, 255, 0.2)
             } else {
                 Color::from_rgba8(0, 0, 0, 0.12)
-            })),
-            ..base
-        },
-        button::Status::Disabled => button::Style {
-            text_color: Color {
-                a: 0.4,
-                ..palette.text
             },
-            ..base
+            radius: crate::theme::tahoe::RADIUS_MD,
         },
-    }
+        status,
+    )
 }
 
 pub fn ghost_button(theme: &Theme, status: button::Status) -> button::Style {
@@ -285,92 +269,31 @@ pub fn link_button(_theme: &Theme, status: button::Status) -> button::Style {
 }
 
 pub fn update_badge_button(_theme: &Theme, status: button::Status) -> button::Style {
-    let update_color = Color::from_rgb8(0, 122, 255);
-
-    let base = button::Style {
-        background: Some(Background::Color(Color {
-            a: 0.15,
-            ..update_color
-        })),
-        text_color: update_color,
-        border: Border {
-            radius: 6.0.into(),
-            width: 0.0,
-            color: Color::TRANSPARENT,
+    let color = Color::from_rgb8(0, 122, 255);
+    tinted_button(
+        TintedStyle {
+            text: color,
+            bg: Color { a: 0.15, ..color },
+            bg_hovered: Color { a: 0.25, ..color },
+            bg_pressed: Color { a: 0.35, ..color },
+            radius: 6.0,
         },
-        shadow: Shadow::default(),
-        snap: false,
-    };
-
-    match status {
-        button::Status::Active => base,
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.25,
-                ..update_color
-            })),
-            ..base
-        },
-        button::Status::Pressed => button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.35,
-                ..update_color
-            })),
-            ..base
-        },
-        button::Status::Disabled => button::Style {
-            text_color: Color {
-                a: 0.4,
-                ..update_color
-            },
-            ..base
-        },
-    }
+        status,
+    )
 }
 
 pub fn app_update_button(theme: &Theme, status: button::Status) -> button::Style {
-    let palette = theme.palette();
-    let update_color = palette.success;
-
-    let base = button::Style {
-        background: Some(Background::Color(Color {
-            a: 0.15,
-            ..update_color
-        })),
-        text_color: update_color,
-        border: Border {
-            radius: 6.0.into(),
-            width: 0.0,
-            color: Color::TRANSPARENT,
+    let color = theme.palette().success;
+    tinted_button(
+        TintedStyle {
+            text: color,
+            bg: Color { a: 0.15, ..color },
+            bg_hovered: Color { a: 0.25, ..color },
+            bg_pressed: Color { a: 0.35, ..color },
+            radius: 6.0,
         },
-        shadow: Shadow::default(),
-        snap: false,
-    };
-
-    match status {
-        button::Status::Active => base,
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.25,
-                ..update_color
-            })),
-            ..base
-        },
-        button::Status::Pressed => button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.35,
-                ..update_color
-            })),
-            ..base
-        },
-        button::Status::Disabled => button::Style {
-            text_color: Color {
-                a: 0.4,
-                ..update_color
-            },
-            ..base
-        },
-    }
+        status,
+    )
 }
 
 pub fn active_tab_button(theme: &Theme, status: button::Status) -> button::Style {
@@ -469,89 +392,38 @@ pub fn disabled_tab_button(theme: &Theme, _status: button::Status) -> button::St
 pub fn context_menu_item(theme: &Theme, status: button::Status) -> button::Style {
     let palette = theme.palette();
     let is_dark = palette.background.r < 0.5;
-
-    let hover_bg = if is_dark {
-        Color::from_rgba8(255, 255, 255, 0.08)
-    } else {
-        Color::from_rgba8(0, 0, 0, 0.05)
-    };
-
-    let base = button::Style {
-        background: Some(Background::Color(Color::TRANSPARENT)),
-        text_color: palette.text,
-        border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
-            width: 0.0,
-            color: Color::TRANSPARENT,
-        },
-        shadow: Shadow::default(),
-        snap: false,
-    };
-
-    match status {
-        button::Status::Active => base,
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(hover_bg)),
-            ..base
-        },
-        button::Status::Pressed => button::Style {
-            background: Some(Background::Color(if is_dark {
+    tinted_button(
+        TintedStyle {
+            text: palette.text,
+            bg: Color::TRANSPARENT,
+            bg_hovered: if is_dark {
+                Color::from_rgba8(255, 255, 255, 0.08)
+            } else {
+                Color::from_rgba8(0, 0, 0, 0.05)
+            },
+            bg_pressed: if is_dark {
                 Color::from_rgba8(255, 255, 255, 0.12)
             } else {
                 Color::from_rgba8(0, 0, 0, 0.08)
-            })),
-            ..base
-        },
-        button::Status::Disabled => button::Style {
-            text_color: Color {
-                a: 0.4,
-                ..palette.text
             },
-            ..base
+            radius: crate::theme::tahoe::RADIUS_SM,
         },
-    }
+        status,
+    )
 }
 
 pub fn context_menu_item_danger(_theme: &Theme, status: button::Status) -> button::Style {
     let danger = Color::from_rgb8(255, 69, 58);
-
-    let base = button::Style {
-        background: Some(Background::Color(Color::TRANSPARENT)),
-        text_color: danger,
-        border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
-            width: 0.0,
-            color: Color::TRANSPARENT,
+    tinted_button(
+        TintedStyle {
+            text: danger,
+            bg: Color::TRANSPARENT,
+            bg_hovered: Color { a: 0.1, ..danger },
+            bg_pressed: Color { a: 0.15, ..danger },
+            radius: crate::theme::tahoe::RADIUS_SM,
         },
-        shadow: Shadow::default(),
-        snap: false,
-    };
-
-    match status {
-        button::Status::Active => base,
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(Color {
-                r: 1.0,
-                g: 0.27,
-                b: 0.23,
-                a: 0.1,
-            })),
-            ..base
-        },
-        button::Status::Pressed => button::Style {
-            background: Some(Background::Color(Color {
-                r: 1.0,
-                g: 0.27,
-                b: 0.23,
-                a: 0.15,
-            })),
-            ..base
-        },
-        button::Status::Disabled => button::Style {
-            text_color: Color { a: 0.4, ..danger },
-            ..base
-        },
-    }
+        status,
+    )
 }
 
 pub fn row_action_button(theme: &Theme, status: button::Status) -> button::Style {
@@ -684,34 +556,16 @@ pub fn row_action_button_hidden(_theme: &Theme, _status: button::Status) -> butt
 
 pub fn row_action_button_danger(_theme: &Theme, status: button::Status) -> button::Style {
     let danger = Color::from_rgb8(255, 69, 58);
-
-    let base = button::Style {
-        background: Some(Background::Color(Color::TRANSPARENT)),
-        text_color: danger,
-        border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
-            width: 0.0,
-            color: Color::TRANSPARENT,
+    tinted_button(
+        TintedStyle {
+            text: danger,
+            bg: Color::TRANSPARENT,
+            bg_hovered: Color { a: 0.1, ..danger },
+            bg_pressed: Color { a: 0.15, ..danger },
+            radius: crate::theme::tahoe::RADIUS_SM,
         },
-        shadow: Shadow::default(),
-        snap: false,
-    };
-
-    match status {
-        button::Status::Active => base,
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(Color { a: 0.1, ..danger })),
-            ..base
-        },
-        button::Status::Pressed => button::Style {
-            background: Some(Background::Color(Color { a: 0.15, ..danger })),
-            ..base
-        },
-        button::Status::Disabled => button::Style {
-            text_color: Color { a: 0.4, ..danger },
-            ..base
-        },
-    }
+        status,
+    )
 }
 
 pub fn filter_chip(theme: &Theme, status: button::Status) -> button::Style {

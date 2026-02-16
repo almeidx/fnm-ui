@@ -1,21 +1,18 @@
-use std::collections::HashMap;
-
 use iced::widget::{Space, button, container, mouse_area, row, text};
 use iced::{Alignment, Element, Length};
 
 use versi_backend::InstalledVersion;
-use versi_core::VersionMeta;
 
 use crate::message::Message;
-use crate::state::{Operation, OperationQueue};
+use crate::state::Operation;
 use crate::theme::styles;
+
+use super::VersionListContext;
 
 pub(super) fn version_item_view<'a>(
     version: &'a InstalledVersion,
     default: &'a Option<versi_backend::NodeVersion>,
-    operation_queue: &'a OperationQueue,
-    hovered_version: &'a Option<String>,
-    metadata: Option<&'a HashMap<String, VersionMeta>>,
+    ctx: &VersionListContext<'a>,
 ) -> Element<'a, Message> {
     let is_default = default
         .as_ref()
@@ -23,21 +20,24 @@ pub(super) fn version_item_view<'a>(
         .unwrap_or(false);
 
     let version_str = version.version.to_string();
-    let meta = metadata.and_then(|m| m.get(&version_str));
+    let meta = ctx.metadata.and_then(|m| m.get(&version_str));
     let version_display = version_str.clone();
     let version_for_default = version_str.clone();
     let version_for_changelog = version_str.clone();
     let version_for_hover = version_str.clone();
     let version_for_ctx = version_str.clone();
 
-    let active_op = operation_queue.active_operation_for(&version_str);
-    let is_pending = operation_queue.has_pending_for_version(&version_str);
+    let active_op = ctx.operation_queue.active_operation_for(&version_str);
+    let is_pending = ctx.operation_queue.has_pending_for_version(&version_str);
     let is_busy = active_op.is_some() || is_pending;
 
     let is_uninstalling = matches!(active_op, Some(Operation::Uninstall { .. }));
     let is_setting_default = matches!(active_op, Some(Operation::SetDefault { .. }));
 
-    let is_hovered = hovered_version.as_ref().is_some_and(|h| h == &version_str);
+    let is_hovered = ctx
+        .hovered_version
+        .as_ref()
+        .is_some_and(|h| h == &version_str);
     let show_actions = is_hovered || is_default;
 
     let mut row_content = row![

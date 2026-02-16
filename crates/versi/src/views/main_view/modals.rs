@@ -10,6 +10,23 @@ use crate::settings::AppSettings;
 use crate::state::{MainState, Modal};
 use crate::theme::styles;
 
+fn version_preview_list(labels: Vec<String>, preview_limit: usize) -> Element<'static, Message> {
+    let muted = iced::Color::from_rgb8(142, 142, 147);
+    let total = labels.len();
+    let mut list = column![].spacing(4);
+    for label in labels.into_iter().take(preview_limit) {
+        list = list.push(text(label).size(12).color(muted));
+    }
+    if total > preview_limit {
+        list = list.push(
+            text(format!("...and {} more", total - preview_limit))
+                .size(11)
+                .color(muted),
+        );
+    }
+    list.into()
+}
+
 pub(super) fn modal_overlay<'a>(
     content: Element<'a, Message>,
     modal: &'a Modal,
@@ -81,23 +98,10 @@ fn confirm_bulk_update_view(
     versions: &[(String, String)],
     preview_limit: usize,
 ) -> Element<'_, Message> {
-    let mut version_list = column![].spacing(4);
-
-    for (from, to) in versions.iter().take(preview_limit) {
-        version_list = version_list.push(
-            text(format!("{} → {}", from, to))
-                .size(12)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-        );
-    }
-
-    if versions.len() > preview_limit {
-        version_list = version_list.push(
-            text(format!("...and {} more", versions.len() - preview_limit))
-                .size(11)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-        );
-    }
+    let labels: Vec<String> = versions
+        .iter()
+        .map(|(from, to)| format!("{} \u{2192} {}", from, to))
+        .collect();
 
     column![
         text("Update All Versions?").size(20),
@@ -108,7 +112,7 @@ fn confirm_bulk_update_view(
         ))
         .size(14),
         Space::new().height(8),
-        version_list,
+        version_preview_list(labels, preview_limit),
         Space::new().height(24),
         row![
             button(text("Cancel").size(13))
@@ -132,23 +136,7 @@ fn confirm_bulk_uninstall_eol_view(
     versions: &[String],
     preview_limit: usize,
 ) -> Element<'_, Message> {
-    let mut version_list = column![].spacing(4);
-
-    for version in versions.iter().take(preview_limit) {
-        version_list = version_list.push(
-            text(format!("Node {}", version))
-                .size(12)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-        );
-    }
-
-    if versions.len() > preview_limit {
-        version_list = version_list.push(
-            text(format!("...and {} more", versions.len() - preview_limit))
-                .size(11)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-        );
-    }
+    let labels: Vec<String> = versions.iter().map(|v| format!("Node {}", v)).collect();
 
     column![
         text("Remove All EOL Versions?").size(20),
@@ -159,7 +147,7 @@ fn confirm_bulk_uninstall_eol_view(
         ))
         .size(14),
         Space::new().height(8),
-        version_list,
+        version_preview_list(labels, preview_limit),
         Space::new().height(8),
         text("These versions no longer receive security updates.")
             .size(12)
@@ -188,23 +176,7 @@ fn confirm_bulk_uninstall_major_view(
     versions: &[String],
     preview_limit: usize,
 ) -> Element<'_, Message> {
-    let mut version_list = column![].spacing(4);
-
-    for version in versions.iter().take(preview_limit) {
-        version_list = version_list.push(
-            text(format!("Node {}", version))
-                .size(12)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-        );
-    }
-
-    if versions.len() > preview_limit {
-        version_list = version_list.push(
-            text(format!("...and {} more", versions.len() - preview_limit))
-                .size(11)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-        );
-    }
+    let labels: Vec<String> = versions.iter().map(|v| format!("Node {}", v)).collect();
 
     column![
         text(format!("Remove All Node {}.x Versions?", major)).size(20),
@@ -215,7 +187,7 @@ fn confirm_bulk_uninstall_major_view(
         ))
         .size(14),
         Space::new().height(8),
-        version_list,
+        version_preview_list(labels, preview_limit),
         Space::new().height(24),
         row![
             button(text("Cancel").size(13))
@@ -241,23 +213,7 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
     keeping: &'a str,
     preview_limit: usize,
 ) -> Element<'a, Message> {
-    let mut version_list = column![].spacing(4);
-
-    for version in versions.iter().take(preview_limit) {
-        version_list = version_list.push(
-            text(format!("Node {}", version))
-                .size(12)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-        );
-    }
-
-    if versions.len() > preview_limit {
-        version_list = version_list.push(
-            text(format!("...and {} more", versions.len() - preview_limit))
-                .size(11)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
-        );
-    }
+    let labels: Vec<String> = versions.iter().map(|v| format!("Node {}", v)).collect();
 
     column![
         text(format!("Clean Up Node {}.x Versions?", major)).size(20),
@@ -268,7 +224,7 @@ fn confirm_bulk_uninstall_major_except_latest_view<'a>(
         ))
         .size(14),
         Space::new().height(8),
-        version_list,
+        version_preview_list(labels, preview_limit),
         Space::new().height(8),
         text(format!("Node {} will be kept.", keeping))
             .size(12)

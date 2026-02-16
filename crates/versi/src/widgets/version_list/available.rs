@@ -1,37 +1,35 @@
-use std::collections::{HashMap, HashSet};
-
 use iced::widget::{Space, button, container, mouse_area, row, text};
 use iced::{Alignment, Element, Length};
 
 use versi_backend::RemoteVersion;
-use versi_core::{ReleaseSchedule, VersionMeta};
 
 use crate::message::Message;
-use crate::state::OperationQueue;
 use crate::theme::styles;
+
+use super::VersionListContext;
 
 pub(super) fn available_version_row<'a>(
     version: &'a RemoteVersion,
-    schedule: Option<&ReleaseSchedule>,
-    operation_queue: &'a OperationQueue,
-    installed_set: &HashSet<String>,
-    hovered_version: &'a Option<String>,
-    metadata: Option<&'a HashMap<String, VersionMeta>>,
+    ctx: &VersionListContext<'a>,
 ) -> Element<'a, Message> {
     let version_str = version.version.to_string();
-    let meta = metadata.and_then(|m| m.get(&version_str));
-    let is_eol = schedule
+    let meta = ctx.metadata.and_then(|m| m.get(&version_str));
+    let is_eol = ctx
+        .schedule
         .map(|s| !s.is_active(version.version.major))
         .unwrap_or(false);
     let version_display = version_str.clone();
     let version_for_changelog = version_str.clone();
     let version_for_hover = version_str.clone();
     let version_for_ctx = version_str.clone();
-    let is_installed = installed_set.contains(&version_str);
+    let is_installed = ctx.installed_set.contains(&version_str);
 
-    let is_active = operation_queue.is_current_version(&version_str);
-    let is_pending = operation_queue.has_pending_for_version(&version_str);
-    let is_button_hovered = hovered_version.as_ref().is_some_and(|h| h == &version_str);
+    let is_active = ctx.operation_queue.is_current_version(&version_str);
+    let is_pending = ctx.operation_queue.has_pending_for_version(&version_str);
+    let is_button_hovered = ctx
+        .hovered_version
+        .as_ref()
+        .is_some_and(|h| h == &version_str);
 
     let action_button: Element<Message> = if is_active {
         button(text("Installing...").size(12))

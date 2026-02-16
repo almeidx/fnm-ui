@@ -25,17 +25,22 @@ pub fn view<'a>(
     } else {
         &state.hovered_version
     };
+    let env = state.active_environment();
+    let ctx = version_list::VersionListContext {
+        schedule: state.available_versions.schedule.as_ref(),
+        operation_queue: &state.operation_queue,
+        hovered_version: hovered,
+        metadata: state.available_versions.metadata.as_ref(),
+        installed_set: &env.installed_set,
+    };
     let version_list = version_list::view(
-        state.active_environment(),
+        env,
         &state.search_query,
         &state.available_versions.versions,
         &state.available_versions.latest_by_major,
-        state.available_versions.schedule.as_ref(),
-        &state.operation_queue,
-        hovered,
         settings.search_results_limit,
         &state.active_filters,
-        state.available_versions.metadata.as_ref(),
+        &ctx,
     );
 
     let right_inset = iced::Padding::new(0.0).right(24.0);
