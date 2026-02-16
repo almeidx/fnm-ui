@@ -307,8 +307,13 @@ fn resolve_alias_query<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::VersionCache;
+    use std::path::PathBuf;
+
+    use super::{MainState, NetworkStatus, SearchFilter, VersionCache};
+    use crate::backend_kind::BackendKind;
+    use crate::state::EnvironmentState;
     use versi_backend::{NodeVersion, RemoteVersion};
+    use versi_platform::EnvironmentId;
 
     #[test]
     fn set_versions_recomputes_latest_major_versions() {
@@ -344,5 +349,112 @@ mod tests {
             cache.latest_by_major.get(&22),
             Some(&NodeVersion::new(22, 1, 0))
         );
+    }
+
+    #[test]
+    fn network_status_reports_expected_state() {
+        let mut cache = VersionCache::new();
+        assert!(matches!(cache.network_status(), NetworkStatus::Online));
+
+        cache.loading = true;
+        assert!(matches!(cache.network_status(), NetworkStatus::Fetching));
+
+        cache.loading = false;
+        cache.error = Some(crate::error::AppError::message("offline"));
+        assert!(matches!(cache.network_status(), NetworkStatus::Offline));
+
+        cache.versions = vec![RemoteVersion {
+            version: NodeVersion::new(20, 11, 0),
+            lts_codename: Some("Iron".to_string()),
+            is_latest: true,
+        }];
+        assert!(matches!(cache.network_status(), NetworkStatus::Stale));
+    }
+
+    fn main_state_with_native_env() -> MainState {
+        let provider: std::sync::Arc<dyn versi_backend::BackendProvider> =
+            std::sync::Arc::new(versi_fnm::FnmProvider::new());
+        let backend = provider.create_manager(&versi_backend::BackendDetection {
+            found: true,
+            path: Some(PathBuf::from("fnm")),
+            version: None,
+            in_path: true,
+            data_dir: None,
+        });
+        let mut env = EnvironmentState::new(EnvironmentId::Native, BackendKind::Fnm, None);
+        env.loading = false;
+        MainState::new_with_environments(backend, vec![env], BackendKind::Fnm)
+    }
+
+    fn remote(version: NodeVersion, lts: Option<&str>) -> RemoteVersion {
+        RemoteVersion {
+            version,
+            lts_codename: lts.map(str::to_string),
+            is_latest: false,
+        }
+    }
+
+    fn installed(version: NodeVersion, is_default: bool) -> versi_backend::InstalledVersion {
+        versi_backend::InstalledVersion {
+            version,
+            is_default,
+            lts_codename: None,
+            install_date: None,
+            disk_size: None,
+        }
+    }
+
+    #[test]
+    fn navigable_versions_uses_expanded_groups_without_search() {
+        let mut state = main_state_with_native_env();
+        state.active_environment_mut().update_versions(vec![
+            installed(NodeVersion::new(22, 3, 1), true),
+            installed(NodeVersion::new(20, 11, 0), false),
+        ]);
+        state
+            .active_environment_mut()
+            .version_groups
+            .iter_mut()
+            .for_each(|g| g.is_expanded = g.major == 22);
+
+        let navigable = state.navigable_versions(10);
+
+        assert_eq!(navigable, vec!["v22.3.1".to_string()]);
+    }
+
+    #[test]
+    fn navigable_versions_resolves_alias_queries() {
+        let mut state = main_state_with_native_env();
+        state.available_versions.set_versions(vec![
+            remote(NodeVersion::new(24, 1, 0), None),
+            remote(NodeVersion::new(22, 11, 0), Some("Jod")),
+            remote(NodeVersion::new(20, 12, 0), Some("Iron")),
+        ]);
+
+        state.search_query = "latest".to_string();
+        assert_eq!(state.navigable_versions(10), vec!["v24.1.0".to_string()]);
+
+        state.search_query = "lts/iron".to_string();
+        assert_eq!(state.navigable_versions(10), vec!["v20.12.0".to_string()]);
+    }
+
+    #[test]
+    fn is_version_installed_checks_active_environment_versions() {
+        let mut state = main_state_with_native_env();
+        state.active_environment_mut().installed_versions = vec![versi_backend::InstalledVersion {
+            version: NodeVersion::new(20, 11, 0),
+            is_default: true,
+            lts_codename: Some("Iron".to_string()),
+            install_date: None,
+            disk_size: None,
+        }];
+        state
+            .active_environment_mut()
+            .installed_set
+            .insert("v20.11.0".to_string());
+        state.active_filters.insert(SearchFilter::Lts);
+
+        assert!(state.is_version_installed("v20.11.0"));
+        assert!(!state.is_version_installed("v18.19.1"));
     }
 }
