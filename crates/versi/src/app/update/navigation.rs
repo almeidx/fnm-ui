@@ -301,6 +301,12 @@ mod tests {
             state.available_versions.metadata_fetch.request_seq,
             before_seq.wrapping_add(1)
         );
-        assert!(state.available_versions.metadata_fetch.cancel_token.is_some());
+        assert!(
+            state
+                .available_versions
+                .metadata_fetch
+                .cancel_token
+                .is_some()
+        );
     }
 }

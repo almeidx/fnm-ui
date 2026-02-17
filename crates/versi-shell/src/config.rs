@@ -170,10 +170,8 @@ impl ShellConfig {
             let start = search_from + rel;
             let end = start + flag_bytes.len();
 
-            let before_ok =
-                start == 0 || !Self::is_flag_char(bytes[start - 1]);
-            let after_ok =
-                end == bytes.len() || !Self::is_flag_char(bytes[end]);
+            let before_ok = start == 0 || !Self::is_flag_char(bytes[start - 1]);
+            let after_ok = end == bytes.len() || !Self::is_flag_char(bytes[end]);
 
             if before_ok && after_ok {
                 // Remove flag and one adjacent space to avoid double spaces.

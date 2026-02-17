@@ -520,9 +520,7 @@ mod tests {
         });
         let (installs, exclusive) = q.drain_next();
         assert!(installs.is_empty());
-        assert!(
-            matches!(exclusive, Some(Operation::Uninstall { version }) if version == "18.0.0")
-        );
+        assert!(matches!(exclusive, Some(Operation::Uninstall { version }) if version == "18.0.0"));
         assert!(q.pending.is_empty());
     }
 
@@ -655,10 +653,8 @@ mod tests {
                         }
 
                         if exclusive_variant != 0 {
-                            queue.start_exclusive(make_op(
-                                exclusive_variant - 1,
-                                (seed % 20) as u8,
-                            ));
+                            queue
+                                .start_exclusive(make_op(exclusive_variant - 1, (seed % 20) as u8));
                         }
 
                         for (kind, tag) in generate_pending(seed, len) {

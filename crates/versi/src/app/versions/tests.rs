@@ -255,7 +255,13 @@ fn fetch_release_schedule_cancels_previous_token() {
     let AppState::Main(state) = &app.state else {
         panic!("expected main state");
     };
-    assert!(state.available_versions.schedule_fetch.cancel_token.is_some());
+    assert!(
+        state
+            .available_versions
+            .schedule_fetch
+            .cancel_token
+            .is_some()
+    );
 }
 
 #[test]
@@ -272,7 +278,13 @@ fn fetch_version_metadata_cancels_previous_token() {
     let AppState::Main(state) = &app.state else {
         panic!("expected main state");
     };
-    assert!(state.available_versions.metadata_fetch.cancel_token.is_some());
+    assert!(
+        state
+            .available_versions
+            .metadata_fetch
+            .cancel_token
+            .is_some()
+    );
 }
 
 #[test]
