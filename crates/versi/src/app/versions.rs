@@ -3,7 +3,6 @@
 //! Handles messages: `RemoteVersionsFetched`, `ReleaseScheduleFetched`,
 //! `AppUpdateChecked`, `BackendUpdateChecked`
 
-use std::sync::{OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
 use log::debug;
@@ -19,6 +18,9 @@ use crate::state::AppState;
 
 use super::Versi;
 use super::async_helpers::{retry_with_delays, run_with_timeout};
+use cache_save::enqueue_cache_save;
+
+mod cache_save;
 
 impl Versi {
     pub(super) fn handle_fetch_remote_versions(&mut self) -> Task<Message> {
@@ -338,37 +340,6 @@ impl Versi {
             }
         }
     }
-}
-
-fn enqueue_cache_save(cache: crate::cache::DiskCache) {
-    let _ = cache_save_sender().send(cache);
-}
-
-fn cache_save_sender() -> &'static mpsc::Sender<crate::cache::DiskCache> {
-    static CACHE_SAVER: OnceLock<mpsc::Sender<crate::cache::DiskCache>> = OnceLock::new();
-
-    CACHE_SAVER.get_or_init(|| {
-        let (sender, receiver) = mpsc::channel::<crate::cache::DiskCache>();
-        std::thread::spawn(move || {
-            let debounce_window = Duration::from_millis(250);
-            while let Ok(mut latest) = receiver.recv() {
-                loop {
-                    match receiver.recv_timeout(debounce_window) {
-                        Ok(next) => latest = next,
-                        Err(mpsc::RecvTimeoutError::Timeout) => {
-                            latest.save();
-                            break;
-                        }
-                        Err(mpsc::RecvTimeoutError::Disconnected) => {
-                            latest.save();
-                            return;
-                        }
-                    }
-                }
-            }
-        });
-        sender
-    })
 }
 
 #[cfg(test)]
