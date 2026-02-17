@@ -47,6 +47,15 @@ impl Versi {
     }
 }
 
+pub(super) fn open_url_task(url: String) -> Task<Message> {
+    Task::perform(
+        async move {
+            let _ = open::that(&url);
+        },
+        |()| Message::NoOp,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::test_app_with_two_environments;
