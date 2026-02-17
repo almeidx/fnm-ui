@@ -286,7 +286,7 @@ mod tests {
     fn dispatch_navigation_handles_fetch_version_metadata_message() {
         let mut app = test_app_with_two_environments();
         let before_seq = if let AppState::Main(state) = &app.state {
-            state.available_versions.metadata_request_seq
+            state.available_versions.metadata_fetch.request_seq
         } else {
             panic!("expected main state");
         };
@@ -298,9 +298,9 @@ mod tests {
             panic!("expected main state");
         };
         assert_eq!(
-            state.available_versions.metadata_request_seq,
+            state.available_versions.metadata_fetch.request_seq,
             before_seq.wrapping_add(1)
         );
-        assert!(state.available_versions.metadata_cancel_token.is_some());
+        assert!(state.available_versions.metadata_fetch.cancel_token.is_some());
     }
 }

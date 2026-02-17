@@ -47,7 +47,7 @@ fn remote_versions_fetched_updates_cache_on_success() {
     let mut app = test_app_with_two_environments();
     if let AppState::Main(state) = &mut app.state {
         state.available_versions.loading = true;
-        state.available_versions.remote_request_seq = 7;
+        state.available_versions.remote.request_seq = 7;
     }
 
     app.handle_remote_versions_fetched(
@@ -59,7 +59,7 @@ fn remote_versions_fetched_updates_cache_on_success() {
         panic!("expected main state");
     };
     assert!(!state.available_versions.loading);
-    assert!(state.available_versions.error.is_none());
+    assert!(state.available_versions.remote.error.is_none());
     assert_eq!(state.available_versions.versions.len(), 2);
     assert_eq!(
         state.available_versions.latest_by_major.get(&22),
@@ -74,7 +74,7 @@ fn release_schedule_fetched_ignores_stale_request() {
     let mut app = test_app_with_two_environments();
     let baseline = sample_schedule();
     if let AppState::Main(state) = &mut app.state {
-        state.available_versions.schedule_request_seq = 3;
+        state.available_versions.schedule_fetch.request_seq = 3;
         state.available_versions.schedule = Some(baseline.clone());
     }
 
@@ -99,8 +99,8 @@ fn release_schedule_fetched_ignores_stale_request() {
 fn release_schedule_fetched_sets_schedule_and_clears_error() {
     let mut app = test_app_with_two_environments();
     if let AppState::Main(state) = &mut app.state {
-        state.available_versions.schedule_request_seq = 5;
-        state.available_versions.schedule_error = Some(AppError::version_fetch_failed(
+        state.available_versions.schedule_fetch.request_seq = 5;
+        state.available_versions.schedule_fetch.error = Some(AppError::version_fetch_failed(
             "Release schedule",
             "old error",
         ));
@@ -112,7 +112,7 @@ fn release_schedule_fetched_sets_schedule_and_clears_error() {
         panic!("expected main state");
     };
     assert!(state.available_versions.schedule.is_some());
-    assert!(state.available_versions.schedule_error.is_none());
+    assert!(state.available_versions.schedule_fetch.error.is_none());
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn version_metadata_fetched_ignores_stale_request() {
     let mut app = test_app_with_two_environments();
     let baseline = sample_metadata();
     if let AppState::Main(state) = &mut app.state {
-        state.available_versions.metadata_request_seq = 4;
+        state.available_versions.metadata_fetch.request_seq = 4;
         state.available_versions.metadata = Some(baseline.clone());
     }
 
@@ -147,9 +147,9 @@ fn version_metadata_fetched_ignores_stale_request() {
 fn version_metadata_fetched_stores_metadata_on_success() {
     let mut app = test_app_with_two_environments();
     if let AppState::Main(state) = &mut app.state {
-        state.available_versions.metadata_request_seq = 8;
+        state.available_versions.metadata_fetch.request_seq = 8;
         state.available_versions.metadata = None;
-        state.available_versions.metadata_error = Some(AppError::version_fetch_failed(
+        state.available_versions.metadata_fetch.error = Some(AppError::version_fetch_failed(
             "Version metadata",
             "old error",
         ));
@@ -161,14 +161,14 @@ fn version_metadata_fetched_stores_metadata_on_success() {
         panic!("expected main state");
     };
     assert!(state.available_versions.metadata.is_some());
-    assert!(state.available_versions.metadata_error.is_none());
+    assert!(state.available_versions.metadata_fetch.error.is_none());
 }
 
 #[test]
 fn version_metadata_fetched_stores_error_on_failure() {
     let mut app = test_app_with_two_environments();
     if let AppState::Main(state) = &mut app.state {
-        state.available_versions.metadata_request_seq = 9;
+        state.available_versions.metadata_fetch.request_seq = 9;
         state.available_versions.metadata = None;
     }
 
@@ -184,7 +184,7 @@ fn version_metadata_fetched_stores_error_on_failure() {
         panic!("expected main state");
     };
     assert!(matches!(
-        state.available_versions.metadata_error,
+        state.available_versions.metadata_fetch.error,
         Some(AppError::VersionFetchFailed {
             resource: "Version metadata",
             ref details
@@ -246,7 +246,7 @@ fn fetch_release_schedule_cancels_previous_token() {
     let mut app = test_app_with_two_environments();
     let old_token = CancellationToken::new();
     if let AppState::Main(state) = &mut app.state {
-        state.available_versions.schedule_cancel_token = Some(old_token.clone());
+        state.available_versions.schedule_fetch.cancel_token = Some(old_token.clone());
     }
 
     let _ = app.handle_fetch_release_schedule();
@@ -255,7 +255,7 @@ fn fetch_release_schedule_cancels_previous_token() {
     let AppState::Main(state) = &app.state else {
         panic!("expected main state");
     };
-    assert!(state.available_versions.schedule_cancel_token.is_some());
+    assert!(state.available_versions.schedule_fetch.cancel_token.is_some());
 }
 
 #[test]
@@ -263,7 +263,7 @@ fn fetch_version_metadata_cancels_previous_token() {
     let mut app = test_app_with_two_environments();
     let old_token = CancellationToken::new();
     if let AppState::Main(state) = &mut app.state {
-        state.available_versions.metadata_cancel_token = Some(old_token.clone());
+        state.available_versions.metadata_fetch.cancel_token = Some(old_token.clone());
     }
 
     let _ = app.handle_fetch_version_metadata();
@@ -272,7 +272,7 @@ fn fetch_version_metadata_cancels_previous_token() {
     let AppState::Main(state) = &app.state else {
         panic!("expected main state");
     };
-    assert!(state.available_versions.metadata_cancel_token.is_some());
+    assert!(state.available_versions.metadata_fetch.cancel_token.is_some());
 }
 
 #[test]
@@ -281,7 +281,7 @@ fn fetch_remote_versions_cancels_previous_token_when_loading() {
     let old_token = CancellationToken::new();
     if let AppState::Main(state) = &mut app.state {
         state.available_versions.loading = true;
-        state.available_versions.remote_cancel_token = Some(old_token.clone());
+        state.available_versions.remote.cancel_token = Some(old_token.clone());
     }
 
     let _ = app.handle_fetch_remote_versions();
@@ -291,5 +291,5 @@ fn fetch_remote_versions_cancels_previous_token_when_loading() {
         panic!("expected main state");
     };
     assert!(state.available_versions.loading);
-    assert!(state.available_versions.remote_cancel_token.is_some());
+    assert!(state.available_versions.remote.cancel_token.is_some());
 }

@@ -210,23 +210,57 @@ impl MainState {
     }
 }
 
+/// Tracks the request lifecycle for a cancellable async fetch.
+#[derive(Debug)]
+pub struct FetchState {
+    pub request_seq: u64,
+    pub cancel_token: Option<CancellationToken>,
+    pub error: Option<AppError>,
+}
+
+impl FetchState {
+    pub fn new() -> Self {
+        Self {
+            request_seq: 0,
+            cancel_token: None,
+            error: None,
+        }
+    }
+
+    /// Cancel any in-flight request and start a new one.
+    /// Returns `(cancel_token, request_seq)` for the new request.
+    pub fn start(&mut self) -> (CancellationToken, u64) {
+        if let Some(token) = self.cancel_token.take() {
+            token.cancel();
+        }
+        self.request_seq = self.request_seq.wrapping_add(1);
+        let token = CancellationToken::new();
+        self.cancel_token = Some(token.clone());
+        (token, self.request_seq)
+    }
+
+    /// Check whether a response is still current. If so, clear the cancel
+    /// token and return `true`; otherwise return `false` (stale).
+    pub fn accept(&mut self, request_seq: u64) -> bool {
+        if request_seq != self.request_seq {
+            return false;
+        }
+        self.cancel_token = None;
+        true
+    }
+}
+
 #[derive(Debug)]
 pub struct VersionCache {
     pub versions: Vec<RemoteVersion>,
     pub latest_by_major: HashMap<u32, NodeVersion>,
     pub fetched_at: Option<Instant>,
     pub loading: bool,
-    pub remote_request_seq: u64,
-    pub remote_cancel_token: Option<CancellationToken>,
-    pub error: Option<AppError>,
+    pub remote: FetchState,
     pub schedule: Option<ReleaseSchedule>,
-    pub schedule_request_seq: u64,
-    pub schedule_cancel_token: Option<CancellationToken>,
-    pub schedule_error: Option<AppError>,
+    pub schedule_fetch: FetchState,
     pub metadata: Option<HashMap<String, VersionMeta>>,
-    pub metadata_error: Option<AppError>,
-    pub metadata_request_seq: u64,
-    pub metadata_cancel_token: Option<CancellationToken>,
+    pub metadata_fetch: FetchState,
     pub loaded_from_disk: bool,
     pub disk_cached_at: Option<DateTime<Utc>>,
     pub search_index: RemoteVersionSearchIndex,
@@ -239,17 +273,11 @@ impl VersionCache {
             latest_by_major: HashMap::new(),
             fetched_at: None,
             loading: false,
-            remote_request_seq: 0,
-            remote_cancel_token: None,
-            error: None,
+            remote: FetchState::new(),
             schedule: None,
-            schedule_request_seq: 0,
-            schedule_cancel_token: None,
-            schedule_error: None,
+            schedule_fetch: FetchState::new(),
             metadata: None,
-            metadata_error: None,
-            metadata_request_seq: 0,
-            metadata_cancel_token: None,
+            metadata_fetch: FetchState::new(),
             loaded_from_disk: false,
             disk_cached_at: None,
             search_index: RemoteVersionSearchIndex::default(),
@@ -286,7 +314,7 @@ impl VersionCache {
         if self.loading {
             return NetworkStatus::Fetching;
         }
-        if self.error.is_some() {
+        if self.remote.error.is_some() {
             if self.versions.is_empty() {
                 return NetworkStatus::Offline;
             }
@@ -358,7 +386,7 @@ mod tests {
         assert!(matches!(cache.network_status(), NetworkStatus::Fetching));
 
         cache.loading = false;
-        cache.error = Some(crate::error::AppError::version_fetch_failed(
+        cache.remote.error = Some(crate::error::AppError::version_fetch_failed(
             "Remote versions",
             "offline",
         ));

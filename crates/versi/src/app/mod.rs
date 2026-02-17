@@ -588,7 +588,7 @@ mod tests {
 
         if let AppState::Main(state) = &mut app.state {
             state.available_versions.loading = true;
-            state.available_versions.remote_request_seq = 2;
+            state.available_versions.remote.request_seq = 2;
         }
 
         app.handle_remote_versions_fetched(

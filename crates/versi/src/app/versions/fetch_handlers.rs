@@ -2,7 +2,6 @@ use std::time::{Duration, Instant};
 
 use iced::Task;
 use log::debug;
-use tokio_util::sync::CancellationToken;
 
 use versi_core::{fetch_release_schedule, fetch_version_metadata};
 
@@ -16,17 +15,8 @@ use super::cache_save::enqueue_cache_save;
 
 pub(super) fn handle_fetch_remote_versions(app: &mut Versi) -> Task<Message> {
     if let AppState::Main(state) = &mut app.state {
-        if state.available_versions.loading
-            && let Some(cancel_token) = state.available_versions.remote_cancel_token.take()
-        {
-            cancel_token.cancel();
-        }
         state.available_versions.loading = true;
-        state.available_versions.remote_request_seq =
-            state.available_versions.remote_request_seq.wrapping_add(1);
-        let request_seq = state.available_versions.remote_request_seq;
-        let cancel_token = CancellationToken::new();
-        state.available_versions.remote_cancel_token = Some(cancel_token.clone());
+        let (cancel_token, request_seq) = state.available_versions.remote.start();
 
         let backend = state.backend.clone();
         let fetch_timeout = Duration::from_secs(app.settings.fetch_timeout_secs);
@@ -67,21 +57,20 @@ pub(super) fn handle_remote_versions_fetched(
     result: Result<Vec<versi_backend::RemoteVersion>, AppError>,
 ) {
     if let AppState::Main(state) = &mut app.state {
-        if request_seq != state.available_versions.remote_request_seq {
+        if !state.available_versions.remote.accept(request_seq) {
             debug!(
                 "Ignoring stale remote versions response: request_seq={} current_seq={}",
-                request_seq, state.available_versions.remote_request_seq
+                request_seq, state.available_versions.remote.request_seq
             );
             return;
         }
 
         state.available_versions.loading = false;
-        state.available_versions.remote_cancel_token = None;
         match result {
             Ok(versions) => {
                 state.available_versions.set_versions(versions.clone());
                 state.available_versions.fetched_at = Some(Instant::now());
-                state.available_versions.error = None;
+                state.available_versions.remote.error = None;
                 state.available_versions.loaded_from_disk = false;
 
                 // Show badge if any installed major line has a newer version available
@@ -110,7 +99,7 @@ pub(super) fn handle_remote_versions_fetched(
                 });
             }
             Err(error) => {
-                state.available_versions.error = Some(error);
+                state.available_versions.remote.error = Some(error);
             }
         }
 
@@ -120,16 +109,7 @@ pub(super) fn handle_remote_versions_fetched(
 
 pub(super) fn handle_fetch_release_schedule(app: &mut Versi) -> Task<Message> {
     if let AppState::Main(state) = &mut app.state {
-        if let Some(cancel_token) = state.available_versions.schedule_cancel_token.take() {
-            cancel_token.cancel();
-        }
-        state.available_versions.schedule_request_seq = state
-            .available_versions
-            .schedule_request_seq
-            .wrapping_add(1);
-        let request_seq = state.available_versions.schedule_request_seq;
-        let cancel_token = CancellationToken::new();
-        state.available_versions.schedule_cancel_token = Some(cancel_token.clone());
+        let (cancel_token, request_seq) = state.available_versions.schedule_fetch.start();
         let client = app.http_client.clone();
         let retry_delays = app.settings.retry_delays_secs.clone();
 
@@ -164,19 +144,18 @@ pub(super) fn handle_release_schedule_fetched(
     result: Result<versi_core::ReleaseSchedule, AppError>,
 ) {
     if let AppState::Main(state) = &mut app.state {
-        if request_seq != state.available_versions.schedule_request_seq {
+        if !state.available_versions.schedule_fetch.accept(request_seq) {
             debug!(
                 "Ignoring stale release schedule response: request_seq={} current_seq={}",
-                request_seq, state.available_versions.schedule_request_seq
+                request_seq, state.available_versions.schedule_fetch.request_seq
             );
             return;
         }
 
-        state.available_versions.schedule_cancel_token = None;
         match result {
             Ok(schedule) => {
                 state.available_versions.schedule = Some(schedule.clone());
-                state.available_versions.schedule_error = None;
+                state.available_versions.schedule_fetch.error = None;
 
                 let versions = state.available_versions.versions.clone();
                 let metadata = state.available_versions.metadata.clone();
@@ -189,7 +168,7 @@ pub(super) fn handle_release_schedule_fetched(
             }
             Err(error) => {
                 debug!("Release schedule fetch failed: {error}");
-                state.available_versions.schedule_error = Some(error);
+                state.available_versions.schedule_fetch.error = Some(error);
             }
         }
 
@@ -199,17 +178,8 @@ pub(super) fn handle_release_schedule_fetched(
 
 pub(super) fn handle_fetch_version_metadata(app: &mut Versi) -> Task<Message> {
     if let AppState::Main(state) = &mut app.state {
-        if let Some(cancel_token) = state.available_versions.metadata_cancel_token.take() {
-            cancel_token.cancel();
-        }
-        state.available_versions.metadata_request_seq = state
-            .available_versions
-            .metadata_request_seq
-            .wrapping_add(1);
-        state.available_versions.metadata_error = None;
-        let request_seq = state.available_versions.metadata_request_seq;
-        let cancel_token = CancellationToken::new();
-        state.available_versions.metadata_cancel_token = Some(cancel_token.clone());
+        let (cancel_token, request_seq) = state.available_versions.metadata_fetch.start();
+        state.available_versions.metadata_fetch.error = None;
         let client = app.http_client.clone();
         let retry_delays = app.settings.retry_delays_secs.clone();
 
@@ -244,19 +214,18 @@ pub(super) fn handle_version_metadata_fetched(
     result: Result<std::collections::HashMap<String, versi_core::VersionMeta>, AppError>,
 ) {
     if let AppState::Main(state) = &mut app.state {
-        if request_seq != state.available_versions.metadata_request_seq {
+        if !state.available_versions.metadata_fetch.accept(request_seq) {
             debug!(
                 "Ignoring stale version metadata response: request_seq={} current_seq={}",
-                request_seq, state.available_versions.metadata_request_seq
+                request_seq, state.available_versions.metadata_fetch.request_seq
             );
             return;
         }
 
-        state.available_versions.metadata_cancel_token = None;
         match result {
             Ok(metadata) => {
                 state.available_versions.metadata = Some(metadata.clone());
-                state.available_versions.metadata_error = None;
+                state.available_versions.metadata_fetch.error = None;
 
                 let versions = state.available_versions.versions.clone();
                 let schedule = state.available_versions.schedule.clone();
@@ -269,7 +238,7 @@ pub(super) fn handle_version_metadata_fetched(
             }
             Err(error) => {
                 debug!("Version metadata fetch failed: {error}");
-                state.available_versions.metadata_error = Some(error);
+                state.available_versions.metadata_fetch.error = Some(error);
             }
         }
     }

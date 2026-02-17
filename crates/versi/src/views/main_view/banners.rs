@@ -62,7 +62,7 @@ fn network_status_banner(state: &MainState) -> Option<Element<'_, Message>> {
 }
 
 fn release_schedule_banner(state: &MainState, has_schedule: bool) -> Option<Element<'_, Message>> {
-    if state.available_versions.schedule_error.is_some() && !has_schedule {
+    if state.available_versions.schedule_fetch.error.is_some() && !has_schedule {
         Some(simple_retry_banner(
             "Release schedule unavailable \u{2014} EOL detection may be inaccurate".to_string(),
             Message::FetchReleaseSchedule,
@@ -73,7 +73,7 @@ fn release_schedule_banner(state: &MainState, has_schedule: bool) -> Option<Elem
 }
 
 fn metadata_banner(state: &MainState, has_metadata: bool) -> Option<Element<'_, Message>> {
-    if state.available_versions.metadata_error.is_some() && !has_metadata {
+    if state.available_versions.metadata_fetch.error.is_some() && !has_metadata {
         Some(simple_retry_banner(
             "Version metadata unavailable \u{2014} release details may be incomplete".to_string(),
             Message::FetchVersionMetadata,
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn metadata_banner_shows_when_error_exists_without_cached_metadata() {
         let mut state = main_state_for_banners();
-        state.available_versions.metadata_error = Some(AppError::version_fetch_failed(
+        state.available_versions.metadata_fetch.error = Some(AppError::version_fetch_failed(
             "Version metadata",
             "network timeout",
         ));
@@ -238,7 +238,7 @@ mod tests {
     fn metadata_banner_hides_when_metadata_exists() {
         let mut state = main_state_for_banners();
         state.available_versions.metadata = Some(std::collections::HashMap::new());
-        state.available_versions.metadata_error = Some(AppError::version_fetch_failed(
+        state.available_versions.metadata_fetch.error = Some(AppError::version_fetch_failed(
             "Version metadata",
             "network timeout",
         ));
