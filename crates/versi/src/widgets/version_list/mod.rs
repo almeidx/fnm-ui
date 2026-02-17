@@ -14,6 +14,7 @@ use versi_core::{ReleaseSchedule, VersionMeta};
 use crate::message::Message;
 use crate::state::{EnvironmentState, OperationQueue, SearchFilter};
 use crate::theme::styles;
+use crate::version_query::{matches_version_query, passes_release_filters};
 
 use filters::search_available_versions;
 
@@ -23,41 +24,6 @@ pub struct VersionListContext<'a> {
     pub hovered_version: &'a Option<String>,
     pub metadata: Option<&'a HashMap<String, VersionMeta>>,
     pub installed_set: &'a HashSet<NodeVersion>,
-}
-
-fn matches_query(
-    version: &NodeVersion,
-    lts_codename: Option<&String>,
-    query: &str,
-    query_lower: &str,
-) -> bool {
-    if query_lower == "lts" {
-        return lts_codename.is_some();
-    }
-
-    let version_str = version.to_string();
-    version_str.contains(query)
-        || lts_codename.is_some_and(|codename| codename.to_lowercase().contains(query_lower))
-}
-
-fn passes_release_filters(
-    major: u32,
-    active_filters: &HashSet<SearchFilter>,
-    schedule: Option<&ReleaseSchedule>,
-) -> bool {
-    if active_filters.contains(&SearchFilter::Eol) {
-        let is_eol = schedule.is_some_and(|s| !s.is_active(major));
-        if !is_eol {
-            return false;
-        }
-    }
-    if active_filters.contains(&SearchFilter::Active) {
-        let is_active = schedule.is_none_or(|s| s.is_active(major));
-        if !is_active {
-            return false;
-        }
-    }
-    true
 }
 
 fn filter_group(
@@ -90,15 +56,28 @@ fn filter_group(
 
     if active_filters.contains(&SearchFilter::Lts) {
         return group.versions.iter().any(|v| {
+            let version_text = v.version.to_string();
+            let lts_codename_lower = v.lts_codename.as_deref().map(str::to_lowercase);
             v.lts_codename.is_some()
-                && matches_query(&v.version, v.lts_codename.as_ref(), query, &query_lower)
+                && matches_version_query(
+                    &version_text,
+                    lts_codename_lower.as_deref(),
+                    query,
+                    &query_lower,
+                )
         });
     }
 
-    group
-        .versions
-        .iter()
-        .any(|v| matches_query(&v.version, v.lts_codename.as_ref(), query, &query_lower))
+    group.versions.iter().any(|v| {
+        let version_text = v.version.to_string();
+        let lts_codename_lower = v.lts_codename.as_deref().map(str::to_lowercase);
+        matches_version_query(
+            &version_text,
+            lts_codename_lower.as_deref(),
+            query,
+            &query_lower,
+        )
+    })
 }
 
 fn filter_version(
@@ -113,9 +92,11 @@ fn filter_version(
 
     let query_lower = query.to_lowercase();
 
-    let text_match = matches_query(
-        &version.version,
-        version.lts_codename.as_ref(),
+    let version_text = version.version.to_string();
+    let lts_codename_lower = version.lts_codename.as_deref().map(str::to_lowercase);
+    let text_match = matches_version_query(
+        &version_text,
+        lts_codename_lower.as_deref(),
         query,
         &query_lower,
     );
@@ -335,8 +316,9 @@ fn empty_versions_view(search_query: &str) -> Element<'_, Message> {
 mod tests {
     use std::collections::HashSet;
 
-    use super::{matches_query, passes_release_filters, update_available_for_group};
+    use super::update_available_for_group;
     use crate::state::SearchFilter;
+    use crate::version_query::{matches_version_query, passes_release_filters};
     use versi_backend::{InstalledVersion, NodeVersion, VersionGroup};
 
     fn installed(version: &str) -> InstalledVersion {
@@ -370,26 +352,26 @@ mod tests {
 
     #[test]
     fn matches_query_handles_versions_and_lts_codenames() {
-        let version = NodeVersion::new(22, 11, 0);
-        assert!(matches_query(
-            &version,
-            Some(&"Jod".to_string()),
+        let version_text = NodeVersion::new(22, 11, 0).to_string();
+        assert!(matches_version_query(
+            &version_text,
+            Some("jod"),
             "22",
             "22"
         ));
-        assert!(matches_query(
-            &version,
-            Some(&"Jod".to_string()),
+        assert!(matches_version_query(
+            &version_text,
+            Some("jod"),
             "jod",
             "jod"
         ));
-        assert!(matches_query(
-            &version,
-            Some(&"Jod".to_string()),
+        assert!(matches_version_query(
+            &version_text,
+            Some("jod"),
             "lts",
             "lts"
         ));
-        assert!(!matches_query(&version, None, "lts", "lts"));
+        assert!(!matches_version_query(&version_text, None, "lts", "lts"));
     }
 
     #[test]

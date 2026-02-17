@@ -10,6 +10,42 @@ pub(crate) struct AvailableVersionSearch<'a> {
     pub(crate) alias_resolved: bool,
 }
 
+pub(crate) fn matches_version_query(
+    version_text: &str,
+    lts_codename_lower: Option<&str>,
+    query: &str,
+    query_lower: &str,
+) -> bool {
+    if query_lower == "lts" {
+        return lts_codename_lower.is_some();
+    }
+
+    version_text.contains(query)
+        || lts_codename_lower.is_some_and(|codename| codename.contains(query_lower))
+}
+
+pub(crate) fn passes_release_filters(
+    major: u32,
+    active_filters: &HashSet<SearchFilter>,
+    schedule: Option<&ReleaseSchedule>,
+) -> bool {
+    if active_filters.contains(&SearchFilter::Eol) {
+        let is_eol = schedule.is_some_and(|s| !s.is_active(major));
+        if !is_eol {
+            return false;
+        }
+    }
+
+    if active_filters.contains(&SearchFilter::Active) {
+        let is_active = schedule.is_none_or(|s| s.is_active(major));
+        if !is_active {
+            return false;
+        }
+    }
+
+    true
+}
+
 pub(crate) fn resolve_alias<'a>(
     versions: &'a [RemoteVersion],
     query: &str,
@@ -79,16 +115,14 @@ pub(crate) fn search_available_versions<'a>(
 }
 
 fn matches_remote_query(version: &RemoteVersion, query: &str, query_lower: &str) -> bool {
-    if query_lower == "lts" {
-        return version.lts_codename.is_some();
-    }
-
-    let version_str = version.version.to_string();
-    version_str.contains(query)
-        || version
-            .lts_codename
-            .as_ref()
-            .is_some_and(|c| c.to_lowercase().contains(query_lower))
+    let version_text = version.version.to_string();
+    let lts_codename_lower = version.lts_codename.as_deref().map(str::to_lowercase);
+    matches_version_query(
+        &version_text,
+        lts_codename_lower.as_deref(),
+        query,
+        query_lower,
+    )
 }
 
 fn latest_by_major<'a>(
@@ -170,21 +204,7 @@ fn matches_active_filters(
         return false;
     }
 
-    if active_filters.contains(&SearchFilter::Eol) {
-        let is_eol = schedule.is_some_and(|s| !s.is_active(version.version.major));
-        if !is_eol {
-            return false;
-        }
-    }
-
-    if active_filters.contains(&SearchFilter::Active) {
-        let is_active = schedule.is_none_or(|s| s.is_active(version.version.major));
-        if !is_active {
-            return false;
-        }
-    }
-
-    true
+    passes_release_filters(version.version.major, active_filters, schedule)
 }
 
 #[cfg(test)]
