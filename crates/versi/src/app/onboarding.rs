@@ -326,7 +326,7 @@ mod tests {
         if let AppState::Onboarding(state) = &mut app.state {
             state.backend_installing = true;
             state.step = OnboardingStep::InstallBackend;
-            state.install_error = Some(AppError::message("old error"));
+            state.install_error = Some(AppError::backend_install_failed("fnm", "old error"));
         }
 
         let _ = app.handle_onboarding_backend_install_result(Ok(()));
@@ -340,15 +340,19 @@ mod tests {
         if let AppState::Onboarding(state) = &mut app.state {
             state.backend_installing = true;
         }
-        let _ =
-            app.handle_onboarding_backend_install_result(Err(AppError::message("install failed")));
+        let _ = app.handle_onboarding_backend_install_result(Err(
+            AppError::backend_install_failed("fnm", "install failed"),
+        ));
         let AppState::Onboarding(state) = &app.state else {
             panic!("expected onboarding state");
         };
         assert!(!state.backend_installing);
         assert_eq!(
             state.install_error,
-            Some(AppError::Message("install failed".to_string()))
+            Some(AppError::BackendInstallFailed {
+                backend: "fnm",
+                details: "install failed".to_string()
+            })
         );
     }
 
@@ -397,7 +401,7 @@ mod tests {
             }];
         }
 
-        let err = AppError::message("config failed");
+        let err = AppError::shell_config_failed("Fish", "write config", "config failed");
         app.handle_onboarding_shell_config_result(&Err(err.clone()));
         let AppState::Onboarding(state) = &app.state else {
             panic!("expected onboarding state");

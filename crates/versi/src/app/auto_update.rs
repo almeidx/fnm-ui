@@ -67,7 +67,9 @@ impl Versi {
                     }
 
                     let result = match download_handle.await {
-                        Ok(r) => r.map_err(AppError::from),
+                        Ok(result) => {
+                            result.map_err(|error| AppError::auto_update_failed("apply", error))
+                        }
                         Err(error) => Err(AppError::auto_update_failed(
                             "task join",
                             format!("update task panicked: {error}"),

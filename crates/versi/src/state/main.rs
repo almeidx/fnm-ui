@@ -312,7 +312,10 @@ mod tests {
         assert!(matches!(cache.network_status(), NetworkStatus::Fetching));
 
         cache.loading = false;
-        cache.error = Some(crate::error::AppError::message("offline"));
+        cache.error = Some(crate::error::AppError::version_fetch_failed(
+            "Remote versions",
+            "offline",
+        ));
         assert!(matches!(cache.network_status(), NetworkStatus::Offline));
 
         cache.versions = vec![RemoteVersion {

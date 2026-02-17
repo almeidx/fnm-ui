@@ -477,7 +477,11 @@ mod tests {
             backend_path: "/home/user/.nvm/nvm.sh".to_string(),
         };
 
-        let _ = app.handle_environment_loaded(&target_env, 0, Err("backend unavailable".into()));
+        let _ = app.handle_environment_loaded(
+            &target_env,
+            0,
+            Err(AppError::environment_load_failed("backend unavailable")),
+        );
 
         let AppState::Main(state) = &app.state else {
             panic!("expected main state");
@@ -491,7 +495,7 @@ mod tests {
         assert!(!failed_env.loading);
         assert_eq!(
             failed_env.error,
-            Some(AppError::message("backend unavailable"))
+            Some(AppError::environment_load_failed("backend unavailable"))
         );
 
         let native_env = state
@@ -507,7 +511,11 @@ mod tests {
         let mut app = test_app_with_two_environments();
         let target_env = EnvironmentId::Native;
 
-        let _ = app.handle_environment_loaded(&target_env, 0, Err("timed out".into()));
+        let _ = app.handle_environment_loaded(
+            &target_env,
+            0,
+            Err(AppError::environment_load_failed("timed out")),
+        );
         let _ = app.handle_environment_loaded(
             &target_env,
             0,

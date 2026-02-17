@@ -36,6 +36,9 @@ pub enum AppError {
     OperationCancelled {
         operation: &'static str,
     },
+    EnvironmentUnavailable {
+        reason: String,
+    },
     EnvironmentLoadFailed {
         details: String,
     },
@@ -47,13 +50,13 @@ pub enum AppError {
         phase: &'static str,
         details: String,
     },
+    UpdateCheckFailed {
+        target: &'static str,
+        details: String,
+    },
 }
 
 impl AppError {
-    pub fn message(message: impl Into<String>) -> Self {
-        Self::Message(message.into())
-    }
-
     pub fn timeout(operation: &'static str, seconds: u64) -> Self {
         Self::Timeout { operation, seconds }
     }
@@ -114,6 +117,12 @@ impl AppError {
         Self::OperationCancelled { operation }
     }
 
+    pub fn environment_unavailable(reason: impl Into<String>) -> Self {
+        Self::EnvironmentUnavailable {
+            reason: reason.into(),
+        }
+    }
+
     pub fn environment_load_failed(details: impl Into<String>) -> Self {
         Self::EnvironmentLoadFailed {
             details: details.into(),
@@ -130,6 +139,13 @@ impl AppError {
     pub fn auto_update_failed(phase: &'static str, details: impl Into<String>) -> Self {
         Self::AutoUpdateFailed {
             phase,
+            details: details.into(),
+        }
+    }
+
+    pub fn update_check_failed(target: &'static str, details: impl Into<String>) -> Self {
+        Self::UpdateCheckFailed {
+            target,
             details: details.into(),
         }
     }
@@ -177,6 +193,7 @@ impl std::fmt::Display for AppError {
                 write!(f, "{operation} failed: {details}")
             }
             Self::OperationCancelled { operation } => write!(f, "{operation} cancelled"),
+            Self::EnvironmentUnavailable { reason } => write!(f, "{reason}"),
             Self::EnvironmentLoadFailed { details } => {
                 write!(f, "Failed to load versions: {details}")
             }
@@ -185,6 +202,9 @@ impl std::fmt::Display for AppError {
             }
             Self::AutoUpdateFailed { phase, details } => {
                 write!(f, "App update {phase} failed: {details}")
+            }
+            Self::UpdateCheckFailed { target, details } => {
+                write!(f, "{target} update check failed: {details}")
             }
         }
     }
@@ -197,8 +217,8 @@ mod tests {
     use super::AppError;
 
     #[test]
-    fn message_constructor_and_display_match() {
-        let error = AppError::message("something failed");
+    fn message_variant_and_display_match() {
+        let error = AppError::Message("something failed".to_string());
         assert_eq!(error, AppError::Message("something failed".to_string()));
         assert_eq!(error.to_string(), "something failed");
     }
@@ -326,9 +346,18 @@ mod tests {
 
     #[test]
     fn fetch_and_environment_error_constructors_include_context() {
+        let unavailable = AppError::environment_unavailable("backend unavailable");
         let env_load = AppError::environment_load_failed("backend unavailable");
         let fetch = AppError::version_fetch_failed("Release schedule", "network timeout");
         let update = AppError::auto_update_failed("restart", "spawn failed");
+        let update_check = AppError::update_check_failed("App", "rate limited");
+
+        assert_eq!(
+            unavailable,
+            AppError::EnvironmentUnavailable {
+                reason: "backend unavailable".to_string()
+            }
+        );
 
         assert_eq!(
             env_load,
@@ -351,6 +380,14 @@ mod tests {
             }
         );
         assert_eq!(
+            update_check,
+            AppError::UpdateCheckFailed {
+                target: "App",
+                details: "rate limited".to_string()
+            }
+        );
+        assert_eq!(unavailable.to_string(), "backend unavailable");
+        assert_eq!(
             env_load.to_string(),
             "Failed to load versions: backend unavailable"
         );
@@ -361,6 +398,10 @@ mod tests {
         assert_eq!(
             update.to_string(),
             "App update restart failed: spawn failed"
+        );
+        assert_eq!(
+            update_check.to_string(),
+            "App update check failed: rate limited"
         );
     }
 }

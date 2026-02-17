@@ -31,7 +31,7 @@ where
     Op: FnMut() -> Fut,
     Fut: Future<Output = Result<T, AppError>>,
 {
-    let mut last_err = AppError::message("Unknown error");
+    let mut last_err: Option<AppError> = None;
 
     for (attempt, &delay_secs) in retry_delays_secs.iter().enumerate() {
         if delay_secs > 0 {
@@ -47,12 +47,18 @@ where
                     attempt + 1,
                     error
                 );
-                last_err = error;
+                last_err = Some(error);
             }
         }
     }
 
-    Err(last_err)
+    match last_err {
+        Some(error) => Err(error),
+        None => Err(AppError::operation_failed(
+            operation_name,
+            "no attempts configured",
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -72,7 +78,7 @@ mod tests {
             Duration::from_secs(1),
             "fetch",
             async { Ok::<_, &'static str>(42) },
-            |_| AppError::message("mapped"),
+            |_| AppError::operation_failed("fetch", "mapped"),
         )
         .await
         .expect("success result should pass through");
@@ -86,11 +92,17 @@ mod tests {
             Duration::from_secs(1),
             "fetch",
             async { Err::<(), _>("boom") },
-            AppError::from,
+            |error| AppError::operation_failed("fetch", error),
         )
         .await;
 
-        assert_eq!(result, Err(AppError::message("boom")));
+        assert_eq!(
+            result,
+            Err(AppError::OperationFailed {
+                operation: "fetch",
+                details: "boom".to_string()
+            })
+        );
     }
 
     #[tokio::test]
@@ -125,7 +137,7 @@ mod tests {
             async move {
                 let attempt = attempts_for_this_try.fetch_add(1, Ordering::SeqCst);
                 if attempt == 0 {
-                    Err(AppError::message("first attempt failed"))
+                    Err(AppError::operation_failed("load", "first attempt failed"))
                 } else {
                     Ok("ok")
                 }
@@ -141,10 +153,29 @@ mod tests {
     #[tokio::test]
     async fn retry_with_delays_returns_last_error_when_all_attempts_fail() {
         let result = retry_with_delays("load", &[0, 0], || async {
-            Err::<(), _>(AppError::message("still failing"))
+            Err::<(), _>(AppError::operation_failed("load", "still failing"))
         })
         .await;
 
-        assert_eq!(result, Err(AppError::message("still failing")));
+        assert_eq!(
+            result,
+            Err(AppError::OperationFailed {
+                operation: "load",
+                details: "still failing".to_string()
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn retry_with_delays_with_no_attempts_returns_structured_error() {
+        let result = retry_with_delays("load", &[], || async { Ok::<_, AppError>(()) }).await;
+
+        assert_eq!(
+            result,
+            Err(AppError::OperationFailed {
+                operation: "load",
+                details: "no attempts configured".to_string()
+            })
+        );
     }
 }
