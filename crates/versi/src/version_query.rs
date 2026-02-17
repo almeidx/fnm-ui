@@ -10,6 +10,39 @@ pub(crate) struct AvailableVersionSearch<'a> {
     pub(crate) alias_resolved: bool,
 }
 
+#[derive(Debug, Clone, Default)]
+pub(crate) struct RemoteVersionSearchIndex {
+    entries: Vec<RemoteVersionSearchEntry>,
+}
+
+#[derive(Debug, Clone)]
+struct RemoteVersionSearchEntry {
+    version_text: String,
+    lts_codename_lower: Option<String>,
+}
+
+impl RemoteVersionSearchIndex {
+    #[must_use]
+    pub(crate) fn from_versions(versions: &[RemoteVersion]) -> Self {
+        let entries = versions
+            .iter()
+            .map(|version| RemoteVersionSearchEntry {
+                version_text: version.version.to_string(),
+                lts_codename_lower: version.lts_codename.as_deref().map(str::to_lowercase),
+            })
+            .collect();
+
+        Self { entries }
+    }
+
+    fn as_complete_entries_for<'a>(
+        &'a self,
+        versions: &[RemoteVersion],
+    ) -> Option<&'a [RemoteVersionSearchEntry]> {
+        (self.entries.len() == versions.len()).then_some(self.entries.as_slice())
+    }
+}
+
 pub(crate) fn matches_version_query(
     version_text: &str,
     lts_codename_lower: Option<&str>,
@@ -46,11 +79,13 @@ pub(crate) fn passes_release_filters(
     true
 }
 
-pub(crate) fn resolve_alias<'a>(
+pub(crate) fn resolve_alias_with_index<'a>(
     versions: &'a [RemoteVersion],
+    search_index: Option<&RemoteVersionSearchIndex>,
     query: &str,
 ) -> Option<&'a RemoteVersion> {
     let query_lower = query.to_lowercase();
+    let index_entries = search_index.and_then(|index| index.as_complete_entries_for(versions));
 
     match query_lower.as_str() {
         "latest" | "stable" | "current" => versions.iter().max_by_key(|v| &v.version),
@@ -60,21 +95,36 @@ pub(crate) fn resolve_alias<'a>(
             .max_by_key(|v| &v.version),
         q if q.starts_with("lts/") => {
             let codename = &q[4..];
-            versions
-                .iter()
-                .filter(|v| {
-                    v.lts_codename
-                        .as_ref()
-                        .is_some_and(|c| c.to_lowercase() == codename)
-                })
-                .max_by_key(|v| &v.version)
+            if let Some(entries) = index_entries {
+                versions
+                    .iter()
+                    .zip(entries.iter())
+                    .filter(|(_, entry)| {
+                        entry
+                            .lts_codename_lower
+                            .as_deref()
+                            .is_some_and(|lts| lts == codename)
+                    })
+                    .map(|(version, _)| version)
+                    .max_by_key(|version| &version.version)
+            } else {
+                versions
+                    .iter()
+                    .filter(|v| {
+                        v.lts_codename
+                            .as_ref()
+                            .is_some_and(|c| c.to_lowercase() == codename)
+                    })
+                    .max_by_key(|v| &v.version)
+            }
         }
         _ => None,
     }
 }
 
-pub(crate) fn search_available_versions<'a>(
+pub(crate) fn search_available_versions_with_index<'a>(
     versions: &'a [RemoteVersion],
+    search_index: Option<&RemoteVersionSearchIndex>,
     query: &str,
     limit: usize,
     active_filters: &HashSet<SearchFilter>,
@@ -82,8 +132,9 @@ pub(crate) fn search_available_versions<'a>(
     schedule: Option<&ReleaseSchedule>,
 ) -> AvailableVersionSearch<'a> {
     let query_lower = query.to_lowercase();
+    let index_entries = search_index.and_then(|index| index.as_complete_entries_for(versions));
 
-    if let Some(resolved) = resolve_alias(versions, query) {
+    if let Some(resolved) = resolve_alias_with_index(versions, search_index, query) {
         let filtered = if matches_active_filters(resolved, active_filters, installed_set, schedule)
         {
             vec![resolved]
@@ -98,6 +149,21 @@ pub(crate) fn search_available_versions<'a>(
 
     let mut result = if query_lower == "lts" {
         latest_by_major(versions.iter().filter(|v| v.lts_codename.is_some()))
+    } else if let Some(entries) = index_entries {
+        latest_by_minor(
+            versions
+                .iter()
+                .zip(entries.iter())
+                .filter(|(_, entry)| {
+                    matches_version_query(
+                        &entry.version_text,
+                        entry.lts_codename_lower.as_deref(),
+                        query,
+                        &query_lower,
+                    )
+                })
+                .map(|(version, _)| version),
+        )
     } else {
         latest_by_minor(
             versions
@@ -212,7 +278,9 @@ mod tests {
     use std::collections::HashSet;
     use std::time::{Duration, Instant};
 
-    use super::{resolve_alias, search_available_versions};
+    use super::{
+        RemoteVersionSearchIndex, resolve_alias_with_index, search_available_versions_with_index,
+    };
     use crate::state::SearchFilter;
 
     fn remote(version: &str, lts_codename: Option<&str>) -> versi_backend::RemoteVersion {
@@ -245,15 +313,37 @@ mod tests {
     #[test]
     fn alias_latest_resolves_to_highest_version() {
         let versions = vec![remote("v20.11.0", None), remote("v22.1.0", Some("Jod"))];
-        let resolved = resolve_alias(&versions, "latest").expect("alias should resolve");
+        let resolved =
+            resolve_alias_with_index(&versions, None, "latest").expect("alias should resolve");
         assert_eq!(resolved.version.to_string(), "v22.1.0");
+    }
+
+    #[test]
+    fn indexed_alias_resolution_matches_unindexed_behavior() {
+        let versions = vec![
+            remote("v20.11.0", Some("Iron")),
+            remote("v20.12.0", Some("Iron")),
+            remote("v22.1.0", Some("Jod")),
+        ];
+        let search_index = RemoteVersionSearchIndex::from_versions(&versions);
+
+        let unindexed = resolve_alias_with_index(&versions, None, "lts/iron")
+            .map(|version| version.version.to_string())
+            .expect("alias should resolve");
+        let indexed = resolve_alias_with_index(&versions, Some(&search_index), "lts/iron")
+            .map(|version| version.version.to_string())
+            .expect("indexed alias should resolve");
+
+        assert_eq!(indexed, unindexed);
+        assert_eq!(indexed, "v20.12.0");
     }
 
     #[test]
     fn query_results_include_alias_resolution_flag() {
         let versions = vec![remote("v20.11.0", None), remote("v22.1.0", Some("Jod"))];
-        let search = search_available_versions(
+        let search = search_available_versions_with_index(
             &versions,
+            None,
             "stable",
             20,
             &HashSet::new(),
@@ -276,8 +366,15 @@ mod tests {
         let filters = HashSet::from([SearchFilter::Installed, SearchFilter::Eol]);
         let schedule = schedule_with_eol_major(20);
 
-        let search =
-            search_available_versions(&versions, "v", 20, &filters, &installed, Some(&schedule));
+        let search = search_available_versions_with_index(
+            &versions,
+            None,
+            "v",
+            20,
+            &filters,
+            &installed,
+            Some(&schedule),
+        );
         assert_eq!(search.versions.len(), 1);
         assert_eq!(search.versions[0].version.to_string(), "v20.11.0");
         assert!(!search.alias_resolved);
@@ -293,7 +390,9 @@ mod tests {
         let installed = HashSet::from([versi_backend::NodeVersion::new(22, 2, 0)]);
         let filters = HashSet::from([SearchFilter::Installed]);
 
-        let search = search_available_versions(&versions, "v22", 1, &filters, &installed, None);
+        let search = search_available_versions_with_index(
+            &versions, None, "v22", 1, &filters, &installed, None,
+        );
 
         assert_eq!(search.versions.len(), 1);
         assert_eq!(search.versions[0].version.to_string(), "v22.2.0");
@@ -305,10 +404,79 @@ mod tests {
         let installed = HashSet::from([versi_backend::NodeVersion::new(22, 1, 0)]);
         let filters = HashSet::from([SearchFilter::NotInstalled]);
 
-        let search = search_available_versions(&versions, "stable", 10, &filters, &installed, None);
+        let search = search_available_versions_with_index(
+            &versions, None, "stable", 10, &filters, &installed, None,
+        );
 
         assert!(search.alias_resolved);
         assert!(search.versions.is_empty());
+    }
+
+    #[test]
+    fn indexed_search_matches_unindexed_behavior() {
+        let versions = vec![
+            remote("v22.3.0", Some("Jod")),
+            remote("v22.2.0", Some("Jod")),
+            remote("v20.11.0", Some("Iron")),
+            remote("v20.10.0", Some("Iron")),
+        ];
+        let search_index = RemoteVersionSearchIndex::from_versions(&versions);
+        let installed = HashSet::from([versi_backend::NodeVersion::new(22, 2, 0)]);
+        let filters = HashSet::from([SearchFilter::Installed]);
+        let schedule = schedule_with_eol_major(20);
+
+        let unindexed = search_available_versions_with_index(
+            &versions,
+            None,
+            "v22",
+            10,
+            &filters,
+            &installed,
+            Some(&schedule),
+        );
+        let indexed = search_available_versions_with_index(
+            &versions,
+            Some(&search_index),
+            "v22",
+            10,
+            &filters,
+            &installed,
+            Some(&schedule),
+        );
+
+        let unindexed_versions: Vec<String> = unindexed
+            .versions
+            .iter()
+            .map(|version| version.version.to_string())
+            .collect();
+        let indexed_versions: Vec<String> = indexed
+            .versions
+            .iter()
+            .map(|version| version.version.to_string())
+            .collect();
+
+        assert_eq!(indexed.alias_resolved, unindexed.alias_resolved);
+        assert_eq!(indexed_versions, unindexed_versions);
+    }
+
+    #[test]
+    fn indexed_search_falls_back_when_index_is_stale() {
+        let versions = vec![remote("v22.3.0", None), remote("v22.2.0", None)];
+        let stale_index = RemoteVersionSearchIndex::from_versions(&versions[..1]);
+
+        let result = search_available_versions_with_index(
+            &versions,
+            Some(&stale_index),
+            "v22",
+            10,
+            &HashSet::new(),
+            &HashSet::new(),
+            None,
+        );
+
+        assert_eq!(result.versions.len(), 2);
+        assert_eq!(result.versions[0].version.to_string(), "v22.3.0");
+        assert_eq!(result.versions[1].version.to_string(), "v22.2.0");
     }
 
     #[test]
@@ -337,11 +505,13 @@ mod tests {
         ]);
         let filters = HashSet::from([SearchFilter::Installed, SearchFilter::Active]);
         let schedule = schedule_with_eol_major(20);
+        let search_index = RemoteVersionSearchIndex::from_versions(&versions);
 
         let started = Instant::now();
         for _ in 0..200 {
-            let result = search_available_versions(
+            let result = search_available_versions_with_index(
                 &versions,
+                Some(&search_index),
                 "v2",
                 30,
                 &filters,

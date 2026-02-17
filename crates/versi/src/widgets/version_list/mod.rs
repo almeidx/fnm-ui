@@ -20,6 +20,7 @@ use filters::search_available_versions;
 
 pub struct VersionListContext<'a> {
     pub schedule: Option<&'a ReleaseSchedule>,
+    pub search_index: Option<&'a crate::version_query::RemoteVersionSearchIndex>,
     pub operation_queue: &'a OperationQueue,
     pub hovered_version: &'a Option<String>,
     pub metadata: Option<&'a HashMap<String, VersionMeta>>,
@@ -260,6 +261,7 @@ fn search_results_content<'a>(
 
     let search = search_available_versions(
         remote_versions,
+        ctx.search_index,
         search_query,
         search_results_limit,
         active_filters,

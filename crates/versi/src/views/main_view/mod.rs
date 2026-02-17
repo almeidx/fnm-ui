@@ -28,6 +28,7 @@ pub fn view<'a>(
     let env = state.active_environment();
     let ctx = version_list::VersionListContext {
         schedule: state.available_versions.schedule.as_ref(),
+        search_index: Some(&state.available_versions.search_index),
         operation_queue: &state.operation_queue,
         hovered_version: hovered,
         metadata: state.available_versions.metadata.as_ref(),

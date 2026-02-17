@@ -8,7 +8,7 @@ use versi_core::{AppUpdate, ReleaseSchedule, VersionMeta};
 
 use crate::backend_kind::BackendKind;
 use crate::error::AppError;
-use crate::version_query::search_available_versions;
+use crate::version_query::{RemoteVersionSearchIndex, search_available_versions_with_index};
 
 use super::{
     ContextMenu, EnvironmentState, MainViewKind, Modal, OperationQueue, SettingsModalState, Toast,
@@ -184,8 +184,9 @@ impl MainState {
                 }
             }
         } else {
-            let search = search_available_versions(
+            let search = search_available_versions_with_index(
                 &self.available_versions.versions,
+                Some(&self.available_versions.search_index),
                 &self.search_query,
                 search_results_limit,
                 &self.active_filters,
@@ -228,6 +229,7 @@ pub struct VersionCache {
     pub metadata_cancel_token: Option<CancellationToken>,
     pub loaded_from_disk: bool,
     pub disk_cached_at: Option<DateTime<Utc>>,
+    pub search_index: RemoteVersionSearchIndex,
 }
 
 impl VersionCache {
@@ -250,11 +252,13 @@ impl VersionCache {
             metadata_cancel_token: None,
             loaded_from_disk: false,
             disk_cached_at: None,
+            search_index: RemoteVersionSearchIndex::default(),
         }
     }
 
     pub fn set_versions(&mut self, versions: Vec<RemoteVersion>) {
         self.versions = versions;
+        self.search_index = RemoteVersionSearchIndex::from_versions(&self.versions);
         self.recompute_latest_by_major();
     }
 
