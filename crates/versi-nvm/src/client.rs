@@ -193,7 +193,10 @@ impl NvmClient {
                         )
                     }
                 }
-                Err(_) => Ok(None),
+                Err(e) => {
+                    log::debug!("nvm alias default failed, assuming no default: {e}");
+                    Ok(None)
+                }
             }
         }
     }
