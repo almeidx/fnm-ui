@@ -144,11 +144,8 @@ impl ShellConfig {
     fn remove_flag_from_init(content: &str, marker: &str, flag: &str) -> String {
         let mut result = String::new();
         for line in content.lines() {
-            if line.contains(marker) && line.contains(flag) {
-                let modified_line = line
-                    .replace(&format!("{flag} "), "")
-                    .replace(&format!(" {flag}"), "")
-                    .replace(flag, "");
+            if line.contains(marker) {
+                let modified_line = Self::remove_flag_token(line, flag);
                 result.push_str(&modified_line);
             } else {
                 result.push_str(line);
@@ -159,6 +156,46 @@ impl ShellConfig {
             result.pop();
         }
         result
+    }
+
+    /// Remove a CLI flag token from a line, matching only whole tokens.
+    ///
+    /// A flag like `--use-on-cd` will not match inside `--use-on-cd-auto`.
+    fn remove_flag_token(line: &str, flag: &str) -> String {
+        let bytes = line.as_bytes();
+        let flag_bytes = flag.as_bytes();
+        let mut search_from = 0;
+
+        while let Some(rel) = line[search_from..].find(flag) {
+            let start = search_from + rel;
+            let end = start + flag_bytes.len();
+
+            let before_ok =
+                start == 0 || !Self::is_flag_char(bytes[start - 1]);
+            let after_ok =
+                end == bytes.len() || !Self::is_flag_char(bytes[end]);
+
+            if before_ok && after_ok {
+                // Remove flag and one adjacent space to avoid double spaces.
+                let (rm_start, rm_end) = if start > 0 && bytes[start - 1] == b' ' {
+                    (start - 1, end)
+                } else if end < bytes.len() && bytes[end] == b' ' {
+                    (start, end + 1)
+                } else {
+                    (start, end)
+                };
+                return format!("{}{}", &line[..rm_start], &line[rm_end..]);
+            }
+
+            search_from = start + 1;
+        }
+
+        line.to_string()
+    }
+
+    /// Characters that can appear inside a CLI flag token (`a-z`, `0-9`, `-`).
+    fn is_flag_char(b: u8) -> bool {
+        b.is_ascii_alphanumeric() || b == b'-'
     }
 }
 
@@ -297,6 +334,32 @@ mod tests {
         let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
         assert!(!result.contains("--use-on-cd"));
         assert!(result.contains("--resolve-engines"));
+    }
+
+    #[test]
+    fn test_remove_flag_does_not_match_prefix() {
+        let content = r#"eval "$(fnm env --use-on-cd-auto --shell bash)""#;
+        let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
+        assert!(
+            result.contains("--use-on-cd-auto"),
+            "should not corrupt longer flag: {result}"
+        );
+    }
+
+    #[test]
+    fn test_remove_flag_exact_match_with_similar_prefix() {
+        let content = r#"eval "$(fnm env --use-on-cd-auto --use-on-cd --shell bash)""#;
+        let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
+        assert!(!result.contains(" --use-on-cd "));
+        assert!(result.contains("--use-on-cd-auto"));
+    }
+
+    #[test]
+    fn test_remove_flag_only_flag() {
+        let content = r#"eval "$(fnm env --use-on-cd)""#;
+        let result = ShellConfig::remove_flag_from_init(content, "fnm env", "--use-on-cd");
+        assert!(!result.contains("--use-on-cd"));
+        assert!(result.contains("fnm env"));
     }
 
     #[test]
