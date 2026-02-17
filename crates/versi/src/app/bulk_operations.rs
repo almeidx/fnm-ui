@@ -6,34 +6,21 @@ use crate::state::{AppState, Modal, Operation};
 
 use super::Versi;
 
-fn latest_remote_by_major(remote: &[RemoteVersion]) -> std::collections::HashMap<u32, NodeVersion> {
-    let mut latest = std::collections::HashMap::new();
-    for version in remote {
-        latest
-            .entry(version.version.major)
-            .and_modify(|existing: &mut NodeVersion| {
-                if version.version > *existing {
-                    *existing = version.version.clone();
-                }
-            })
-            .or_insert_with(|| version.version.clone());
-    }
-    latest
-}
-
-fn latest_installed_by_major(
-    installed: &[InstalledVersion],
+fn latest_by_major<T>(
+    items: &[T],
+    version_of: impl Fn(&T) -> &NodeVersion,
 ) -> std::collections::HashMap<u32, NodeVersion> {
     let mut latest = std::collections::HashMap::new();
-    for version in installed {
+    for item in items {
+        let v = version_of(item);
         latest
-            .entry(version.version.major)
+            .entry(v.major)
             .and_modify(|existing: &mut NodeVersion| {
-                if version.version > *existing {
-                    *existing = version.version.clone();
+                if *v > *existing {
+                    *existing = v.clone();
                 }
             })
-            .or_insert_with(|| version.version.clone());
+            .or_insert_with(|| v.clone());
     }
     latest
 }
@@ -42,8 +29,8 @@ fn compute_major_updates(
     installed: &[InstalledVersion],
     remote: &[RemoteVersion],
 ) -> Vec<(String, String)> {
-    let latest_remote = latest_remote_by_major(remote);
-    let latest_installed = latest_installed_by_major(installed);
+    let latest_remote = latest_by_major(remote, |v| &v.version);
+    let latest_installed = latest_by_major(installed, |v| &v.version);
 
     latest_installed
         .iter()
