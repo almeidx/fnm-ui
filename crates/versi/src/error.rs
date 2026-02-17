@@ -43,6 +43,10 @@ pub enum AppError {
         resource: &'static str,
         details: String,
     },
+    AutoUpdateFailed {
+        phase: &'static str,
+        details: String,
+    },
 }
 
 impl AppError {
@@ -122,6 +126,13 @@ impl AppError {
             details: details.into(),
         }
     }
+
+    pub fn auto_update_failed(phase: &'static str, details: impl Into<String>) -> Self {
+        Self::AutoUpdateFailed {
+            phase,
+            details: details.into(),
+        }
+    }
 }
 
 impl From<String> for AppError {
@@ -171,6 +182,9 @@ impl std::fmt::Display for AppError {
             }
             Self::VersionFetchFailed { resource, details } => {
                 write!(f, "{resource} fetch failed: {details}")
+            }
+            Self::AutoUpdateFailed { phase, details } => {
+                write!(f, "App update {phase} failed: {details}")
             }
         }
     }
@@ -314,6 +328,7 @@ mod tests {
     fn fetch_and_environment_error_constructors_include_context() {
         let env_load = AppError::environment_load_failed("backend unavailable");
         let fetch = AppError::version_fetch_failed("Release schedule", "network timeout");
+        let update = AppError::auto_update_failed("restart", "spawn failed");
 
         assert_eq!(
             env_load,
@@ -329,12 +344,23 @@ mod tests {
             }
         );
         assert_eq!(
+            update,
+            AppError::AutoUpdateFailed {
+                phase: "restart",
+                details: "spawn failed".to_string()
+            }
+        );
+        assert_eq!(
             env_load.to_string(),
             "Failed to load versions: backend unavailable"
         );
         assert_eq!(
             fetch.to_string(),
             "Release schedule fetch failed: network timeout"
+        );
+        assert_eq!(
+            update.to_string(),
+            "App update restart failed: spawn failed"
         );
     }
 }

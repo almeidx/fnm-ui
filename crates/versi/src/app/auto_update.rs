@@ -68,7 +68,10 @@ impl Versi {
 
                     let result = match download_handle.await {
                         Ok(r) => r.map_err(AppError::from),
-                        Err(e) => Err(AppError::message(format!("Update task panicked: {e}"))),
+                        Err(error) => Err(AppError::auto_update_failed(
+                            "task join",
+                            format!("update task panicked: {error}"),
+                        )),
                     };
 
                     let _ = sender
@@ -120,10 +123,10 @@ impl Versi {
 
     pub(super) fn handle_restart_app(&mut self) -> Task<Message> {
         info!("Restarting app for update");
-        if let Err(e) = versi_core::auto_update::restart_app() {
+        if let Err(error) = versi_core::auto_update::restart_app() {
             if let AppState::Main(state) = &mut self.state {
                 state.app_update_state =
-                    AppUpdateState::Failed(AppError::message(format!("Restart failed: {e}")));
+                    AppUpdateState::Failed(AppError::auto_update_failed("restart", error));
             }
             return Task::none();
         }
@@ -248,13 +251,15 @@ mod tests {
         ));
 
         let mut app = test_app_with_two_environments();
-        let _ = app.handle_app_update_complete(Err(AppError::message("apply failed")));
+        let _ = app
+            .handle_app_update_complete(Err(AppError::auto_update_failed("apply", "apply failed")));
         let AppState::Main(state) = &app.state else {
             panic!("expected main state");
         };
         assert!(matches!(
             &state.app_update_state,
-            AppUpdateState::Failed(AppError::Message(message)) if message == "apply failed"
+            AppUpdateState::Failed(AppError::AutoUpdateFailed { phase, details })
+                if phase == &"apply" && details == "apply failed"
         ));
     }
 }
