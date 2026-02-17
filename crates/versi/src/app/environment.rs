@@ -66,6 +66,8 @@ impl Versi {
                     env.error = Some(error);
                 }
             }
+
+            state.recompute_banner_stats();
         }
         self.update_tray_menu();
 
@@ -97,6 +99,7 @@ impl Versi {
 
             info!("Switching to environment {idx}");
             state.active_environment_idx = idx;
+            state.recompute_banner_stats();
 
             let env = &state.environments[idx];
             let env_id = env.id.clone();

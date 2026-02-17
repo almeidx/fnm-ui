@@ -42,6 +42,7 @@ pub struct MainState {
     pub detected_backends: Vec<BackendKind>,
     pub refresh_rotation: f32,
     pub active_filters: HashSet<SearchFilter>,
+    pub banner_stats: BannerStats,
     pub context_menu: Option<ContextMenu>,
     pub cursor_position: iced::Point,
 }
@@ -58,6 +59,12 @@ pub enum AppUpdateState {
     Applying,
     RestartRequired,
     Failed(AppError),
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BannerStats {
+    pub updatable_major_count: usize,
+    pub eol_installed_count: usize,
 }
 
 impl std::fmt::Debug for MainState {
@@ -104,6 +111,7 @@ impl MainState {
             detected_backends: Vec::new(),
             refresh_rotation: 0.0,
             active_filters: HashSet::new(),
+            banner_stats: BannerStats::default(),
             context_menu: None,
             cursor_position: iced::Point::ORIGIN,
         }
@@ -119,6 +127,40 @@ impl MainState {
 
     pub fn add_toast(&mut self, toast: Toast) {
         self.toasts.push(toast);
+    }
+
+    pub fn recompute_banner_stats(&mut self) {
+        let env = &self.environments[self.active_environment_idx];
+        let updatable_major_count = env
+            .version_groups
+            .iter()
+            .filter(|group| {
+                let installed_latest = group.versions.iter().map(|v| &v.version).max();
+                self.available_versions
+                    .latest_by_major
+                    .get(&group.major)
+                    .is_some_and(|latest| {
+                        installed_latest.is_some_and(|installed| latest > installed)
+                    })
+            })
+            .count();
+
+        let eol_installed_count = self
+            .available_versions
+            .schedule
+            .as_ref()
+            .map_or(0, |schedule| {
+                env.version_groups
+                    .iter()
+                    .filter(|group| !schedule.is_active(group.major))
+                    .map(|group| group.versions.len())
+                    .sum::<usize>()
+            });
+
+        self.banner_stats = BannerStats {
+            updatable_major_count,
+            eol_installed_count,
+        };
     }
 
     pub fn remove_toast(&mut self, id: usize) {
@@ -359,6 +401,25 @@ mod tests {
         }
     }
 
+    fn schedule_with_eol_major(eol_major: u32) -> versi_core::ReleaseSchedule {
+        serde_json::from_value(serde_json::json!({
+            "versions": {
+                format!("{eol_major}"): {
+                    "start": "2020-01-01",
+                    "end": "2021-01-01"
+                },
+                "22": {
+                    "start": "2024-04-23",
+                    "lts": "2024-10-29",
+                    "maintenance": "2026-10-20",
+                    "end": "2027-04-30",
+                    "codename": "Jod"
+                }
+            }
+        }))
+        .expect("schedule fixture should deserialize")
+    }
+
     #[test]
     fn navigable_versions_uses_expanded_groups_without_search() {
         let mut state = main_state_with_native_env();
@@ -411,5 +472,25 @@ mod tests {
 
         assert!(state.is_version_installed("v20.11.0"));
         assert!(!state.is_version_installed("v18.19.1"));
+    }
+
+    #[test]
+    fn recompute_banner_stats_tracks_updates_and_eol_counts() {
+        let mut state = main_state_with_native_env();
+        state.active_environment_mut().update_versions(vec![
+            installed(NodeVersion::new(22, 1, 0), false),
+            installed(NodeVersion::new(20, 11, 0), false),
+            installed(NodeVersion::new(20, 10, 0), false),
+        ]);
+        state.available_versions.latest_by_major = std::collections::HashMap::from([
+            (22, NodeVersion::new(22, 3, 0)),
+            (20, NodeVersion::new(20, 11, 0)),
+        ]);
+        state.available_versions.schedule = Some(schedule_with_eol_major(20));
+
+        state.recompute_banner_stats();
+
+        assert_eq!(state.banner_stats.updatable_major_count, 1);
+        assert_eq!(state.banner_stats.eol_installed_count, 2);
     }
 }

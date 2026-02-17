@@ -7,7 +7,6 @@ use crate::state::{MainState, NetworkStatus};
 use crate::theme::styles;
 
 pub(super) fn contextual_banners(state: &MainState) -> Option<Element<'_, Message>> {
-    let env = state.active_environment();
     let schedule = state.available_versions.schedule.as_ref();
 
     let mut banners: Vec<Element<Message>> = Vec::new();
@@ -26,11 +25,11 @@ pub(super) fn contextual_banners(state: &MainState) -> Option<Element<'_, Messag
         banners.push(metadata_banner);
     }
 
-    if let Some(update_banner) = available_updates_banner(state, env) {
+    if let Some(update_banner) = available_updates_banner(state) {
         banners.push(update_banner);
     }
 
-    if let Some(eol_banner) = eol_cleanup_banner(env, schedule) {
+    if let Some(eol_banner) = eol_cleanup_banner(state) {
         banners.push(eol_banner);
     }
 
@@ -84,22 +83,8 @@ fn metadata_banner(state: &MainState, has_metadata: bool) -> Option<Element<'_, 
     }
 }
 
-fn available_updates_banner<'a>(
-    state: &'a MainState,
-    env: &'a crate::state::EnvironmentState,
-) -> Option<Element<'a, Message>> {
-    let update_count = env
-        .version_groups
-        .iter()
-        .filter(|group| {
-            let installed_latest = group.versions.iter().map(|v| &v.version).max();
-            state
-                .available_versions
-                .latest_by_major
-                .get(&group.major)
-                .is_some_and(|latest| installed_latest.is_some_and(|installed| latest > installed))
-        })
-        .count();
+fn available_updates_banner(state: &MainState) -> Option<Element<'_, Message>> {
+    let update_count = state.banner_stats.updatable_major_count;
 
     if update_count == 0 {
         return None;
@@ -141,17 +126,8 @@ fn available_updates_banner<'a>(
     })
 }
 
-fn eol_cleanup_banner<'a>(
-    env: &'a crate::state::EnvironmentState,
-    schedule: Option<&'a versi_core::ReleaseSchedule>,
-) -> Option<Element<'a, Message>> {
-    let eol_count = schedule.map_or(0, |schedule| {
-        env.version_groups
-            .iter()
-            .filter(|group| !schedule.is_active(group.major))
-            .map(|group| group.versions.len())
-            .sum::<usize>()
-    });
+fn eol_cleanup_banner(state: &MainState) -> Option<Element<'_, Message>> {
+    let eol_count = state.banner_stats.eol_installed_count;
 
     if eol_count == 0 {
         return None;

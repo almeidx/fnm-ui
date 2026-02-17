@@ -120,6 +120,8 @@ impl Versi {
                     state.available_versions.error = Some(error);
                 }
             }
+
+            state.recompute_banner_stats();
         }
     }
 
@@ -197,6 +199,8 @@ impl Versi {
                     state.available_versions.schedule_error = Some(error);
                 }
             }
+
+            state.recompute_banner_stats();
         }
     }
 
