@@ -29,6 +29,10 @@ pub enum AppError {
         action: &'static str,
         details: String,
     },
+    OperationFailed {
+        operation: &'static str,
+        details: String,
+    },
     OperationCancelled {
         operation: &'static str,
     },
@@ -95,6 +99,13 @@ impl AppError {
         }
     }
 
+    pub fn operation_failed(operation: &'static str, details: impl Into<String>) -> Self {
+        Self::OperationFailed {
+            operation,
+            details: details.into(),
+        }
+    }
+
     pub fn operation_cancelled(operation: &'static str) -> Self {
         Self::OperationCancelled { operation }
     }
@@ -150,6 +161,9 @@ impl std::fmt::Display for AppError {
             }
             Self::SettingsImportFailed { action, details } => {
                 write!(f, "Settings import {action} failed: {details}")
+            }
+            Self::OperationFailed { operation, details } => {
+                write!(f, "{operation} failed: {details}")
             }
             Self::OperationCancelled { operation } => write!(f, "{operation} cancelled"),
             Self::EnvironmentLoadFailed { details } => {
@@ -249,6 +263,7 @@ mod tests {
         let cancelled = AppError::settings_dialog_cancelled();
         let export = AppError::settings_export_failed("write file", "permission denied");
         let import = AppError::settings_import_failed("parse json", "invalid type");
+        let op_failed = AppError::operation_failed("Install", "backend reported failure");
         let op_cancelled = AppError::operation_cancelled("Remote versions fetch");
 
         assert_eq!(cancelled, AppError::SettingsDialogCancelled);
@@ -267,6 +282,13 @@ mod tests {
             }
         );
         assert_eq!(
+            op_failed,
+            AppError::OperationFailed {
+                operation: "Install",
+                details: "backend reported failure".to_string()
+            }
+        );
+        assert_eq!(
             op_cancelled,
             AppError::OperationCancelled {
                 operation: "Remote versions fetch"
@@ -280,6 +302,10 @@ mod tests {
         assert_eq!(
             import.to_string(),
             "Settings import parse json failed: invalid type"
+        );
+        assert_eq!(
+            op_failed.to_string(),
+            "Install failed: backend reported failure"
         );
         assert_eq!(op_cancelled.to_string(), "Remote versions fetch cancelled");
     }

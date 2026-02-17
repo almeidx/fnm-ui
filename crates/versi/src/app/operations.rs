@@ -103,7 +103,7 @@ impl Versi {
                         timeout,
                         "Installation",
                         backend.install(&version),
-                        |e| AppError::message(e.to_string()),
+                        |error| AppError::operation_failed("Install", error.to_string()),
                     )
                     .await
                     {
@@ -192,9 +192,12 @@ impl Versi {
 
             return Task::perform(
                 async move {
-                    match run_with_timeout(timeout, "Uninstall", backend.uninstall(&version), |e| {
-                        AppError::message(e.to_string())
-                    })
+                    match run_with_timeout(
+                        timeout,
+                        "Uninstall",
+                        backend.uninstall(&version),
+                        |error| AppError::operation_failed("Uninstall", error.to_string()),
+                    )
                     .await
                     {
                         Ok(()) => (version, true, None),
@@ -263,7 +266,7 @@ impl Versi {
                         timeout,
                         "Set default",
                         backend.set_default(&version),
-                        |e| AppError::message(e.to_string()),
+                        |error| AppError::operation_failed("Set default", error.to_string()),
                     )
                     .await
                     {
