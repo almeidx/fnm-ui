@@ -8,9 +8,11 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-tokio.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 chrono.workspace = true
 async-trait.workspace = true
 reqwest.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
