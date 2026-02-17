@@ -2,7 +2,7 @@ use iced::Task;
 use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
 
 use crate::message::Message;
-use crate::state::{AppState, Modal, OperationRequest};
+use crate::state::{AppState, Modal, Operation};
 
 use super::Versi;
 
@@ -152,7 +152,7 @@ impl Versi {
             for (_from, to) in versions {
                 state
                     .operation_queue
-                    .enqueue(OperationRequest::Install { version: to });
+                    .enqueue(Operation::Install { version: to });
             }
             return self.process_next_operation();
         }
@@ -166,7 +166,7 @@ impl Versi {
             for version in versions {
                 state
                     .operation_queue
-                    .enqueue(OperationRequest::Uninstall { version });
+                    .enqueue(Operation::Uninstall { version });
             }
             return self.process_next_operation();
         }
@@ -182,7 +182,7 @@ impl Versi {
             for version in versions {
                 state
                     .operation_queue
-                    .enqueue(OperationRequest::Uninstall { version });
+                    .enqueue(Operation::Uninstall { version });
             }
             return self.process_next_operation();
         }
@@ -224,7 +224,7 @@ impl Versi {
             for version in versions {
                 state
                     .operation_queue
-                    .enqueue(OperationRequest::Uninstall { version });
+                    .enqueue(Operation::Uninstall { version });
             }
             return self.process_next_operation();
         }

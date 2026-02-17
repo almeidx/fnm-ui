@@ -7,14 +7,7 @@ pub enum Operation {
     SetDefault { version: String },
 }
 
-#[derive(Debug, Clone)]
-pub enum OperationRequest {
-    Install { version: String },
-    Uninstall { version: String },
-    SetDefault { version: String },
-}
-
-impl OperationRequest {
+impl Operation {
     pub fn version(&self) -> &str {
         match self {
             Self::Install { version }
@@ -24,16 +17,11 @@ impl OperationRequest {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct QueuedOperation {
-    pub request: OperationRequest,
-}
-
 #[derive(Clone)]
 pub struct OperationQueue {
     pub active_installs: Vec<Operation>,
     pub exclusive_op: Option<Operation>,
-    pub pending: VecDeque<QueuedOperation>,
+    pub pending: VecDeque<Operation>,
 }
 
 impl std::fmt::Debug for OperationQueue {
@@ -70,9 +58,7 @@ impl OperationQueue {
     }
 
     pub fn has_pending_for_version(&self, version: &str) -> bool {
-        self.pending
-            .iter()
-            .any(|op| op.request.version() == version)
+        self.pending.iter().any(|op| op.version() == version)
     }
 
     pub fn is_current_version(&self, version: &str) -> bool {
@@ -107,8 +93,8 @@ impl OperationQueue {
             .any(|op| matches!(op, Operation::Install { version: v, .. } if v == version))
     }
 
-    pub fn enqueue(&mut self, request: OperationRequest) {
-        self.pending.push_back(QueuedOperation { request });
+    pub fn enqueue(&mut self, op: Operation) {
+        self.pending.push_back(op);
     }
 
     pub fn start_install(&mut self, version: String) {
@@ -130,16 +116,16 @@ impl OperationQueue {
         });
     }
 
-    pub fn drain_next(&mut self) -> (Vec<String>, Option<OperationRequest>) {
+    pub fn drain_next(&mut self) -> (Vec<String>, Option<Operation>) {
         let mut install_versions: Vec<String> = Vec::new();
-        let mut exclusive_request: Option<OperationRequest> = None;
+        let mut exclusive_op: Option<Operation> = None;
 
         if self.exclusive_op.is_some() {
-            return (install_versions, exclusive_request);
+            return (install_versions, exclusive_op);
         }
 
         while let Some(next) = self.pending.front() {
-            if let OperationRequest::Install { version } = &next.request {
+            if let Operation::Install { version } = next {
                 if !self.has_active_install(version) && !install_versions.contains(version) {
                     install_versions.push(version.clone());
                 }
@@ -147,15 +133,15 @@ impl OperationQueue {
             } else {
                 if self.active_installs.is_empty()
                     && install_versions.is_empty()
-                    && let Some(queued) = self.pending.pop_front()
+                    && let Some(op) = self.pending.pop_front()
                 {
-                    exclusive_request = Some(queued.request);
+                    exclusive_op = Some(op);
                 }
                 break;
             }
         }
 
-        (install_versions, exclusive_request)
+        (install_versions, exclusive_op)
     }
 }
 
@@ -195,21 +181,12 @@ mod tests {
         format!("v{tag}.0.0")
     }
 
-    fn exclusive_op(kind: u8, tag: u8) -> Operation {
+    fn make_op(kind: u8, tag: u8) -> Operation {
         let version = version_tag(tag);
         match kind % 3 {
             0 => Operation::Install { version },
             1 => Operation::Uninstall { version },
             _ => Operation::SetDefault { version },
-        }
-    }
-
-    fn request(kind: u8, tag: u8) -> OperationRequest {
-        let version = version_tag(tag);
-        match kind % 3 {
-            0 => OperationRequest::Install { version },
-            1 => OperationRequest::Uninstall { version },
-            _ => OperationRequest::SetDefault { version },
         }
     }
 
@@ -306,7 +283,7 @@ mod tests {
     #[test]
     fn has_pending_for_version_match() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
         assert!(q.has_pending_for_version("20.0.0"));
@@ -316,7 +293,7 @@ mod tests {
     #[test]
     fn has_pending_for_version_with_exclusive_request() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::Uninstall {
+        q.enqueue(Operation::Uninstall {
             version: "18.0.0".into(),
         });
         assert!(q.has_pending_for_version("18.0.0"));
@@ -413,10 +390,10 @@ mod tests {
     #[test]
     fn enqueue_adds_to_pending() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
-        q.enqueue(OperationRequest::Uninstall {
+        q.enqueue(Operation::Uninstall {
             version: "18.0.0".into(),
         });
         assert_eq!(q.pending.len(), 2);
@@ -481,7 +458,7 @@ mod tests {
     #[test]
     fn drain_next_returns_early_when_exclusive_active() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
         q.start_exclusive(Operation::Uninstall {
@@ -496,10 +473,10 @@ mod tests {
     #[test]
     fn drain_next_drains_all_pending_installs() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "18.0.0".into(),
         });
         let (installs, exclusive) = q.drain_next();
@@ -511,10 +488,10 @@ mod tests {
     #[test]
     fn drain_next_deduplicates_same_version_installs() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
         let (installs, _) = q.drain_next();
@@ -525,10 +502,10 @@ mod tests {
     fn drain_next_skips_already_active_install() {
         let mut q = OperationQueue::new();
         q.start_install("20.0.0".into());
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "18.0.0".into(),
         });
         let (installs, _) = q.drain_next();
@@ -538,13 +515,13 @@ mod tests {
     #[test]
     fn drain_next_extracts_exclusive_when_no_installs_active() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::Uninstall {
+        q.enqueue(Operation::Uninstall {
             version: "18.0.0".into(),
         });
         let (installs, exclusive) = q.drain_next();
         assert!(installs.is_empty());
         assert!(
-            matches!(exclusive, Some(OperationRequest::Uninstall { version }) if version == "18.0.0")
+            matches!(exclusive, Some(Operation::Uninstall { version }) if version == "18.0.0")
         );
         assert!(q.pending.is_empty());
     }
@@ -552,10 +529,10 @@ mod tests {
     #[test]
     fn drain_next_installs_before_exclusive_stops_at_exclusive() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
-        q.enqueue(OperationRequest::Uninstall {
+        q.enqueue(Operation::Uninstall {
             version: "18.0.0".into(),
         });
         let (installs, exclusive) = q.drain_next();
@@ -568,7 +545,7 @@ mod tests {
     fn drain_next_exclusive_blocked_by_active_installs() {
         let mut q = OperationQueue::new();
         q.start_install("20.0.0".into());
-        q.enqueue(OperationRequest::SetDefault {
+        q.enqueue(Operation::SetDefault {
             version: "20.0.0".into(),
         });
         let (installs, exclusive) = q.drain_next();
@@ -580,13 +557,13 @@ mod tests {
     #[test]
     fn drain_next_set_default_as_exclusive() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::SetDefault {
+        q.enqueue(Operation::SetDefault {
             version: "20.0.0".into(),
         });
         let (installs, exclusive) = q.drain_next();
         assert!(installs.is_empty());
         assert!(
-            matches!(exclusive, Some(OperationRequest::SetDefault { version }) if version == "20.0.0")
+            matches!(exclusive, Some(Operation::SetDefault { version }) if version == "20.0.0")
         );
     }
 
@@ -594,10 +571,10 @@ mod tests {
     fn full_lifecycle_install() {
         let mut q = OperationQueue::new();
 
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
-        q.enqueue(OperationRequest::SetDefault {
+        q.enqueue(Operation::SetDefault {
             version: "20.0.0".into(),
         });
 
@@ -617,16 +594,11 @@ mod tests {
         let (installs, exclusive) = q.drain_next();
         assert!(installs.is_empty());
         assert!(
-            matches!(&exclusive, Some(OperationRequest::SetDefault { version }) if version == "20.0.0")
+            matches!(&exclusive, Some(Operation::SetDefault { version }) if version == "20.0.0")
         );
 
-        if let Some(req) = exclusive {
-            q.start_exclusive(Operation::SetDefault {
-                version: match &req {
-                    OperationRequest::SetDefault { version } => version.clone(),
-                    _ => unreachable!(),
-                },
-            });
+        if let Some(op) = exclusive {
+            q.start_exclusive(op);
         }
         assert!(q.is_busy_for_install());
         assert!(q.is_busy_for_exclusive());
@@ -640,13 +612,13 @@ mod tests {
     #[test]
     fn full_lifecycle_concurrent_installs() {
         let mut q = OperationQueue::new();
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "20.0.0".into(),
         });
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "18.0.0".into(),
         });
-        q.enqueue(OperationRequest::Install {
+        q.enqueue(Operation::Install {
             version: "22.0.0".into(),
         });
 
@@ -683,14 +655,14 @@ mod tests {
                         }
 
                         if exclusive_variant != 0 {
-                            queue.start_exclusive(exclusive_op(
+                            queue.start_exclusive(make_op(
                                 exclusive_variant - 1,
                                 (seed % 20) as u8,
                             ));
                         }
 
                         for (kind, tag) in generate_pending(seed, len) {
-                            queue.enqueue(request(kind, tag));
+                            queue.enqueue(make_op(kind, tag));
                         }
 
                         let had_exclusive = queue.exclusive_op.is_some();
@@ -717,7 +689,7 @@ mod tests {
 
                         if let Some(request) = exclusive_request {
                             assert!(installs.is_empty());
-                            assert!(!matches!(request, OperationRequest::Install { .. }));
+                            assert!(!matches!(request, Operation::Install { .. }));
                             assert!(!had_active_installs);
                         }
                     }

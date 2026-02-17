@@ -9,7 +9,7 @@ use iced::Task;
 
 use crate::error::AppError;
 use crate::message::Message;
-use crate::state::{AppState, MainState, Modal, Operation, OperationRequest, Toast};
+use crate::state::{AppState, MainState, Modal, Operation, Toast};
 
 use super::Versi;
 use super::async_helpers::run_with_timeout;
@@ -21,7 +21,7 @@ fn has_duplicate_install_request(state: &MainState, version: &str) -> bool {
 
 fn enqueue_install_if_busy(state: &mut MainState, version: &str) -> bool {
     if state.operation_queue.is_busy_for_install() {
-        state.operation_queue.enqueue(OperationRequest::Install {
+        state.operation_queue.enqueue(Operation::Install {
             version: version.to_string(),
         });
         return true;
@@ -29,7 +29,7 @@ fn enqueue_install_if_busy(state: &mut MainState, version: &str) -> bool {
     false
 }
 
-fn enqueue_exclusive_if_busy(state: &mut MainState, request: OperationRequest) -> bool {
+fn enqueue_exclusive_if_busy(state: &mut MainState, request: Operation) -> bool {
     if state.operation_queue.is_busy_for_exclusive() {
         state.operation_queue.enqueue(request);
         return true;
@@ -151,7 +151,7 @@ impl Versi {
 
             if enqueue_exclusive_if_busy(
                 state,
-                OperationRequest::Uninstall {
+                Operation::Uninstall {
                     version: version.clone(),
                 },
             ) {
@@ -169,7 +169,7 @@ impl Versi {
 
             if enqueue_exclusive_if_busy(
                 state,
-                OperationRequest::Uninstall {
+                Operation::Uninstall {
                     version: version.clone(),
                 },
             ) {
@@ -237,7 +237,7 @@ impl Versi {
         if let AppState::Main(state) = &mut self.state {
             if enqueue_exclusive_if_busy(
                 state,
-                OperationRequest::SetDefault {
+                Operation::SetDefault {
                     version: version.clone(),
                 },
             ) {
@@ -317,11 +317,11 @@ impl Versi {
         Task::none()
     }
 
-    fn task_for_exclusive_request(&mut self, request: OperationRequest) -> Task<Message> {
+    fn task_for_exclusive_request(&mut self, request: Operation) -> Task<Message> {
         match request {
-            OperationRequest::Uninstall { version } => self.start_uninstall_internal(version),
-            OperationRequest::SetDefault { version } => self.start_set_default_internal(version),
-            OperationRequest::Install { .. } => Task::none(),
+            Operation::Uninstall { version } => self.start_uninstall_internal(version),
+            Operation::SetDefault { version } => self.start_set_default_internal(version),
+            Operation::Install { .. } => Task::none(),
         }
     }
 }
@@ -381,8 +381,8 @@ mod tests {
         };
         assert_eq!(state.operation_queue.pending.len(), 1);
         assert!(matches!(
-            state.operation_queue.pending.front().map(|queued| &queued.request),
-            Some(OperationRequest::Install { version }) if version == "v22.1.0"
+            state.operation_queue.pending.front(),
+            Some(Operation::Install { version }) if version == "v22.1.0"
         ));
     }
 
@@ -424,8 +424,8 @@ mod tests {
             panic!("expected main state");
         };
         assert!(matches!(
-            state.operation_queue.pending.front().map(|queued| &queued.request),
-            Some(OperationRequest::Uninstall { version }) if version == "v20.11.0"
+            state.operation_queue.pending.front(),
+            Some(Operation::Uninstall { version }) if version == "v20.11.0"
         ));
     }
 
@@ -444,8 +444,8 @@ mod tests {
             panic!("expected main state");
         };
         assert!(matches!(
-            state.operation_queue.pending.front().map(|queued| &queued.request),
-            Some(OperationRequest::SetDefault { version }) if version == "v22.0.0"
+            state.operation_queue.pending.front(),
+            Some(Operation::SetDefault { version }) if version == "v22.0.0"
         ));
     }
 }
