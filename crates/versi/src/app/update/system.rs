@@ -59,7 +59,7 @@ impl Versi {
             } => Ok(self.show_context_menu(version, is_installed, is_default)),
             Message::CloseContextMenu => Ok(self.close_context_menu()),
             Message::ShowKeyboardShortcuts => Ok(self.show_keyboard_shortcuts()),
-            Message::OpenLink(url) => Ok(open_url_task(url)),
+            Message::OpenLink(url) => Ok(super::open_url_task(url)),
             Message::TrayEvent(tray_msg) => Ok(self.handle_tray_event(tray_msg)),
             other => Err(Box::new(other)),
         }
@@ -107,7 +107,7 @@ impl Versi {
         if let AppState::Main(state) = &self.state
             && let Some(update) = &state.app_update
         {
-            return open_url_task(update.release_url.clone());
+            return super::open_url_task(update.release_url.clone());
         }
         Task::none()
     }
@@ -116,7 +116,7 @@ impl Versi {
         if let AppState::Main(state) = &self.state
             && let Some(update) = &state.backend_update
         {
-            return open_url_task(update.release_url.clone());
+            return super::open_url_task(update.release_url.clone());
         }
         Task::none()
     }
@@ -158,15 +158,6 @@ impl Versi {
         }
         Task::none()
     }
-}
-
-fn open_url_task(url: String) -> Task<Message> {
-    Task::perform(
-        async move {
-            let _ = open::that(&url);
-        },
-        |()| Message::NoOp,
-    )
 }
 
 #[cfg(test)]

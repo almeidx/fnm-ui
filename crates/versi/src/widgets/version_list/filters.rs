@@ -132,4 +132,32 @@ mod tests {
         assert!(search.alias_resolved);
         assert_eq!(search.versions.len(), 1);
     }
+
+    #[test]
+    fn alias_resolution_respects_not_installed_filter() {
+        let versions = vec![remote("v22.1.0", Some("Jod")), remote("v20.11.0", None)];
+        let installed = HashSet::from([versi_backend::NodeVersion::new(22, 1, 0)]);
+        let filters = HashSet::from([SearchFilter::NotInstalled]);
+
+        let search = search_available_versions(&versions, "stable", 10, &filters, &installed, None);
+
+        assert!(search.alias_resolved);
+        assert!(search.versions.is_empty());
+    }
+
+    #[test]
+    fn installed_filter_is_applied_before_limit() {
+        let versions = vec![
+            remote("v22.3.0", None),
+            remote("v22.2.0", None),
+            remote("v22.1.0", None),
+        ];
+        let installed = HashSet::from([versi_backend::NodeVersion::new(22, 2, 0)]);
+        let filters = HashSet::from([SearchFilter::Installed]);
+
+        let search = search_available_versions(&versions, "v22", 1, &filters, &installed, None);
+
+        assert_eq!(search.versions.len(), 1);
+        assert_eq!(search.versions[0].version.to_string(), "v22.2.0");
+    }
 }

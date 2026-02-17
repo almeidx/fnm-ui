@@ -153,6 +153,7 @@ pub enum Message {
     OpenBackendUpdate,
 
     FetchReleaseSchedule,
+    FetchVersionMetadata,
     VersionMetadataFetched {
         request_seq: u64,
         result: Box<Result<HashMap<String, VersionMeta>, AppError>>,

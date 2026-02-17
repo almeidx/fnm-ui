@@ -81,13 +81,14 @@ impl Versi {
                 self.close_modal_or_return_to_versions();
                 Ok(Task::none())
             }
-            Message::OpenChangelog(version) => Ok(open_url_task(format!(
+            Message::OpenChangelog(version) => Ok(super::open_url_task(format!(
                 "https://nodejs.org/en/blog/release/{version}"
             ))),
             Message::EnvironmentSelected(idx) => Ok(self.handle_environment_selected(idx)),
             Message::SelectNextEnvironment => Ok(self.select_environment_by_step(true)),
             Message::SelectPreviousEnvironment => Ok(self.select_environment_by_step(false)),
             Message::FetchReleaseSchedule => Ok(self.handle_fetch_release_schedule()),
+            Message::FetchVersionMetadata => Ok(self.handle_fetch_version_metadata()),
             other => Err(Box::new(other)),
         }
     }
@@ -170,15 +171,6 @@ impl Versi {
             }
         }
     }
-}
-
-fn open_url_task(url: String) -> Task<Message> {
-    Task::perform(
-        async move {
-            let _ = open::that(&url);
-        },
-        |()| Message::NoOp,
-    )
 }
 
 #[cfg(test)]

@@ -20,6 +20,12 @@ pub(super) fn contextual_banners(state: &MainState) -> Option<Element<'_, Messag
         banners.push(schedule_banner);
     }
 
+    if let Some(metadata_banner) =
+        metadata_banner(state, state.available_versions.metadata.is_some())
+    {
+        banners.push(metadata_banner);
+    }
+
     if let Some(update_banner) = available_updates_banner(state, env) {
         banners.push(update_banner);
     }
@@ -61,6 +67,17 @@ fn release_schedule_banner(state: &MainState, has_schedule: bool) -> Option<Elem
         Some(simple_retry_banner(
             "Release schedule unavailable \u{2014} EOL detection may be inaccurate".to_string(),
             Message::FetchReleaseSchedule,
+        ))
+    } else {
+        None
+    }
+}
+
+fn metadata_banner(state: &MainState, has_metadata: bool) -> Option<Element<'_, Message>> {
+    if state.available_versions.metadata_error.is_some() && !has_metadata {
+        Some(simple_retry_banner(
+            "Version metadata unavailable \u{2014} release details may be incomplete".to_string(),
+            Message::FetchVersionMetadata,
         ))
     } else {
         None

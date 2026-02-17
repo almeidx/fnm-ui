@@ -181,6 +181,7 @@ pub struct VersionCache {
     pub schedule_cancel_token: Option<CancellationToken>,
     pub schedule_error: Option<AppError>,
     pub metadata: Option<HashMap<String, VersionMeta>>,
+    pub metadata_error: Option<AppError>,
     pub metadata_request_seq: u64,
     pub metadata_cancel_token: Option<CancellationToken>,
     pub loaded_from_disk: bool,
@@ -202,6 +203,7 @@ impl VersionCache {
             schedule_cancel_token: None,
             schedule_error: None,
             metadata: None,
+            metadata_error: None,
             metadata_request_seq: 0,
             metadata_cancel_token: None,
             loaded_from_disk: false,
@@ -310,7 +312,10 @@ mod tests {
         assert!(matches!(cache.network_status(), NetworkStatus::Fetching));
 
         cache.loading = false;
-        cache.error = Some(crate::error::AppError::message("offline"));
+        cache.error = Some(crate::error::AppError::version_fetch_failed(
+            "Remote versions",
+            "offline",
+        ));
         assert!(matches!(cache.network_status(), NetworkStatus::Offline));
 
         cache.versions = vec![RemoteVersion {

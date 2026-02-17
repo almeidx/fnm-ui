@@ -60,7 +60,7 @@ impl EnvironmentState {
             backend_name,
             backend_version: None,
             loading: false,
-            error: Some(AppError::message(reason)),
+            error: Some(AppError::environment_unavailable(reason)),
             load_request_seq: 0,
             load_cancel_token: None,
             available: false,
@@ -129,7 +129,8 @@ mod tests {
         assert_eq!(state.backend_name, BackendKind::Nvm);
         assert!(matches!(
             state.error,
-            Some(crate::error::AppError::Message(ref msg)) if msg == "backend unavailable"
+            Some(crate::error::AppError::EnvironmentUnavailable { ref reason })
+                if reason == "backend unavailable"
         ));
     }
 
@@ -137,7 +138,7 @@ mod tests {
     fn update_versions_refreshes_collections_and_default() {
         let mut state = EnvironmentState::new(EnvironmentId::Native, BackendKind::Fnm, None);
         state.loading = true;
-        state.error = Some(crate::error::AppError::message("old error"));
+        state.error = Some(crate::error::AppError::environment_load_failed("old error"));
 
         state.update_versions(vec![
             installed("v20.11.0", true),

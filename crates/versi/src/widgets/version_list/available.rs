@@ -78,12 +78,7 @@ fn version_badge_kinds(has_lts: bool, is_eol: bool, has_security: bool) -> Vec<V
     badges
 }
 
-fn action_button<'a>(
-    action: VersionRowAction,
-    version_for_install: String,
-    version_for_uninstall: String,
-    version_for_hover: String,
-) -> Element<'a, Message> {
+fn action_button<'a>(action: VersionRowAction, version: &str) -> Element<'a, Message> {
     match action {
         VersionRowAction::Installing => button(text("Installing...").size(12))
             .style(styles::primary_button)
@@ -94,23 +89,26 @@ fn action_button<'a>(
             .padding([6, 12])
             .into(),
         VersionRowAction::Install => button(text("Install").size(12))
-            .on_press(Message::StartInstall(version_for_install))
+            .on_press(Message::StartInstall(version.to_string()))
             .style(styles::primary_button)
             .padding([6, 12])
             .into(),
-        VersionRowAction::Installed | VersionRowAction::Uninstall => {
-            let btn = match action {
-                VersionRowAction::Uninstall => button(text("Uninstall").size(12))
-                    .on_press(Message::RequestUninstall(version_for_uninstall))
-                    .style(styles::danger_button)
-                    .padding([6, 12]),
-                VersionRowAction::Installed => button(text("Installed").size(12))
-                    .style(styles::secondary_button)
-                    .padding([6, 12]),
-                _ => unreachable!(),
-            };
-            mouse_area(btn)
-                .on_enter(Message::VersionRowHovered(Some(version_for_hover)))
+        VersionRowAction::Installed => {
+            let button = button(text("Installed").size(12))
+                .style(styles::secondary_button)
+                .padding([6, 12]);
+            mouse_area(button)
+                .on_enter(Message::VersionRowHovered(Some(version.to_string())))
+                .on_exit(Message::VersionRowHovered(None))
+                .into()
+        }
+        VersionRowAction::Uninstall => {
+            let button = button(text("Uninstall").size(12))
+                .on_press(Message::RequestUninstall(version.to_string()))
+                .style(styles::danger_button)
+                .padding([6, 12]);
+            mouse_area(button)
+                .on_enter(Message::VersionRowHovered(Some(version.to_string())))
                 .on_exit(Message::VersionRowHovered(None))
                 .into()
         }
@@ -155,25 +153,19 @@ pub(super) fn available_version_row<'a>(
     version: &'a RemoteVersion,
     ctx: &VersionListContext<'a>,
 ) -> Element<'a, Message> {
-    let version_str = version.version.to_string();
-    let meta = ctx.metadata.and_then(|m| m.get(&version_str));
+    let version_label = version.version.to_string();
+    let meta = ctx.metadata.and_then(|m| m.get(&version_label));
     let is_eol = ctx
         .schedule
         .is_some_and(|s| !s.is_active(version.version.major));
-    let version_display = version_str.clone();
-    let version_for_row_click = version_str.clone();
-    let version_for_hover = version_str.clone();
-    let version_for_ctx = version_str.clone();
-    let version_for_install = version_str.clone();
-    let version_for_uninstall = version_str.clone();
     let is_installed = ctx.installed_set.contains(&version.version);
 
-    let is_active = ctx.operation_queue.is_current_version(&version_str);
-    let is_pending = ctx.operation_queue.has_pending_for_version(&version_str);
+    let is_active = ctx.operation_queue.is_current_version(&version_label);
+    let is_pending = ctx.operation_queue.has_pending_for_version(&version_label);
     let is_button_hovered = ctx
         .hovered_version
         .as_ref()
-        .is_some_and(|h| h == &version_str);
+        .is_some_and(|h| h == &version_label);
 
     let activity = if is_active {
         RowActivity::Active
@@ -194,12 +186,7 @@ pub(super) fn available_version_row<'a>(
     };
     let action = resolve_version_row_action(activity, install_state, hover_state);
     let has_security = meta.is_some_and(|m| m.security);
-    let action_button = action_button(
-        action,
-        version_for_install,
-        version_for_uninstall,
-        version_for_hover,
-    );
+    let action_button = action_button(action, &version_label);
     let badges = version_badges(version, is_eol, has_security);
 
     let date_text: Element<Message> = if let Some(date) = meta.map(|m| m.date.as_str()) {
@@ -212,7 +199,7 @@ pub(super) fn available_version_row<'a>(
     };
 
     let row_content = row![
-        container(text(version_display).size(14))
+        container(text(version_label.clone()).size(14))
             .padding([2, 4])
             .width(Length::Fixed(120.0)),
         container(date_text).width(Length::Fixed(80.0)),
@@ -225,9 +212,9 @@ pub(super) fn available_version_row<'a>(
     .padding([4, 8]);
 
     mouse_area(container(row_content).width(Length::Fill))
-        .on_press(Message::ShowVersionDetail(version_for_row_click))
+        .on_press(Message::ShowVersionDetail(version_label.clone()))
         .on_right_press(Message::ShowContextMenu {
-            version: version_for_ctx,
+            version: version_label,
             is_installed,
             is_default: false,
         })

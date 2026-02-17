@@ -3,6 +3,7 @@
 //! Handles messages: `RemoteVersionsFetched`, `ReleaseScheduleFetched`,
 //! `AppUpdateChecked`, `BackendUpdateChecked`
 
+use std::sync::{OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
 use log::debug;
@@ -108,15 +109,11 @@ impl Versi {
 
                     let schedule = state.available_versions.schedule.clone();
                     let metadata = state.available_versions.metadata.clone();
-                    // std::thread::spawn, not tokio — Iced doesn't guarantee a tokio runtime context
-                    std::thread::spawn(move || {
-                        let cache = crate::cache::DiskCache {
-                            remote_versions: versions,
-                            release_schedule: schedule,
-                            version_metadata: metadata,
-                            cached_at: chrono::Utc::now(),
-                        };
-                        cache.save();
+                    enqueue_cache_save(crate::cache::DiskCache {
+                        remote_versions: versions,
+                        release_schedule: schedule,
+                        version_metadata: metadata,
+                        cached_at: chrono::Utc::now(),
                     });
                 }
                 Err(error) => {
@@ -188,15 +185,11 @@ impl Versi {
 
                     let versions = state.available_versions.versions.clone();
                     let metadata = state.available_versions.metadata.clone();
-                    // std::thread::spawn, not tokio — Iced doesn't guarantee a tokio runtime context
-                    std::thread::spawn(move || {
-                        let cache = crate::cache::DiskCache {
-                            remote_versions: versions,
-                            release_schedule: Some(schedule),
-                            version_metadata: metadata,
-                            cached_at: chrono::Utc::now(),
-                        };
-                        cache.save();
+                    enqueue_cache_save(crate::cache::DiskCache {
+                        remote_versions: versions,
+                        release_schedule: Some(schedule),
+                        version_metadata: metadata,
+                        cached_at: chrono::Utc::now(),
                     });
                 }
                 Err(error) => {
@@ -216,6 +209,7 @@ impl Versi {
                 .available_versions
                 .metadata_request_seq
                 .wrapping_add(1);
+            state.available_versions.metadata_error = None;
             let request_seq = state.available_versions.metadata_request_seq;
             let cancel_token = CancellationToken::new();
             state.available_versions.metadata_cancel_token = Some(cancel_token.clone());
@@ -265,21 +259,20 @@ impl Versi {
             match result {
                 Ok(metadata) => {
                     state.available_versions.metadata = Some(metadata.clone());
+                    state.available_versions.metadata_error = None;
 
                     let versions = state.available_versions.versions.clone();
                     let schedule = state.available_versions.schedule.clone();
-                    std::thread::spawn(move || {
-                        let cache = crate::cache::DiskCache {
-                            remote_versions: versions,
-                            release_schedule: schedule,
-                            version_metadata: Some(metadata),
-                            cached_at: chrono::Utc::now(),
-                        };
-                        cache.save();
+                    enqueue_cache_save(crate::cache::DiskCache {
+                        remote_versions: versions,
+                        release_schedule: schedule,
+                        version_metadata: Some(metadata),
+                        cached_at: chrono::Utc::now(),
                     });
                 }
                 Err(error) => {
                     debug!("Version metadata fetch failed: {error}");
+                    state.available_versions.metadata_error = Some(error);
                 }
             }
         }
@@ -292,7 +285,7 @@ impl Versi {
             async move {
                 check_for_update(&client, &current_version)
                     .await
-                    .map_err(AppError::from)
+                    .map_err(|error| AppError::update_check_failed("App", error))
             },
             |result| Message::AppUpdateChecked(Box::new(result)),
         )
@@ -322,7 +315,7 @@ impl Versi {
                     provider
                         .check_for_update(&client, &version)
                         .await
-                        .map_err(AppError::from)
+                        .map_err(|error| AppError::update_check_failed("Backend", error))
                 },
                 |result| Message::BackendUpdateChecked(Box::new(result)),
             );
@@ -341,6 +334,37 @@ impl Versi {
             }
         }
     }
+}
+
+fn enqueue_cache_save(cache: crate::cache::DiskCache) {
+    let _ = cache_save_sender().send(cache);
+}
+
+fn cache_save_sender() -> &'static mpsc::Sender<crate::cache::DiskCache> {
+    static CACHE_SAVER: OnceLock<mpsc::Sender<crate::cache::DiskCache>> = OnceLock::new();
+
+    CACHE_SAVER.get_or_init(|| {
+        let (sender, receiver) = mpsc::channel::<crate::cache::DiskCache>();
+        std::thread::spawn(move || {
+            let debounce_window = Duration::from_millis(250);
+            while let Ok(mut latest) = receiver.recv() {
+                loop {
+                    match receiver.recv_timeout(debounce_window) {
+                        Ok(next) => latest = next,
+                        Err(mpsc::RecvTimeoutError::Timeout) => {
+                            latest.save();
+                            break;
+                        }
+                        Err(mpsc::RecvTimeoutError::Disconnected) => {
+                            latest.save();
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+        sender
+    })
 }
 
 #[cfg(test)]
@@ -447,7 +471,10 @@ mod tests {
         let mut app = test_app_with_two_environments();
         if let AppState::Main(state) = &mut app.state {
             state.available_versions.schedule_request_seq = 5;
-            state.available_versions.schedule_error = Some(AppError::message("old error"));
+            state.available_versions.schedule_error = Some(AppError::version_fetch_failed(
+                "Release schedule",
+                "old error",
+            ));
         }
 
         app.handle_release_schedule_fetched(5, Ok(sample_schedule()));
@@ -493,6 +520,10 @@ mod tests {
         if let AppState::Main(state) = &mut app.state {
             state.available_versions.metadata_request_seq = 8;
             state.available_versions.metadata = None;
+            state.available_versions.metadata_error = Some(AppError::version_fetch_failed(
+                "Version metadata",
+                "old error",
+            ));
         }
 
         app.handle_version_metadata_fetched(8, Ok(sample_metadata()));
@@ -501,6 +532,35 @@ mod tests {
             panic!("expected main state");
         };
         assert!(state.available_versions.metadata.is_some());
+        assert!(state.available_versions.metadata_error.is_none());
+    }
+
+    #[test]
+    fn version_metadata_fetched_stores_error_on_failure() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.available_versions.metadata_request_seq = 9;
+            state.available_versions.metadata = None;
+        }
+
+        app.handle_version_metadata_fetched(
+            9,
+            Err(AppError::version_fetch_failed(
+                "Version metadata",
+                "metadata failed",
+            )),
+        );
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.available_versions.metadata_error,
+            Some(AppError::VersionFetchFailed {
+                resource: "Version metadata",
+                ref details
+            }) if details == "metadata failed"
+        ));
     }
 
     #[test]

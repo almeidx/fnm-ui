@@ -29,8 +29,15 @@ pub enum AppError {
         action: &'static str,
         details: String,
     },
+    OperationFailed {
+        operation: &'static str,
+        details: String,
+    },
     OperationCancelled {
         operation: &'static str,
+    },
+    EnvironmentUnavailable {
+        reason: String,
     },
     EnvironmentLoadFailed {
         details: String,
@@ -39,13 +46,17 @@ pub enum AppError {
         resource: &'static str,
         details: String,
     },
+    AutoUpdateFailed {
+        phase: &'static str,
+        details: String,
+    },
+    UpdateCheckFailed {
+        target: &'static str,
+        details: String,
+    },
 }
 
 impl AppError {
-    pub fn message(message: impl Into<String>) -> Self {
-        Self::Message(message.into())
-    }
-
     pub fn timeout(operation: &'static str, seconds: u64) -> Self {
         Self::Timeout { operation, seconds }
     }
@@ -95,8 +106,21 @@ impl AppError {
         }
     }
 
+    pub fn operation_failed(operation: &'static str, details: impl Into<String>) -> Self {
+        Self::OperationFailed {
+            operation,
+            details: details.into(),
+        }
+    }
+
     pub fn operation_cancelled(operation: &'static str) -> Self {
         Self::OperationCancelled { operation }
+    }
+
+    pub fn environment_unavailable(reason: impl Into<String>) -> Self {
+        Self::EnvironmentUnavailable {
+            reason: reason.into(),
+        }
     }
 
     pub fn environment_load_failed(details: impl Into<String>) -> Self {
@@ -108,6 +132,20 @@ impl AppError {
     pub fn version_fetch_failed(resource: &'static str, details: impl Into<String>) -> Self {
         Self::VersionFetchFailed {
             resource,
+            details: details.into(),
+        }
+    }
+
+    pub fn auto_update_failed(phase: &'static str, details: impl Into<String>) -> Self {
+        Self::AutoUpdateFailed {
+            phase,
+            details: details.into(),
+        }
+    }
+
+    pub fn update_check_failed(target: &'static str, details: impl Into<String>) -> Self {
+        Self::UpdateCheckFailed {
+            target,
             details: details.into(),
         }
     }
@@ -151,12 +189,22 @@ impl std::fmt::Display for AppError {
             Self::SettingsImportFailed { action, details } => {
                 write!(f, "Settings import {action} failed: {details}")
             }
+            Self::OperationFailed { operation, details } => {
+                write!(f, "{operation} failed: {details}")
+            }
             Self::OperationCancelled { operation } => write!(f, "{operation} cancelled"),
+            Self::EnvironmentUnavailable { reason } => write!(f, "{reason}"),
             Self::EnvironmentLoadFailed { details } => {
                 write!(f, "Failed to load versions: {details}")
             }
             Self::VersionFetchFailed { resource, details } => {
                 write!(f, "{resource} fetch failed: {details}")
+            }
+            Self::AutoUpdateFailed { phase, details } => {
+                write!(f, "App update {phase} failed: {details}")
+            }
+            Self::UpdateCheckFailed { target, details } => {
+                write!(f, "{target} update check failed: {details}")
             }
         }
     }
@@ -169,8 +217,8 @@ mod tests {
     use super::AppError;
 
     #[test]
-    fn message_constructor_and_display_match() {
-        let error = AppError::message("something failed");
+    fn message_variant_and_display_match() {
+        let error = AppError::Message("something failed".to_string());
         assert_eq!(error, AppError::Message("something failed".to_string()));
         assert_eq!(error.to_string(), "something failed");
     }
@@ -249,6 +297,7 @@ mod tests {
         let cancelled = AppError::settings_dialog_cancelled();
         let export = AppError::settings_export_failed("write file", "permission denied");
         let import = AppError::settings_import_failed("parse json", "invalid type");
+        let op_failed = AppError::operation_failed("Install", "backend reported failure");
         let op_cancelled = AppError::operation_cancelled("Remote versions fetch");
 
         assert_eq!(cancelled, AppError::SettingsDialogCancelled);
@@ -267,6 +316,13 @@ mod tests {
             }
         );
         assert_eq!(
+            op_failed,
+            AppError::OperationFailed {
+                operation: "Install",
+                details: "backend reported failure".to_string()
+            }
+        );
+        assert_eq!(
             op_cancelled,
             AppError::OperationCancelled {
                 operation: "Remote versions fetch"
@@ -281,13 +337,27 @@ mod tests {
             import.to_string(),
             "Settings import parse json failed: invalid type"
         );
+        assert_eq!(
+            op_failed.to_string(),
+            "Install failed: backend reported failure"
+        );
         assert_eq!(op_cancelled.to_string(), "Remote versions fetch cancelled");
     }
 
     #[test]
     fn fetch_and_environment_error_constructors_include_context() {
+        let unavailable = AppError::environment_unavailable("backend unavailable");
         let env_load = AppError::environment_load_failed("backend unavailable");
         let fetch = AppError::version_fetch_failed("Release schedule", "network timeout");
+        let update = AppError::auto_update_failed("restart", "spawn failed");
+        let update_check = AppError::update_check_failed("App", "rate limited");
+
+        assert_eq!(
+            unavailable,
+            AppError::EnvironmentUnavailable {
+                reason: "backend unavailable".to_string()
+            }
+        );
 
         assert_eq!(
             env_load,
@@ -303,12 +373,35 @@ mod tests {
             }
         );
         assert_eq!(
+            update,
+            AppError::AutoUpdateFailed {
+                phase: "restart",
+                details: "spawn failed".to_string()
+            }
+        );
+        assert_eq!(
+            update_check,
+            AppError::UpdateCheckFailed {
+                target: "App",
+                details: "rate limited".to_string()
+            }
+        );
+        assert_eq!(unavailable.to_string(), "backend unavailable");
+        assert_eq!(
             env_load.to_string(),
             "Failed to load versions: backend unavailable"
         );
         assert_eq!(
             fetch.to_string(),
             "Release schedule fetch failed: network timeout"
+        );
+        assert_eq!(
+            update.to_string(),
+            "App update restart failed: spawn failed"
+        );
+        assert_eq!(
+            update_check.to_string(),
+            "App update check failed: rate limited"
         );
     }
 }

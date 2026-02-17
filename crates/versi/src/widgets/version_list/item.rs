@@ -18,11 +18,6 @@ pub(super) fn version_item_view<'a>(
 
     let version_str = version.version.to_string();
     let meta = ctx.metadata.and_then(|m| m.get(&version_str));
-    let version_display = version_str.clone();
-    let version_for_default = version_str.clone();
-    let version_for_row_click = version_str.clone();
-    let version_for_hover = version_str.clone();
-    let version_for_ctx = version_str.clone();
 
     let active_op = ctx.operation_queue.active_operation_for(&version_str);
     let is_pending = ctx.operation_queue.has_pending_for_version(&version_str);
@@ -38,7 +33,7 @@ pub(super) fn version_item_view<'a>(
     let show_actions = is_hovered || is_default;
 
     let row_content = row![
-        container(text(version_display).size(14))
+        container(text(version_str.clone()).size(14))
             .padding([2, 4])
             .width(Length::Fixed(120.0)),
     ]
@@ -64,14 +59,14 @@ pub(super) fn version_item_view<'a>(
         is_default,
         is_setting_default,
         is_busy || !show_actions,
-        version_for_default,
+        &version_str,
     );
     let row_content = push_uninstall_button(
         row_content,
         danger_style,
         is_uninstalling,
         is_busy || !show_actions,
-        version_str,
+        &version_str,
     );
 
     let row_style = if is_hovered {
@@ -85,11 +80,11 @@ pub(super) fn version_item_view<'a>(
         .width(Length::Fill);
 
     mouse_area(row_container)
-        .on_press(Message::ShowVersionDetail(version_for_row_click))
-        .on_enter(Message::VersionRowHovered(Some(version_for_hover)))
+        .on_press(Message::ShowVersionDetail(version_str.clone()))
+        .on_enter(Message::VersionRowHovered(Some(version_str.clone())))
         .on_exit(Message::VersionRowHovered(None))
         .on_right_press(Message::ShowContextMenu {
-            version: version_for_ctx,
+            version: version_str,
             is_installed: true,
             is_default,
         })
@@ -133,14 +128,14 @@ fn push_badges_and_size<'a>(
     row_content
 }
 
-fn push_set_default_button(
-    row_content: iced::widget::Row<'_, Message>,
+fn push_set_default_button<'a>(
+    row_content: iced::widget::Row<'a, Message>,
     action_style: fn(&iced::Theme, iced::widget::button::Status) -> iced::widget::button::Style,
     is_default: bool,
     is_setting_default: bool,
     is_disabled: bool,
-    version_for_default: String,
-) -> iced::widget::Row<'_, Message> {
+    version: &str,
+) -> iced::widget::Row<'a, Message> {
     let button = if is_default {
         button(text("Default").size(12))
     } else if is_setting_default {
@@ -152,7 +147,7 @@ fn push_set_default_button(
     if !is_default && !is_setting_default && !is_disabled {
         row_content.push(
             button
-                .on_press(Message::SetDefault(version_for_default))
+                .on_press(Message::SetDefault(version.to_string()))
                 .style(action_style)
                 .padding([6, 12]),
         )
@@ -161,13 +156,13 @@ fn push_set_default_button(
     }
 }
 
-fn push_uninstall_button(
-    row_content: iced::widget::Row<'_, Message>,
+fn push_uninstall_button<'a>(
+    row_content: iced::widget::Row<'a, Message>,
     danger_style: fn(&iced::Theme, iced::widget::button::Status) -> iced::widget::button::Style,
     is_uninstalling: bool,
     is_disabled: bool,
-    version: String,
-) -> iced::widget::Row<'_, Message> {
+    version: &str,
+) -> iced::widget::Row<'a, Message> {
     let button = if is_uninstalling {
         button(text("Removing...").size(12))
     } else {
@@ -177,7 +172,7 @@ fn push_uninstall_button(
     if !is_uninstalling && !is_disabled {
         row_content.push(
             button
-                .on_press(Message::RequestUninstall(version))
+                .on_press(Message::RequestUninstall(version.to_string()))
                 .style(danger_style)
                 .padding([6, 12]),
         )
