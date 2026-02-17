@@ -281,4 +281,26 @@ mod tests {
         };
         assert_eq!(state.active_environment_idx, 1);
     }
+
+    #[test]
+    fn dispatch_navigation_handles_fetch_version_metadata_message() {
+        let mut app = test_app_with_two_environments();
+        let before_seq = if let AppState::Main(state) = &app.state {
+            state.available_versions.metadata_request_seq
+        } else {
+            panic!("expected main state");
+        };
+
+        let result = app.dispatch_navigation(Message::FetchVersionMetadata);
+
+        assert!(result.is_ok());
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert_eq!(
+            state.available_versions.metadata_request_seq,
+            before_seq.wrapping_add(1)
+        );
+        assert!(state.available_versions.metadata_cancel_token.is_some());
+    }
 }

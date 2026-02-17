@@ -216,3 +216,63 @@ fn format_relative_time(timestamp: DateTime<Utc>) -> String {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use versi_backend::{BackendDetection, BackendProvider};
+    use versi_platform::EnvironmentId;
+
+    use super::{contextual_banners, metadata_banner};
+    use crate::backend_kind::BackendKind;
+    use crate::error::AppError;
+    use crate::state::{EnvironmentState, MainState};
+
+    fn main_state_for_banners() -> MainState {
+        let provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
+        let backend = provider.create_manager(&BackendDetection {
+            found: true,
+            path: Some(PathBuf::from("fnm")),
+            version: None,
+            in_path: true,
+            data_dir: None,
+        });
+
+        let mut environment = EnvironmentState::new(EnvironmentId::Native, BackendKind::Fnm, None);
+        environment.loading = false;
+
+        MainState::new_with_environments(backend, vec![environment], BackendKind::Fnm)
+    }
+
+    #[test]
+    fn metadata_banner_shows_when_error_exists_without_cached_metadata() {
+        let mut state = main_state_for_banners();
+        state.available_versions.metadata_error = Some(AppError::version_fetch_failed(
+            "Version metadata",
+            "network timeout",
+        ));
+
+        assert!(metadata_banner(&state, false).is_some());
+        assert!(contextual_banners(&state).is_some());
+    }
+
+    #[test]
+    fn metadata_banner_hides_when_metadata_exists() {
+        let mut state = main_state_for_banners();
+        state.available_versions.metadata = Some(std::collections::HashMap::new());
+        state.available_versions.metadata_error = Some(AppError::version_fetch_failed(
+            "Version metadata",
+            "network timeout",
+        ));
+
+        assert!(metadata_banner(&state, true).is_none());
+    }
+
+    #[test]
+    fn metadata_banner_hides_without_error() {
+        let state = main_state_for_banners();
+        assert!(metadata_banner(&state, false).is_none());
+    }
+}
