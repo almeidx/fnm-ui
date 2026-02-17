@@ -190,6 +190,7 @@ fn matches_active_filters(
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
+    use std::time::{Duration, Instant};
 
     use super::{resolve_alias, search_available_versions};
     use crate::state::SearchFilter;
@@ -288,5 +289,52 @@ mod tests {
 
         assert!(search.alias_resolved);
         assert!(search.versions.is_empty());
+    }
+
+    #[test]
+    #[ignore = "performance baseline; run manually"]
+    fn perf_search_available_versions_large_dataset() {
+        let mut versions = Vec::new();
+        for major in 18_u32..=28 {
+            for minor in 0_u32..40 {
+                for patch in 0_u32..3 {
+                    versions.push(versi_backend::RemoteVersion {
+                        version: versi_backend::NodeVersion::new(major, minor, patch),
+                        lts_codename: if major % 2 == 0 {
+                            Some(format!("LTS-{major}"))
+                        } else {
+                            None
+                        },
+                        is_latest: patch == 2,
+                    });
+                }
+            }
+        }
+        let installed = HashSet::from([
+            versi_backend::NodeVersion::new(20, 39, 2),
+            versi_backend::NodeVersion::new(22, 39, 2),
+            versi_backend::NodeVersion::new(24, 39, 2),
+        ]);
+        let filters = HashSet::from([SearchFilter::Installed, SearchFilter::Active]);
+        let schedule = schedule_with_eol_major(20);
+
+        let started = Instant::now();
+        for _ in 0..200 {
+            let result = search_available_versions(
+                &versions,
+                "v2",
+                30,
+                &filters,
+                &installed,
+                Some(&schedule),
+            );
+            std::hint::black_box(result.versions.len());
+        }
+        let elapsed = started.elapsed();
+
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "search baseline exceeded: {elapsed:?}"
+        );
     }
 }

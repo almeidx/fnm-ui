@@ -83,6 +83,7 @@ impl EnvironmentState {
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
+    use std::time::{Duration, Instant};
     use versi_backend::NodeVersion;
     use versi_platform::EnvironmentId;
 
@@ -159,5 +160,33 @@ mod tests {
         assert_eq!(state.version_groups.len(), 2);
         assert!(!state.loading);
         assert!(state.error.is_none());
+    }
+
+    #[test]
+    #[ignore = "performance baseline; run manually"]
+    fn perf_update_versions_large_input() {
+        let mut state = EnvironmentState::new(EnvironmentId::Native, BackendKind::Fnm, None);
+        let mut versions = Vec::new();
+        for major in 16_u32..=28 {
+            for minor in 0_u32..60 {
+                versions.push(versi_backend::InstalledVersion {
+                    version: NodeVersion::new(major, minor, 0),
+                    is_default: major == 22 && minor == 59,
+                    lts_codename: None,
+                    install_date: Some(Utc::now()),
+                    disk_size: Some(1024),
+                });
+            }
+        }
+
+        let started = Instant::now();
+        state.update_versions(versions);
+        let elapsed = started.elapsed();
+
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "update_versions baseline exceeded: {elapsed:?}"
+        );
+        assert!(!state.version_groups.is_empty());
     }
 }
