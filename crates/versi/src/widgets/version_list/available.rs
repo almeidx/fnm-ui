@@ -93,18 +93,21 @@ fn action_button<'a>(action: VersionRowAction, version: &str) -> Element<'a, Mes
             .style(styles::primary_button)
             .padding([6, 12])
             .into(),
-        VersionRowAction::Installed | VersionRowAction::Uninstall => {
-            let btn = match action {
-                VersionRowAction::Uninstall => button(text("Uninstall").size(12))
-                    .on_press(Message::RequestUninstall(version.to_string()))
-                    .style(styles::danger_button)
-                    .padding([6, 12]),
-                VersionRowAction::Installed => button(text("Installed").size(12))
-                    .style(styles::secondary_button)
-                    .padding([6, 12]),
-                _ => unreachable!(),
-            };
-            mouse_area(btn)
+        VersionRowAction::Installed => {
+            let button = button(text("Installed").size(12))
+                .style(styles::secondary_button)
+                .padding([6, 12]);
+            mouse_area(button)
+                .on_enter(Message::VersionRowHovered(Some(version.to_string())))
+                .on_exit(Message::VersionRowHovered(None))
+                .into()
+        }
+        VersionRowAction::Uninstall => {
+            let button = button(text("Uninstall").size(12))
+                .on_press(Message::RequestUninstall(version.to_string()))
+                .style(styles::danger_button)
+                .padding([6, 12]);
+            mouse_area(button)
                 .on_enter(Message::VersionRowHovered(Some(version.to_string())))
                 .on_exit(Message::VersionRowHovered(None))
                 .into()
