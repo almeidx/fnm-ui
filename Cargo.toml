@@ -37,3 +37,8 @@ tokio-util = "0.7.16"
 
 [workspace.lints.clippy]
 pedantic = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
