@@ -88,6 +88,7 @@ impl Versi {
             Message::SelectNextEnvironment => Ok(self.select_environment_by_step(true)),
             Message::SelectPreviousEnvironment => Ok(self.select_environment_by_step(false)),
             Message::FetchReleaseSchedule => Ok(self.handle_fetch_release_schedule()),
+            Message::FetchVersionMetadata => Ok(self.handle_fetch_version_metadata()),
             other => Err(Box::new(other)),
         }
     }

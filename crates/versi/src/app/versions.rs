@@ -209,6 +209,7 @@ impl Versi {
                 .available_versions
                 .metadata_request_seq
                 .wrapping_add(1);
+            state.available_versions.metadata_error = None;
             let request_seq = state.available_versions.metadata_request_seq;
             let cancel_token = CancellationToken::new();
             state.available_versions.metadata_cancel_token = Some(cancel_token.clone());
@@ -258,6 +259,7 @@ impl Versi {
             match result {
                 Ok(metadata) => {
                     state.available_versions.metadata = Some(metadata.clone());
+                    state.available_versions.metadata_error = None;
 
                     let versions = state.available_versions.versions.clone();
                     let schedule = state.available_versions.schedule.clone();
@@ -270,6 +272,7 @@ impl Versi {
                 }
                 Err(error) => {
                     debug!("Version metadata fetch failed: {error}");
+                    state.available_versions.metadata_error = Some(error);
                 }
             }
         }
@@ -514,6 +517,7 @@ mod tests {
         if let AppState::Main(state) = &mut app.state {
             state.available_versions.metadata_request_seq = 8;
             state.available_versions.metadata = None;
+            state.available_versions.metadata_error = Some(AppError::message("old error"));
         }
 
         app.handle_version_metadata_fetched(8, Ok(sample_metadata()));
@@ -522,6 +526,26 @@ mod tests {
             panic!("expected main state");
         };
         assert!(state.available_versions.metadata.is_some());
+        assert!(state.available_versions.metadata_error.is_none());
+    }
+
+    #[test]
+    fn version_metadata_fetched_stores_error_on_failure() {
+        let mut app = test_app_with_two_environments();
+        if let AppState::Main(state) = &mut app.state {
+            state.available_versions.metadata_request_seq = 9;
+            state.available_versions.metadata = None;
+        }
+
+        app.handle_version_metadata_fetched(9, Err(AppError::message("metadata failed")));
+
+        let AppState::Main(state) = &app.state else {
+            panic!("expected main state");
+        };
+        assert!(matches!(
+            state.available_versions.metadata_error,
+            Some(AppError::Message(ref message)) if message == "metadata failed"
+        ));
     }
 
     #[test]
