@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
@@ -23,8 +24,8 @@ impl DiskCache {
     }
 
     fn save_to_path(&self, path: &Path) {
-        if let Ok(data) = serde_json::to_string(self) {
-            let _ = std::fs::write(path, data);
+        if let Ok(data) = serde_json::to_vec(self) {
+            let _ = write_atomic(path, &data);
         }
     }
 
@@ -40,6 +41,62 @@ impl DiskCache {
         let _ = paths.ensure_dirs();
         self.save_to_path(&paths.version_cache_file());
     }
+}
+
+fn write_atomic(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    let parent = path.parent().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, "cache path has no parent")
+    })?;
+
+    let file_name = path
+        .file_name()
+        .and_then(std::ffi::OsStr::to_str)
+        .unwrap_or("cache");
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    let pid = std::process::id();
+
+    let mut tmp_path = None;
+    for attempt in 0..16_u8 {
+        let candidate = parent.join(format!(".{file_name}.{pid}.{timestamp}.{attempt}.tmp"));
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidate)
+        {
+            Ok(mut file) => {
+                file.write_all(data)?;
+                file.sync_all()?;
+                tmp_path = Some(candidate);
+                break;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error),
+        }
+    }
+
+    let Some(tmp_path) = tmp_path else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "failed to create unique cache temp file",
+        ));
+    };
+
+    #[cfg(windows)]
+    if let Err(error) = std::fs::remove_file(path)
+        && error.kind() != std::io::ErrorKind::NotFound
+    {
+        let _ = std::fs::remove_file(&tmp_path);
+        return Err(error);
+    }
+
+    if let Err(error) = std::fs::rename(&tmp_path, path) {
+        let _ = std::fs::remove_file(&tmp_path);
+        return Err(error);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -104,5 +161,30 @@ mod tests {
         std::fs::write(&path, "{not-valid-json").expect("invalid file should be written");
 
         assert!(DiskCache::load_from_path(&path).is_none());
+    }
+
+    #[test]
+    fn save_to_path_replaces_existing_file_atomically() {
+        let temp_dir = tempfile::tempdir().expect("temporary directory should be created");
+        let path = temp_dir.path().join("versions.json");
+        std::fs::write(&path, "{not-valid-json").expect("invalid file should be written");
+
+        let cache = sample_cache();
+        cache.save_to_path(&path);
+
+        let loaded = DiskCache::load_from_path(&path).expect("cache should load after overwrite");
+        assert_eq!(loaded.remote_versions.len(), 1);
+
+        let temp_files = std::fs::read_dir(temp_dir.path())
+            .expect("read temp dir entries")
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .contains(".versions.json.")
+            })
+            .count();
+        assert_eq!(temp_files, 0);
     }
 }
