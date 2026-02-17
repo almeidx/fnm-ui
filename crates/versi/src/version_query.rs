@@ -48,8 +48,14 @@ pub(crate) fn search_available_versions<'a>(
     let query_lower = query.to_lowercase();
 
     if let Some(resolved) = resolve_alias(versions, query) {
+        let filtered = if matches_active_filters(resolved, active_filters, installed_set, schedule)
+        {
+            vec![resolved]
+        } else {
+            Vec::new()
+        };
         return AvailableVersionSearch {
-            versions: vec![resolved],
+            versions: filtered,
             alias_resolved: true,
         };
     }
@@ -63,8 +69,8 @@ pub(crate) fn search_available_versions<'a>(
                 .filter(|v| matches_remote_query(v, query, &query_lower)),
         )
     };
-    result.truncate(limit);
     apply_active_filters(&mut result, active_filters, installed_set, schedule);
+    result.truncate(limit);
 
     AvailableVersionSearch {
         versions: result,
@@ -138,39 +144,47 @@ fn apply_active_filters(
         return;
     }
 
-    versions.retain(|version| {
-        if active_filters.contains(&SearchFilter::Lts) && version.lts_codename.is_none() {
+    versions
+        .retain(|version| matches_active_filters(version, active_filters, installed_set, schedule));
+}
+
+fn matches_active_filters(
+    version: &RemoteVersion,
+    active_filters: &HashSet<SearchFilter>,
+    installed_set: &HashSet<NodeVersion>,
+    schedule: Option<&ReleaseSchedule>,
+) -> bool {
+    if active_filters.contains(&SearchFilter::Lts) && version.lts_codename.is_none() {
+        return false;
+    }
+
+    if active_filters.contains(&SearchFilter::Installed)
+        && !installed_set.contains(&version.version)
+    {
+        return false;
+    }
+
+    if active_filters.contains(&SearchFilter::NotInstalled)
+        && installed_set.contains(&version.version)
+    {
+        return false;
+    }
+
+    if active_filters.contains(&SearchFilter::Eol) {
+        let is_eol = schedule.is_some_and(|s| !s.is_active(version.version.major));
+        if !is_eol {
             return false;
         }
+    }
 
-        if active_filters.contains(&SearchFilter::Installed)
-            && !installed_set.contains(&version.version)
-        {
+    if active_filters.contains(&SearchFilter::Active) {
+        let is_active = schedule.is_none_or(|s| s.is_active(version.version.major));
+        if !is_active {
             return false;
         }
+    }
 
-        if active_filters.contains(&SearchFilter::NotInstalled)
-            && installed_set.contains(&version.version)
-        {
-            return false;
-        }
-
-        if active_filters.contains(&SearchFilter::Eol) {
-            let is_eol = schedule.is_some_and(|s| !s.is_active(version.version.major));
-            if !is_eol {
-                return false;
-            }
-        }
-
-        if active_filters.contains(&SearchFilter::Active) {
-            let is_active = schedule.is_none_or(|s| s.is_active(version.version.major));
-            if !is_active {
-                return false;
-            }
-        }
-
-        true
-    });
+    true
 }
 
 #[cfg(test)]
@@ -246,5 +260,33 @@ mod tests {
         assert_eq!(search.versions.len(), 1);
         assert_eq!(search.versions[0].version.to_string(), "v20.11.0");
         assert!(!search.alias_resolved);
+    }
+
+    #[test]
+    fn limit_is_applied_after_filters_to_fill_result_window() {
+        let versions = vec![
+            remote("v22.3.0", None),
+            remote("v22.2.0", None),
+            remote("v22.1.0", None),
+        ];
+        let installed = HashSet::from([versi_backend::NodeVersion::new(22, 2, 0)]);
+        let filters = HashSet::from([SearchFilter::Installed]);
+
+        let search = search_available_versions(&versions, "v22", 1, &filters, &installed, None);
+
+        assert_eq!(search.versions.len(), 1);
+        assert_eq!(search.versions[0].version.to_string(), "v22.2.0");
+    }
+
+    #[test]
+    fn alias_resolution_respects_active_filters() {
+        let versions = vec![remote("v22.1.0", Some("Jod")), remote("v20.11.0", None)];
+        let installed = HashSet::from([versi_backend::NodeVersion::new(22, 1, 0)]);
+        let filters = HashSet::from([SearchFilter::NotInstalled]);
+
+        let search = search_available_versions(&versions, "stable", 10, &filters, &installed, None);
+
+        assert!(search.alias_resolved);
+        assert!(search.versions.is_empty());
     }
 }
