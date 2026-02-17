@@ -163,34 +163,6 @@ pub(crate) async fn install_fnm() -> Result<(), crate::FnmError> {
     }
 }
 
-pub async fn _check_fnm_update(current_version: &str) -> Option<String> {
-    let output = Command::new("curl")
-        .args([
-            "-fsSL",
-            "https://api.github.com/repos/Schniz/fnm/releases/latest",
-        ])
-        .hide_window()
-        .output()
-        .await
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
-
-    let latest_version = json["tag_name"].as_str()?;
-    let latest_version = latest_version.strip_prefix('v').unwrap_or(latest_version);
-    let current = current_version.strip_prefix('v').unwrap_or(current_version);
-
-    if latest_version == current {
-        None
-    } else {
-        Some(latest_version.to_string())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
