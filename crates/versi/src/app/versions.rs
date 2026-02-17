@@ -3,6 +3,7 @@
 //! Handles messages: `RemoteVersionsFetched`, `ReleaseScheduleFetched`,
 //! `AppUpdateChecked`, `BackendUpdateChecked`
 
+use std::sync::{OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
 use log::debug;
@@ -108,15 +109,11 @@ impl Versi {
 
                     let schedule = state.available_versions.schedule.clone();
                     let metadata = state.available_versions.metadata.clone();
-                    // std::thread::spawn, not tokio — Iced doesn't guarantee a tokio runtime context
-                    std::thread::spawn(move || {
-                        let cache = crate::cache::DiskCache {
-                            remote_versions: versions,
-                            release_schedule: schedule,
-                            version_metadata: metadata,
-                            cached_at: chrono::Utc::now(),
-                        };
-                        cache.save();
+                    enqueue_cache_save(crate::cache::DiskCache {
+                        remote_versions: versions,
+                        release_schedule: schedule,
+                        version_metadata: metadata,
+                        cached_at: chrono::Utc::now(),
                     });
                 }
                 Err(error) => {
@@ -188,15 +185,11 @@ impl Versi {
 
                     let versions = state.available_versions.versions.clone();
                     let metadata = state.available_versions.metadata.clone();
-                    // std::thread::spawn, not tokio — Iced doesn't guarantee a tokio runtime context
-                    std::thread::spawn(move || {
-                        let cache = crate::cache::DiskCache {
-                            remote_versions: versions,
-                            release_schedule: Some(schedule),
-                            version_metadata: metadata,
-                            cached_at: chrono::Utc::now(),
-                        };
-                        cache.save();
+                    enqueue_cache_save(crate::cache::DiskCache {
+                        remote_versions: versions,
+                        release_schedule: Some(schedule),
+                        version_metadata: metadata,
+                        cached_at: chrono::Utc::now(),
                     });
                 }
                 Err(error) => {
@@ -268,14 +261,11 @@ impl Versi {
 
                     let versions = state.available_versions.versions.clone();
                     let schedule = state.available_versions.schedule.clone();
-                    std::thread::spawn(move || {
-                        let cache = crate::cache::DiskCache {
-                            remote_versions: versions,
-                            release_schedule: schedule,
-                            version_metadata: Some(metadata),
-                            cached_at: chrono::Utc::now(),
-                        };
-                        cache.save();
+                    enqueue_cache_save(crate::cache::DiskCache {
+                        remote_versions: versions,
+                        release_schedule: schedule,
+                        version_metadata: Some(metadata),
+                        cached_at: chrono::Utc::now(),
                     });
                 }
                 Err(error) => {
@@ -341,6 +331,37 @@ impl Versi {
             }
         }
     }
+}
+
+fn enqueue_cache_save(cache: crate::cache::DiskCache) {
+    let _ = cache_save_sender().send(cache);
+}
+
+fn cache_save_sender() -> &'static mpsc::Sender<crate::cache::DiskCache> {
+    static CACHE_SAVER: OnceLock<mpsc::Sender<crate::cache::DiskCache>> = OnceLock::new();
+
+    CACHE_SAVER.get_or_init(|| {
+        let (sender, receiver) = mpsc::channel::<crate::cache::DiskCache>();
+        std::thread::spawn(move || {
+            let debounce_window = Duration::from_millis(250);
+            while let Ok(mut latest) = receiver.recv() {
+                loop {
+                    match receiver.recv_timeout(debounce_window) {
+                        Ok(next) => latest = next,
+                        Err(mpsc::RecvTimeoutError::Timeout) => {
+                            latest.save();
+                            break;
+                        }
+                        Err(mpsc::RecvTimeoutError::Disconnected) => {
+                            latest.save();
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+        sender
+    })
 }
 
 #[cfg(test)]
