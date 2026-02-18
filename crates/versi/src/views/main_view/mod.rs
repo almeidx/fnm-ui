@@ -64,12 +64,7 @@ pub fn view<'a>(
 
     content_column = content_column.push(version_list);
 
-    let content_padding = if has_tabs {
-        iced::Padding::new(24.0).right(0.0)
-    } else {
-        iced::Padding::new(24.0).top(12.0).right(0.0)
-    };
-    let main_content = content_column.padding(content_padding);
+    let main_content = content_column.padding(crate::views::content_padding(has_tabs));
 
     let main_column = column![main_content].spacing(0);
 
