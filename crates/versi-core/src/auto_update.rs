@@ -35,7 +35,12 @@ pub async fn download_and_apply(
     let temp_dir = tempfile::tempdir_in(&cache_dir)
         .map_err(|e| format!("Failed to create temp directory: {e}"))?;
 
-    let file_name = download_url.rsplit('/').next().unwrap_or("update-download");
+    let raw_name = download_url.rsplit('/').next().unwrap_or("update-download");
+    let file_name = Path::new(raw_name)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .filter(|n| !n.is_empty() && !n.contains(".."))
+        .unwrap_or("update-download");
     let download_path = temp_dir.path().join(file_name);
 
     info!("Downloading update from {download_url}");
