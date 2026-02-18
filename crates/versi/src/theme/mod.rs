@@ -3,7 +3,7 @@ pub mod styles;
 use iced::theme::Palette;
 use iced::{Theme, color};
 
-pub mod tahoe {
+pub mod tokens {
     pub const RADIUS_XS: f32 = 6.0;
     pub const RADIUS_SM: f32 = 8.0;
     pub const RADIUS_MD: f32 = 12.0;
@@ -48,7 +48,7 @@ pub fn dark_theme() -> Theme {
 
 #[cfg(test)]
 mod tests {
-    use super::tahoe;
+    use super::tokens;
 
     fn assert_close(actual: f32, expected: f32) {
         assert!(
@@ -58,16 +58,16 @@ mod tests {
     }
 
     #[test]
-    fn tahoe_radius_constants_are_stable() {
-        assert_close(tahoe::RADIUS_XS, 6.0);
-        assert_close(tahoe::RADIUS_SM, 8.0);
-        assert_close(tahoe::RADIUS_MD, 12.0);
-        assert_close(tahoe::RADIUS_LG, 16.0);
+    fn tokens_radius_constants_are_stable() {
+        assert_close(tokens::RADIUS_XS, 6.0);
+        assert_close(tokens::RADIUS_SM, 8.0);
+        assert_close(tokens::RADIUS_MD, 12.0);
+        assert_close(tokens::RADIUS_LG, 16.0);
     }
 
     #[test]
-    fn tahoe_card_background_uses_expected_light_color() {
-        let color = tahoe::card_bg(false);
+    fn tokens_card_background_uses_expected_light_color() {
+        let color = tokens::card_bg(false);
 
         assert_close(color.r, 1.0);
         assert_close(color.g, 1.0);
@@ -76,8 +76,8 @@ mod tests {
     }
 
     #[test]
-    fn tahoe_card_background_uses_expected_dark_color() {
-        let color = tahoe::card_bg(true);
+    fn tokens_card_background_uses_expected_dark_color() {
+        let color = tokens::card_bg(true);
 
         assert_close(color.r, 44.0 / 255.0);
         assert_close(color.g, 44.0 / 255.0);

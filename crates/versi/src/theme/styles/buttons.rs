@@ -51,7 +51,7 @@ pub fn primary_button(theme: &Theme, status: button::Status) -> button::Style {
         background: Some(Background::Color(palette.primary)),
         text_color: Color::WHITE,
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_MD.into(),
+            radius: crate::theme::tokens::RADIUS_MD.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -115,7 +115,7 @@ pub fn danger_button(_theme: &Theme, status: button::Status) -> button::Style {
             bg: Color::TRANSPARENT,
             bg_hovered: Color { a: 0.1, ..danger },
             bg_pressed: Color { a: 0.15, ..danger },
-            radius: crate::theme::tahoe::RADIUS_MD,
+            radius: crate::theme::tokens::RADIUS_MD,
         },
         status,
     )
@@ -142,7 +142,7 @@ pub fn secondary_button(theme: &Theme, status: button::Status) -> button::Style 
             } else {
                 Color::from_rgba8(0, 0, 0, 0.12)
             },
-            radius: crate::theme::tahoe::RADIUS_MD,
+            radius: crate::theme::tokens::RADIUS_MD,
         },
         status,
     )
@@ -158,7 +158,7 @@ pub fn ghost_button(theme: &Theme, status: button::Status) -> button::Style {
             ..palette.text
         },
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_XS.into(),
+            radius: crate::theme::tokens::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -204,7 +204,7 @@ pub fn ghost_button_active(theme: &Theme, status: button::Status) -> button::Sty
         })),
         text_color: palette.text,
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_XS.into(),
+            radius: crate::theme::tokens::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -277,7 +277,7 @@ pub fn update_badge_button(_theme: &Theme, status: button::Status) -> button::St
             bg: Color { a: 0.15, ..color },
             bg_hovered: Color { a: 0.25, ..color },
             bg_pressed: Color { a: 0.35, ..color },
-            radius: crate::theme::tahoe::RADIUS_XS,
+            radius: crate::theme::tokens::RADIUS_XS,
         },
         status,
     )
@@ -291,7 +291,7 @@ pub fn app_update_button(theme: &Theme, status: button::Status) -> button::Style
             bg: Color { a: 0.15, ..color },
             bg_hovered: Color { a: 0.25, ..color },
             bg_pressed: Color { a: 0.35, ..color },
-            radius: crate::theme::tahoe::RADIUS_XS,
+            radius: crate::theme::tokens::RADIUS_XS,
         },
         status,
     )
@@ -304,7 +304,7 @@ pub fn active_tab_button(theme: &Theme, status: button::Status) -> button::Style
         background: Some(Background::Color(palette.primary)),
         text_color: Color::WHITE,
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_XS.into(),
+            radius: crate::theme::tokens::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -344,7 +344,7 @@ pub fn inactive_tab_button(theme: &Theme, status: button::Status) -> button::Sty
         background: Some(Background::Color(Color::TRANSPARENT)),
         text_color: text_secondary,
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_XS.into(),
+            radius: crate::theme::tokens::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -379,7 +379,7 @@ pub fn disabled_tab_button(theme: &Theme, _status: button::Status) -> button::St
             ..palette.text
         },
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_XS.into(),
+            radius: crate::theme::tokens::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -405,7 +405,7 @@ pub fn context_menu_item(theme: &Theme, status: button::Status) -> button::Style
             } else {
                 Color::from_rgba8(0, 0, 0, 0.08)
             },
-            radius: crate::theme::tahoe::RADIUS_SM,
+            radius: crate::theme::tokens::RADIUS_SM,
         },
         status,
     )
@@ -419,7 +419,7 @@ pub fn context_menu_item_danger(_theme: &Theme, status: button::Status) -> butto
             bg: Color::TRANSPARENT,
             bg_hovered: Color { a: 0.1, ..danger },
             bg_pressed: Color { a: 0.15, ..danger },
-            radius: crate::theme::tahoe::RADIUS_SM,
+            radius: crate::theme::tokens::RADIUS_SM,
         },
         status,
     )
@@ -435,7 +435,7 @@ pub fn row_action_button(theme: &Theme, status: button::Status) -> button::Style
             ..palette.text
         },
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -481,7 +481,7 @@ pub fn banner_button_info(theme: &Theme, status: button::Status) -> button::Styl
         })),
         text_color: palette.primary,
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_MD.into(),
+            radius: crate::theme::tokens::RADIUS_MD.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -516,7 +516,7 @@ pub fn banner_button_warning(theme: &Theme, status: button::Status) -> button::S
         background: Some(Background::Color(Color { a: 0.1, ..warning })),
         text_color: warning,
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_MD.into(),
+            radius: crate::theme::tokens::RADIUS_MD.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -542,7 +542,7 @@ pub fn row_action_button_hidden(_theme: &Theme, _status: button::Status) -> butt
         background: Some(Background::Color(Color::TRANSPARENT)),
         text_color: Color::TRANSPARENT,
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -559,7 +559,7 @@ pub fn row_action_button_danger(_theme: &Theme, status: button::Status) -> butto
             bg: Color::TRANSPARENT,
             bg_hovered: Color { a: 0.1, ..danger },
             bg_pressed: Color { a: 0.15, ..danger },
-            radius: crate::theme::tahoe::RADIUS_SM,
+            radius: crate::theme::tokens::RADIUS_SM,
         },
         status,
     )
@@ -582,7 +582,7 @@ pub fn filter_chip(theme: &Theme, status: button::Status) -> button::Style {
             ..palette.text
         },
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 1.0,
             color: border_color,
         },
@@ -628,7 +628,7 @@ pub fn filter_chip_active(theme: &Theme, status: button::Status) -> button::Styl
         })),
         text_color: palette.primary,
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 1.0,
             color: Color {
                 a: 0.25,

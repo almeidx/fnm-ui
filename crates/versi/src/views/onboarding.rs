@@ -64,7 +64,7 @@ fn step_indicator(state: &OnboardingState) -> Element<'_, Message> {
                     container::Style {
                         background: Some(iced::Background::Color(dot_color)),
                         border: iced::Border {
-                            radius: crate::theme::tahoe::RADIUS_XS.into(),
+                            radius: crate::theme::tokens::RADIUS_XS.into(),
                             ..Default::default()
                         },
                         ..Default::default()

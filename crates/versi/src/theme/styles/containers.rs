@@ -6,9 +6,9 @@ pub fn card_container(theme: &Theme) -> container::Style {
     let is_dark = palette.background.r < 0.5;
 
     container::Style {
-        background: Some(Background::Color(crate::theme::tahoe::card_bg(is_dark))),
+        background: Some(Background::Color(crate::theme::tokens::card_bg(is_dark))),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_LG.into(),
+            radius: crate::theme::tokens::RADIUS_LG.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -38,7 +38,7 @@ pub fn modal_container(theme: &Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(bg)),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_LG.into(),
+            radius: crate::theme::tokens::RADIUS_LG.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -73,7 +73,7 @@ pub fn search_input(theme: &Theme, _status: text_input::Status) -> text_input::S
     text_input::Style {
         background: Background::Color(bg),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_MD.into(),
+            radius: crate::theme::tokens::RADIUS_MD.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -106,7 +106,7 @@ pub fn tooltip_container(theme: &Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(bg)),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 1.0,
             color: border_color,
         },
@@ -139,7 +139,7 @@ pub fn kbd_container(theme: &Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(bg)),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 1.0,
             color: border_color,
         },
@@ -178,7 +178,7 @@ pub fn version_row_hovered(theme: &Theme) -> container::Style {
             Color::from_rgba8(0, 0, 0, 0.03)
         })),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },

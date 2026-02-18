@@ -11,7 +11,7 @@ pub fn badge_default(theme: &Theme) -> container::Style {
         })),
         text_color: Some(palette.primary),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -29,7 +29,7 @@ pub fn badge_lts(theme: &Theme) -> container::Style {
         })),
         text_color: Some(palette.success),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -47,7 +47,7 @@ pub fn badge_eol(_theme: &Theme) -> container::Style {
         })),
         text_color: Some(eol_color),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -65,7 +65,7 @@ pub fn badge_security(theme: &Theme) -> container::Style {
         })),
         text_color: Some(palette.danger),
         border: Border {
-            radius: crate::theme::tahoe::RADIUS_SM.into(),
+            radius: crate::theme::tokens::RADIUS_SM.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },

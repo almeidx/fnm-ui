@@ -67,7 +67,7 @@ fn toast_view(toast: &Toast) -> Element<'_, Message> {
             background: Some(iced::Background::Color(iced::Color::from_rgb8(255, 59, 48))),
             text_color: Some(iced::Color::WHITE),
             border: iced::Border {
-                radius: crate::theme::tahoe::RADIUS_SM.into(),
+                radius: crate::theme::tokens::RADIUS_SM.into(),
                 ..Default::default()
             },
             shadow: iced::Shadow {
