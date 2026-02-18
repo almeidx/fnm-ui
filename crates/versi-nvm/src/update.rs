@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use versi_backend::{BackendError, BackendUpdate};
+use versi_core::is_newer_version;
 
 use crate::detection::NvmVariant;
 
@@ -57,33 +58,9 @@ pub async fn check_for_nvm_update(
     }
 }
 
-fn is_newer_version(latest: &str, current: &str) -> bool {
-    let parse_version = |v: &str| -> Option<(u32, u32, u32)> {
-        let parts: Vec<&str> = v.split('.').collect();
-        if parts.len() >= 3 {
-            Some((
-                parts[0].parse().ok()?,
-                parts[1].parse().ok()?,
-                parts[2].parse().ok()?,
-            ))
-        } else if parts.len() == 2 {
-            Some((parts[0].parse().ok()?, parts[1].parse().ok()?, 0))
-        } else if parts.len() == 1 {
-            Some((parts[0].parse().ok()?, 0, 0))
-        } else {
-            None
-        }
-    };
-
-    match (parse_version(latest), parse_version(current)) {
-        (Some(l), Some(c)) => l > c,
-        _ => latest != current,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use versi_core::is_newer_version;
 
     #[test]
     fn newer_version_returns_true() {

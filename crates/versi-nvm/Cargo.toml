@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 versi-backend = { path = "../versi-backend" }
+versi-core = { path = "../versi-core" }
 versi-platform = { path = "../versi-platform" }
 tokio.workspace = true
 serde.workspace = true
