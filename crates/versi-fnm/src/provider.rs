@@ -50,9 +50,7 @@ impl BackendProvider for FnmProvider {
     }
 
     async fn install_backend(&self) -> Result<(), BackendError> {
-        install_fnm()
-            .await
-            .map_err(|e| BackendError::InstallFailed(e.to_string()))
+        install_fnm().await
     }
 
     async fn check_for_update(

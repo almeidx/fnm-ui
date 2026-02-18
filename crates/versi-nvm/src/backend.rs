@@ -67,92 +67,47 @@ impl VersionManager for NvmBackend {
 
     async fn list_installed(&self) -> Result<Vec<InstalledVersion>, BackendError> {
         debug!("nvm: listing installed versions");
-        self.client
-            .list_installed()
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
+        self.client.list_installed().await
     }
 
     async fn list_remote(&self) -> Result<Vec<RemoteVersion>, BackendError> {
         debug!("nvm: listing remote versions");
-        self.client
-            .list_remote()
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
+        self.client.list_remote().await
     }
 
     async fn list_remote_lts(&self) -> Result<Vec<RemoteVersion>, BackendError> {
         debug!("nvm: listing remote LTS versions");
-        self.client
-            .list_remote_lts()
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
+        self.client.list_remote_lts().await
     }
 
     async fn current_version(&self) -> Result<Option<NodeVersion>, BackendError> {
         debug!("nvm: getting current version");
-        self.client
-            .current()
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
+        self.client.current().await
     }
 
     async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError> {
         debug!("nvm: getting default version");
-        self.client
-            .default_version()
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
+        self.client.default_version().await
     }
 
     async fn install(&self, version: &str) -> Result<(), BackendError> {
         info!("nvm: installing version {version}");
-        self.client
-            .install(version)
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
+        self.client.install(version).await
     }
 
     async fn uninstall(&self, version: &str) -> Result<(), BackendError> {
         info!("nvm: uninstalling version {version}");
-        self.client
-            .uninstall(version)
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
+        self.client.uninstall(version).await
     }
 
     async fn set_default(&self, version: &str) -> Result<(), BackendError> {
         info!("nvm: setting default version to {version}");
-        self.client
-            .set_default(version)
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
+        self.client.set_default(version).await
     }
 
     async fn use_version(&self, version: &str) -> Result<(), BackendError> {
         info!("nvm: using version {version}");
-        self.client
-            .use_version(version)
-            .await
-            .map_err(|e| BackendError::CommandFailed {
-                stderr: e.to_string(),
-            })
+        self.client.use_version(version).await
     }
 
     fn shell_init_command(&self, _shell: &str, _options: &ShellInitOptions) -> Option<String> {

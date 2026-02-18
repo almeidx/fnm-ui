@@ -139,7 +139,7 @@ async fn get_fnm_version(path: &PathBuf) -> Option<String> {
     Some(version)
 }
 
-pub(crate) async fn install_fnm() -> Result<(), crate::FnmError> {
+pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
     #[cfg(unix)]
     let status = Command::new("bash")
         .args(["-c", "curl -fsSL https://fnm.vercel.app/install | bash"])
@@ -157,7 +157,7 @@ pub(crate) async fn install_fnm() -> Result<(), crate::FnmError> {
     if status.success() {
         Ok(())
     } else {
-        Err(crate::FnmError::InstallFailed(
+        Err(versi_backend::BackendError::InstallFailed(
             "fnm installation script failed".to_string(),
         ))
     }

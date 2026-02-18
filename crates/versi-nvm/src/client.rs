@@ -1,14 +1,12 @@
 use std::path::PathBuf;
 use tokio::process::Command;
 
-use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
-use versi_platform::HideWindow;
-
-use crate::error::NvmError;
 use crate::version::{
     clean_output, parse_unix_installed, parse_unix_remote, parse_windows_installed,
     parse_windows_remote,
 };
+use versi_backend::{BackendError, InstalledVersion, NodeVersion, RemoteVersion};
+use versi_platform::HideWindow;
 
 #[derive(Debug, Clone)]
 pub enum NvmEnvironment {
@@ -83,7 +81,7 @@ impl NvmClient {
         }
     }
 
-    async fn execute(&self, nvm_args: &[&str]) -> Result<String, NvmError> {
+    async fn execute(&self, nvm_args: &[&str]) -> Result<String, BackendError> {
         let output = self.build_nvm_command(nvm_args).output().await?;
 
         if output.status.success() {
@@ -91,7 +89,7 @@ impl NvmClient {
             Ok(clean_output(&stdout))
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            Err(NvmError::CommandFailed { stderr })
+            Err(BackendError::CommandFailed { stderr })
         }
     }
 
@@ -99,7 +97,7 @@ impl NvmClient {
     ///
     /// # Errors
     /// Returns an error if invoking `nvm list` fails.
-    pub async fn list_installed(&self) -> Result<Vec<InstalledVersion>, NvmError> {
+    pub async fn list_installed(&self) -> Result<Vec<InstalledVersion>, BackendError> {
         let output = self.execute(&["list"]).await?;
         Ok(if self.is_windows() {
             parse_windows_installed(&output)
@@ -112,7 +110,7 @@ impl NvmClient {
     ///
     /// # Errors
     /// Returns an error if invoking the remote listing command fails.
-    pub async fn list_remote(&self) -> Result<Vec<RemoteVersion>, NvmError> {
+    pub async fn list_remote(&self) -> Result<Vec<RemoteVersion>, BackendError> {
         if self.is_windows() {
             let output = self.execute(&["list", "available"]).await?;
             Ok(parse_windows_remote(&output))
@@ -126,7 +124,7 @@ impl NvmClient {
     ///
     /// # Errors
     /// Returns an error if remote version listing fails.
-    pub async fn list_remote_lts(&self) -> Result<Vec<RemoteVersion>, NvmError> {
+    pub async fn list_remote_lts(&self) -> Result<Vec<RemoteVersion>, BackendError> {
         if self.is_windows() {
             let all = self.list_remote().await?;
             Ok(all
@@ -143,7 +141,7 @@ impl NvmClient {
     ///
     /// # Errors
     /// Returns an error if the command fails or the version output is invalid.
-    pub async fn current(&self) -> Result<Option<NodeVersion>, NvmError> {
+    pub async fn current(&self) -> Result<Option<NodeVersion>, BackendError> {
         let output = self.execute(&["current"]).await?;
         let output = output.trim().trim_start_matches('v');
 
@@ -154,14 +152,14 @@ impl NvmClient {
         output
             .parse()
             .map(Some)
-            .map_err(|e: versi_backend::VersionParseError| NvmError::ParseError(e.to_string()))
+            .map_err(|e: versi_backend::VersionParseError| BackendError::ParseError(e.to_string()))
     }
 
     /// Return the configured default Node.js version, if any.
     ///
     /// # Errors
     /// Returns an error if querying installed/default versions fails.
-    pub async fn default_version(&self) -> Result<Option<NodeVersion>, NvmError> {
+    pub async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError> {
         if self.is_windows() {
             let versions = self.list_installed().await?;
             Ok(versions
@@ -188,7 +186,7 @@ impl NvmClient {
                     } else {
                         version_str.parse().map(Some).map_err(
                             |e: versi_backend::VersionParseError| {
-                                NvmError::ParseError(e.to_string())
+                                BackendError::ParseError(e.to_string())
                             },
                         )
                     }
@@ -205,7 +203,7 @@ impl NvmClient {
     ///
     /// # Errors
     /// Returns an error if the install command fails.
-    pub async fn install(&self, version: &str) -> Result<(), NvmError> {
+    pub async fn install(&self, version: &str) -> Result<(), BackendError> {
         self.execute(&["install", version]).await?;
         Ok(())
     }
@@ -214,7 +212,7 @@ impl NvmClient {
     ///
     /// # Errors
     /// Returns an error if the uninstall command fails.
-    pub async fn uninstall(&self, version: &str) -> Result<(), NvmError> {
+    pub async fn uninstall(&self, version: &str) -> Result<(), BackendError> {
         self.execute(&["uninstall", version]).await?;
         Ok(())
     }
@@ -223,7 +221,7 @@ impl NvmClient {
     ///
     /// # Errors
     /// Returns an error if the platform-specific default-setting command fails.
-    pub async fn set_default(&self, version: &str) -> Result<(), NvmError> {
+    pub async fn set_default(&self, version: &str) -> Result<(), BackendError> {
         if self.is_windows() {
             self.execute(&["use", version]).await?;
         } else {
@@ -236,7 +234,7 @@ impl NvmClient {
     ///
     /// # Errors
     /// Returns an error if the `nvm use` command fails.
-    pub async fn use_version(&self, version: &str) -> Result<(), NvmError> {
+    pub async fn use_version(&self, version: &str) -> Result<(), BackendError> {
         self.execute(&["use", version]).await?;
         Ok(())
     }
@@ -245,7 +243,7 @@ impl NvmClient {
     ///
     /// # Errors
     /// Returns an error if querying `nvm --version` fails.
-    pub async fn version(&self) -> Result<String, NvmError> {
+    pub async fn version(&self) -> Result<String, BackendError> {
         if self.is_windows() {
             let output = self.execute(&["version"]).await?;
             Ok(output.trim().to_string())

@@ -158,7 +158,7 @@ pub fn detect_nvm_environment(detection: &NvmDetection) -> Option<NvmEnvironment
     }
 }
 
-pub async fn install_nvm() -> Result<(), crate::NvmError> {
+pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     #[cfg(unix)]
     {
         let status = Command::new("bash")
@@ -173,7 +173,7 @@ pub async fn install_nvm() -> Result<(), crate::NvmError> {
         if status.success() {
             Ok(())
         } else {
-            Err(crate::NvmError::InstallFailed(
+            Err(versi_backend::BackendError::InstallFailed(
                 "nvm installation script failed".to_string(),
             ))
         }
@@ -181,7 +181,7 @@ pub async fn install_nvm() -> Result<(), crate::NvmError> {
 
     #[cfg(windows)]
     {
-        Err(crate::NvmError::InstallFailed(
+        Err(versi_backend::BackendError::InstallFailed(
             "Automatic nvm-windows installation is not supported. Please install manually from https://github.com/coreybutler/nvm-windows/releases".to_string(),
         ))
     }

@@ -12,7 +12,6 @@ versi-backend = { path = "../versi-backend" }
 versi-platform = { path = "../versi-platform" }
 tokio.workspace = true
 serde.workspace = true
-thiserror.workspace = true
 which.workspace = true
 dirs.workspace = true
 reqwest.workspace = true

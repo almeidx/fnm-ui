@@ -64,9 +64,7 @@ impl BackendProvider for NvmProvider {
     }
 
     async fn install_backend(&self) -> Result<(), BackendError> {
-        install_nvm()
-            .await
-            .map_err(|e| BackendError::InstallFailed(e.to_string()))
+        install_nvm().await
     }
 
     async fn check_for_update(
