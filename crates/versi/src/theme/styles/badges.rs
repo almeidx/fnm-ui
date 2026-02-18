@@ -38,7 +38,7 @@ pub fn badge_lts(theme: &Theme) -> container::Style {
 }
 
 pub fn badge_eol(_theme: &Theme) -> container::Style {
-    let eol_color = Color::from_rgb8(255, 149, 0);
+    let eol_color = crate::theme::tokens::EOL_ORANGE;
 
     container::Style {
         background: Some(Background::Color(Color {

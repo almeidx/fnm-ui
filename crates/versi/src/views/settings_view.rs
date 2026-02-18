@@ -100,10 +100,10 @@ fn preferred_engine_section<'a>(
         engine_selector(settings, state),
         text(format!("Currently using: {}", state.backend_name))
             .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
+            .color(crate::theme::tokens::TEXT_MUTED),
         text("Each environment uses whichever engine is available")
             .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
+            .color(crate::theme::tokens::TEXT_MUTED),
         Space::new().height(28),
     ]
     .spacing(4)
@@ -132,7 +132,7 @@ fn tray_section(settings: &AppSettings) -> Element<'_, Message> {
         launch_at_login_row(settings),
         text("\"Always\" keeps the app running in the tray when closed")
             .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
+            .color(crate::theme::tokens::TEXT_MUTED),
         Space::new().height(28),
     ]
     .spacing(4)
@@ -189,13 +189,13 @@ fn shell_options_section(
         section = section.push(
             text("No shell options available for this engine")
                 .size(12)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
+                .color(crate::theme::tokens::TEXT_MUTED),
         );
     } else {
         section = section.push(
             text("Options for new shell configurations")
                 .size(11)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
+                .color(crate::theme::tokens::TEXT_MUTED),
         );
     }
 
@@ -276,7 +276,7 @@ fn shell_status_row(shell: &crate::state::ShellSetupStatus) -> iced::widget::Row
             text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
             text(status_text)
                 .size(12)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
+                .color(crate::theme::tokens::TEXT_MUTED),
         ]
         .spacing(8)
         .align_y(Alignment::Center);
@@ -286,7 +286,7 @@ fn shell_status_row(shell: &crate::state::ShellSetupStatus) -> iced::widget::Row
         text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
         text(status_text)
             .size(12)
-            .color(iced::Color::from_rgb8(255, 149, 0)),
+            .color(crate::theme::tokens::EOL_ORANGE),
         Space::new().width(Length::Fill),
         button(text("Configure").size(11))
             .on_press(Message::ConfigureShell(shell.shell_type.clone()))
@@ -318,7 +318,7 @@ fn settings_data_section() -> Element<'static, Message> {
         .spacing(8),
         text("Export or import preferences, or edit the config file directly")
             .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
+            .color(crate::theme::tokens::TEXT_MUTED),
         Space::new().height(28),
     ]
     .spacing(4)
@@ -354,14 +354,14 @@ fn advanced_section<'a>(
         row![
             text("Log file: ")
                 .size(11)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
+                .color(crate::theme::tokens::TEXT_MUTED),
             button(text(log_path.clone()).size(11))
                 .on_press(Message::CopyToClipboard(log_path))
                 .style(styles::link_button)
                 .padding(0),
             text(format!(" ({log_size_text})"))
                 .size(11)
-                .color(iced::Color::from_rgb8(142, 142, 147)),
+                .color(crate::theme::tokens::TEXT_MUTED),
         ]
         .align_y(Alignment::Center),
         Space::new().height(8),
@@ -422,7 +422,7 @@ fn launch_at_login_row(settings: &AppSettings) -> Element<'_, Message> {
     let label_color = if is_always {
         None
     } else {
-        Some(iced::Color::from_rgb8(142, 142, 147))
+        Some(crate::theme::tokens::TEXT_MUTED)
     };
 
     let mut label = text("Launch at login").size(12);

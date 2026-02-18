@@ -21,7 +21,7 @@ pub fn view(state: &MainState, has_tabs: bool) -> Element<'_, Message> {
         Space::new().height(4),
         text("A native GUI for managing Node.js versions")
             .size(12)
-            .color(iced::Color::from_rgb8(142, 142, 147)),
+            .color(crate::theme::tokens::TEXT_MUTED),
         Space::new().height(12),
         row![
             button(

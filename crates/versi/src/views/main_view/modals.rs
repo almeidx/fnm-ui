@@ -11,7 +11,7 @@ use crate::state::{MainState, Modal};
 use crate::theme::styles;
 
 fn version_preview_list(labels: Vec<String>, preview_limit: usize) -> Element<'static, Message> {
-    let muted = iced::Color::from_rgb8(142, 142, 147);
+    let muted = crate::theme::tokens::TEXT_MUTED;
     let total = labels.len();
     let mut list = column![].spacing(4);
     for label in labels.into_iter().take(preview_limit) {
@@ -151,7 +151,7 @@ fn confirm_bulk_uninstall_eol_view(
         Space::new().height(8),
         text("These versions no longer receive security updates.")
             .size(12)
-            .color(iced::Color::from_rgb8(255, 149, 0)),
+            .color(crate::theme::tokens::EOL_ORANGE),
         Space::new().height(24),
         row![
             button(text("Cancel").size(13))
@@ -280,7 +280,7 @@ fn version_detail_view<'a>(
     metadata: Option<&'a HashMap<String, VersionMeta>>,
     state: &'a MainState,
 ) -> Element<'a, Message> {
-    let muted = iced::Color::from_rgb8(142, 142, 147);
+    let muted = crate::theme::tokens::TEXT_MUTED;
     let meta = metadata.and_then(|m| m.get(version));
 
     let mut content = column![text(format!("Node {version}")).size(20),].spacing(4);
@@ -333,7 +333,7 @@ fn version_detail_view<'a>(
             content = content.push(
                 text("Major release — check changelog for breaking changes")
                     .size(12)
-                    .color(iced::Color::from_rgb8(255, 149, 0)),
+                    .color(crate::theme::tokens::EOL_ORANGE),
             );
         }
     } else {
@@ -402,7 +402,7 @@ fn keyboard_shortcuts_view() -> Element<'static, Message> {
         ("?".to_string(), "This help"),
     ];
 
-    let muted = iced::Color::from_rgb8(142, 142, 147);
+    let muted = crate::theme::tokens::TEXT_MUTED;
 
     let mut rows = column![].spacing(8);
     for (key, desc) in shortcuts {

@@ -278,7 +278,7 @@ fn search_results_content<'a>(
         card_items.push(
             text(format!("\"{search_query}\" resolves to:"))
                 .size(12)
-                .color(iced::Color::from_rgb8(142, 142, 147))
+                .color(crate::theme::tokens::TEXT_MUTED)
                 .into(),
         );
         card_items.push(Space::new().height(4).into());

@@ -192,7 +192,7 @@ pub(super) fn available_version_row<'a>(
     let date_text: Element<Message> = if let Some(date) = meta.map(|m| m.date.as_str()) {
         text(date)
             .size(11)
-            .color(iced::Color::from_rgb8(142, 142, 147))
+            .color(crate::theme::tokens::TEXT_MUTED)
             .into()
     } else {
         Space::new().into()

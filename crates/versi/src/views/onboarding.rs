@@ -237,7 +237,7 @@ fn configure_shell_step(
                 container(
                     text("No config file")
                         .size(14)
-                        .color(iced::Color::from_rgb8(142, 142, 147)),
+                        .color(crate::theme::tokens::TEXT_MUTED),
                 )
             } else {
                 container(

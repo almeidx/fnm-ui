@@ -9,6 +9,11 @@ pub mod tokens {
     pub const RADIUS_MD: f32 = 12.0;
     pub const RADIUS_LG: f32 = 16.0;
 
+    pub const TEXT_MUTED: iced::Color =
+        iced::Color::from_rgb(142.0 / 255.0, 142.0 / 255.0, 147.0 / 255.0);
+    pub const DANGER: iced::Color = iced::Color::from_rgb(1.0, 69.0 / 255.0, 58.0 / 255.0);
+    pub const EOL_ORANGE: iced::Color = iced::Color::from_rgb(1.0, 149.0 / 255.0, 0.0);
+
     pub fn card_bg(is_dark: bool) -> iced::Color {
         if is_dark {
             iced::Color::from_rgba8(44, 44, 46, 0.72)
@@ -63,6 +68,21 @@ mod tests {
         assert_close(tokens::RADIUS_SM, 8.0);
         assert_close(tokens::RADIUS_MD, 12.0);
         assert_close(tokens::RADIUS_LG, 16.0);
+    }
+
+    #[test]
+    fn tokens_color_constants_are_stable() {
+        assert_close(tokens::TEXT_MUTED.r, 142.0 / 255.0);
+        assert_close(tokens::TEXT_MUTED.g, 142.0 / 255.0);
+        assert_close(tokens::TEXT_MUTED.b, 147.0 / 255.0);
+
+        assert_close(tokens::DANGER.r, 1.0);
+        assert_close(tokens::DANGER.g, 69.0 / 255.0);
+        assert_close(tokens::DANGER.b, 58.0 / 255.0);
+
+        assert_close(tokens::EOL_ORANGE.r, 1.0);
+        assert_close(tokens::EOL_ORANGE.g, 149.0 / 255.0);
+        assert_close(tokens::EOL_ORANGE.b, 0.0);
     }
 
     #[test]

@@ -108,7 +108,7 @@ pub fn primary_button(theme: &Theme, status: button::Status) -> button::Style {
 }
 
 pub fn danger_button(_theme: &Theme, status: button::Status) -> button::Style {
-    let danger = Color::from_rgb8(255, 69, 58);
+    let danger = crate::theme::tokens::DANGER;
     tinted_button(
         TintedStyle {
             text: danger,
@@ -239,7 +239,7 @@ pub fn ghost_button_active(theme: &Theme, status: button::Status) -> button::Sty
 }
 
 pub fn link_button(_theme: &Theme, status: button::Status) -> button::Style {
-    let link_color = Color::from_rgb8(142, 142, 147);
+    let link_color = crate::theme::tokens::TEXT_MUTED;
 
     let base = button::Style {
         background: None,
@@ -412,7 +412,7 @@ pub fn context_menu_item(theme: &Theme, status: button::Status) -> button::Style
 }
 
 pub fn context_menu_item_danger(_theme: &Theme, status: button::Status) -> button::Style {
-    let danger = Color::from_rgb8(255, 69, 58);
+    let danger = crate::theme::tokens::DANGER;
     tinted_button(
         TintedStyle {
             text: danger,
@@ -552,7 +552,7 @@ pub fn row_action_button_hidden(_theme: &Theme, _status: button::Status) -> butt
 }
 
 pub fn row_action_button_danger(_theme: &Theme, status: button::Status) -> button::Style {
-    let danger = Color::from_rgb8(255, 69, 58);
+    let danger = crate::theme::tokens::DANGER;
     tinted_button(
         TintedStyle {
             text: danger,
