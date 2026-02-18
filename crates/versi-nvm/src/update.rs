@@ -1,17 +1,10 @@
-use serde::Deserialize;
 use versi_backend::{BackendError, BackendUpdate};
-use versi_core::is_newer_version;
+use versi_core::{GitHubRelease, is_newer_version};
 
 use crate::detection::NvmVariant;
 
 const NVM_UNIX_REPO: &str = "nvm-sh/nvm";
 const NVM_WINDOWS_REPO: &str = "coreybutler/nvm-windows";
-
-#[derive(Deserialize)]
-struct GitHubRelease {
-    tag_name: String,
-    html_url: String,
-}
 
 pub async fn check_for_nvm_update(
     client: &reqwest::Client,
