@@ -4,6 +4,7 @@ use iced::theme::Palette;
 use iced::{Theme, color};
 
 pub mod tahoe {
+    pub const RADIUS_XS: f32 = 6.0;
     pub const RADIUS_SM: f32 = 8.0;
     pub const RADIUS_MD: f32 = 12.0;
     pub const RADIUS_LG: f32 = 16.0;
@@ -58,6 +59,7 @@ mod tests {
 
     #[test]
     fn tahoe_radius_constants_are_stable() {
+        assert_close(tahoe::RADIUS_XS, 6.0);
         assert_close(tahoe::RADIUS_SM, 8.0);
         assert_close(tahoe::RADIUS_MD, 12.0);
         assert_close(tahoe::RADIUS_LG, 16.0);

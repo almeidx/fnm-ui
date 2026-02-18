@@ -158,7 +158,7 @@ pub fn ghost_button(theme: &Theme, status: button::Status) -> button::Style {
             ..palette.text
         },
         border: Border {
-            radius: 6.0.into(),
+            radius: crate::theme::tahoe::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -204,7 +204,7 @@ pub fn ghost_button_active(theme: &Theme, status: button::Status) -> button::Sty
         })),
         text_color: palette.text,
         border: Border {
-            radius: 6.0.into(),
+            radius: crate::theme::tahoe::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -277,7 +277,7 @@ pub fn update_badge_button(_theme: &Theme, status: button::Status) -> button::St
             bg: Color { a: 0.15, ..color },
             bg_hovered: Color { a: 0.25, ..color },
             bg_pressed: Color { a: 0.35, ..color },
-            radius: 6.0,
+            radius: crate::theme::tahoe::RADIUS_XS,
         },
         status,
     )
@@ -291,7 +291,7 @@ pub fn app_update_button(theme: &Theme, status: button::Status) -> button::Style
             bg: Color { a: 0.15, ..color },
             bg_hovered: Color { a: 0.25, ..color },
             bg_pressed: Color { a: 0.35, ..color },
-            radius: 6.0,
+            radius: crate::theme::tahoe::RADIUS_XS,
         },
         status,
     )
@@ -304,7 +304,7 @@ pub fn active_tab_button(theme: &Theme, status: button::Status) -> button::Style
         background: Some(Background::Color(palette.primary)),
         text_color: Color::WHITE,
         border: Border {
-            radius: 6.0.into(),
+            radius: crate::theme::tahoe::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -344,7 +344,7 @@ pub fn inactive_tab_button(theme: &Theme, status: button::Status) -> button::Sty
         background: Some(Background::Color(Color::TRANSPARENT)),
         text_color: text_secondary,
         border: Border {
-            radius: 6.0.into(),
+            radius: crate::theme::tahoe::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
@@ -379,7 +379,7 @@ pub fn disabled_tab_button(theme: &Theme, _status: button::Status) -> button::St
             ..palette.text
         },
         border: Border {
-            radius: 6.0.into(),
+            radius: crate::theme::tahoe::RADIUS_XS.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
         },
