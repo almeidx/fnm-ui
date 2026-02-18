@@ -223,7 +223,10 @@ fn parse_menu_event(id: &str) -> Option<TrayMessage> {
                 None
             }
         }
-        _ => None,
+        other => {
+            log::warn!("Unknown tray menu event ID: {other}");
+            None
+        }
     }
 }
 
