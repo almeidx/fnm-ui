@@ -1,4 +1,4 @@
-use versi_backend::BackendUpdate;
+use versi_backend::{BackendError, BackendUpdate};
 use versi_core::{GitHubRelease, is_newer_version};
 
 const FNM_GITHUB_REPO: &str = "Schniz/fnm";
@@ -27,7 +27,7 @@ fn backend_update_from_release(
 pub async fn check_for_fnm_update(
     client: &reqwest::Client,
     current_version: &str,
-) -> Result<Option<BackendUpdate>, String> {
+) -> Result<Option<BackendUpdate>, BackendError> {
     let url = format!("https://api.github.com/repos/{FNM_GITHUB_REPO}/releases/latest");
 
     let response = client
@@ -35,7 +35,7 @@ pub async fn check_for_fnm_update(
         .header("User-Agent", "versi")
         .send()
         .await
-        .map_err(|e| format!("Failed to check for fnm update: {e}"))?;
+        .map_err(|e| BackendError::NetworkError(e.to_string()))?;
 
     if !response.status().is_success() {
         return Ok(None);
@@ -44,7 +44,7 @@ pub async fn check_for_fnm_update(
     let release: GitHubRelease = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse fnm update response: {e}"))?;
+        .map_err(|e| BackendError::NetworkError(e.to_string()))?;
 
     Ok(backend_update_from_release(release, current_version))
 }

@@ -45,7 +45,7 @@ pub(super) fn handle_check_for_backend_update(app: &mut Versi) -> Task<Message> 
                 provider
                     .check_for_update(&client, &version)
                     .await
-                    .map_err(|error| AppError::update_check_failed("Backend", error))
+                    .map_err(|error| AppError::update_check_failed("Backend", error.to_string()))
             },
             |result| Message::BackendUpdateChecked(Box::new(result)),
         );

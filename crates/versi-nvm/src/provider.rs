@@ -76,7 +76,7 @@ impl BackendProvider for NvmProvider {
         &self,
         client: &reqwest::Client,
         current_version: &str,
-    ) -> Result<Option<BackendUpdate>, String> {
+    ) -> Result<Option<BackendUpdate>, BackendError> {
         let variant = self
             .variant
             .lock()

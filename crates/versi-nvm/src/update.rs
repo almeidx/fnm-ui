@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use versi_backend::BackendUpdate;
+use versi_backend::{BackendError, BackendUpdate};
 
 use crate::detection::NvmVariant;
 
@@ -16,7 +16,7 @@ pub async fn check_for_nvm_update(
     client: &reqwest::Client,
     current_version: &str,
     variant: &NvmVariant,
-) -> Result<Option<BackendUpdate>, String> {
+) -> Result<Option<BackendUpdate>, BackendError> {
     let repo = match variant {
         NvmVariant::Unix | NvmVariant::NotFound => NVM_UNIX_REPO,
         NvmVariant::Windows => NVM_WINDOWS_REPO,
@@ -29,7 +29,7 @@ pub async fn check_for_nvm_update(
         .header("User-Agent", "versi")
         .send()
         .await
-        .map_err(|e| format!("Failed to check for nvm update: {e}"))?;
+        .map_err(|e| BackendError::NetworkError(e.to_string()))?;
 
     if !response.status().is_success() {
         return Ok(None);
@@ -38,7 +38,7 @@ pub async fn check_for_nvm_update(
     let release: GitHubRelease = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse nvm update response: {e}"))?;
+        .map_err(|e| BackendError::NetworkError(e.to_string()))?;
 
     let latest = release
         .tag_name

@@ -57,7 +57,7 @@ impl BackendProvider for FnmProvider {
         &self,
         client: &reqwest::Client,
         current_version: &str,
-    ) -> Result<Option<BackendUpdate>, String> {
+    ) -> Result<Option<BackendUpdate>, BackendError> {
         check_for_fnm_update(client, current_version).await
     }
 
