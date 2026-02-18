@@ -41,20 +41,14 @@ pub fn parse_remote_versions(output: &str) -> Vec<RemoteVersion> {
                 return None;
             }
 
-            let parts: Vec<&str> = line.splitn(2, ' ').collect();
-            let version_str = parts[0].trim();
-            let version = version_str.parse().ok()?;
+            let (version_part, rest) = line.split_once(' ').unwrap_or((line, ""));
+            let version = version_part.trim().parse().ok()?;
 
-            let lts_codename = if parts.len() > 1 {
-                let rest = parts[1].trim();
-                if rest.starts_with('(') && rest.ends_with(')') {
-                    Some(rest[1..rest.len() - 1].to_string())
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
+            let lts_codename = rest
+                .trim()
+                .strip_prefix('(')
+                .and_then(|s| s.strip_suffix(')'))
+                .map(str::to_string);
 
             Some(RemoteVersion {
                 version,
