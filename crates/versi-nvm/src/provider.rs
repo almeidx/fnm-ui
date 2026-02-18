@@ -10,22 +10,23 @@ use crate::client::{NvmClient, NvmEnvironment};
 use crate::detection::{NvmVariant, detect_nvm, detect_nvm_environment, install_nvm};
 use crate::update::check_for_nvm_update;
 
-pub struct NvmProvider {
-    variant: std::sync::Mutex<NvmVariant>,
-}
-
-impl Default for NvmProvider {
-    fn default() -> Self {
-        Self {
-            variant: std::sync::Mutex::new(NvmVariant::NotFound),
-        }
-    }
-}
+#[derive(Default)]
+pub struct NvmProvider;
 
 impl NvmProvider {
     #[must_use]
     pub fn new() -> Self {
-        Self::default()
+        Self
+    }
+}
+
+fn variant_from_detection(detection: &BackendDetection) -> NvmVariant {
+    if detection.data_dir.is_some() {
+        NvmVariant::Unix
+    } else if detection.path.is_some() {
+        NvmVariant::Windows
+    } else {
+        NvmVariant::NotFound
     }
 }
 
@@ -49,12 +50,6 @@ impl BackendProvider for NvmProvider {
 
     async fn detect(&self) -> BackendDetection {
         let detection = detect_nvm().await;
-
-        *self
-            .variant
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = detection.variant.clone();
-
         let path = detection.nvm_dir.clone().or(detection.nvm_exe.clone());
 
         BackendDetection {
@@ -76,21 +71,14 @@ impl BackendProvider for NvmProvider {
         &self,
         client: &reqwest::Client,
         current_version: &str,
+        detection: &BackendDetection,
     ) -> Result<Option<BackendUpdate>, BackendError> {
-        let variant = self
-            .variant
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone();
+        let variant = variant_from_detection(detection);
         check_for_nvm_update(client, current_version, &variant).await
     }
 
     fn create_manager(&self, detection: &BackendDetection) -> Box<dyn VersionManager> {
-        let variant = self
-            .variant
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone();
+        let variant = variant_from_detection(detection);
 
         let nvm_detection = crate::detection::NvmDetection {
             found: detection.found,
@@ -147,7 +135,44 @@ mod tests {
 
     use versi_backend::{BackendDetection, BackendProvider};
 
-    use super::NvmProvider;
+    use super::{NvmProvider, variant_from_detection};
+    use crate::detection::NvmVariant;
+
+    #[test]
+    fn variant_from_detection_unix_when_data_dir_set() {
+        let detection = BackendDetection {
+            found: true,
+            path: Some(PathBuf::from("/home/user/.nvm")),
+            version: Some("0.40.1".to_string()),
+            in_path: true,
+            data_dir: Some(PathBuf::from("/home/user/.nvm")),
+        };
+        assert_eq!(variant_from_detection(&detection), NvmVariant::Unix);
+    }
+
+    #[test]
+    fn variant_from_detection_windows_when_only_path_set() {
+        let detection = BackendDetection {
+            found: true,
+            path: Some(PathBuf::from("C:\\nvm\\nvm.exe")),
+            version: Some("1.1.12".to_string()),
+            in_path: true,
+            data_dir: None,
+        };
+        assert_eq!(variant_from_detection(&detection), NvmVariant::Windows);
+    }
+
+    #[test]
+    fn variant_from_detection_not_found_when_both_none() {
+        let detection = BackendDetection {
+            found: false,
+            path: None,
+            version: None,
+            in_path: false,
+            data_dir: None,
+        };
+        assert_eq!(variant_from_detection(&detection), NvmVariant::NotFound);
+    }
 
     #[test]
     fn provider_metadata_is_stable() {

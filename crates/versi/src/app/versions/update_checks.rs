@@ -1,5 +1,6 @@
 use iced::Task;
 use log::debug;
+use versi_backend::BackendDetection;
 use versi_core::check_for_update;
 
 use crate::error::AppError;
@@ -40,10 +41,17 @@ pub(super) fn handle_check_for_backend_update(app: &mut Versi) -> Task<Message> 
         let version = version.clone();
         let client = app.http_client.clone();
         let provider = app.provider_for_kind(state.backend_name);
+        let detection = BackendDetection {
+            found: true,
+            path: Some(app.backend_path.clone()),
+            version: Some(version.clone()),
+            in_path: true,
+            data_dir: app.backend_dir.clone(),
+        };
         return Task::perform(
             async move {
                 provider
-                    .check_for_update(&client, &version)
+                    .check_for_update(&client, &version, &detection)
                     .await
                     .map_err(|error| AppError::update_check_failed("Backend", error.to_string()))
             },

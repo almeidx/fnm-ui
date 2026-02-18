@@ -32,6 +32,7 @@ pub trait BackendProvider: Send + Sync {
         &self,
         client: &reqwest::Client,
         current_version: &str,
+        detection: &BackendDetection,
     ) -> Result<Option<BackendUpdate>, BackendError>;
     fn create_manager(&self, detection: &BackendDetection) -> Box<dyn VersionManager>;
     fn create_manager_for_wsl(
