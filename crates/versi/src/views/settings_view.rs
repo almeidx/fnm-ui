@@ -33,9 +33,12 @@ pub fn view<'a>(
     .width(Length::Fill);
 
     column![
-        container(header).padding(iced::Padding::new(0.0).right(24.0)),
+        container(header).padding(iced::Padding::new(0.0).right(crate::theme::tokens::INSET_RIGHT)),
         Space::new().height(12),
-        scrollable(content.padding(iced::Padding::default().right(24.0))).height(Length::Fill),
+        scrollable(
+            content.padding(iced::Padding::default().right(crate::theme::tokens::INSET_RIGHT))
+        )
+        .height(Length::Fill),
     ]
     .spacing(0)
     .padding(super::content_padding(has_tabs))
@@ -241,7 +244,9 @@ fn shell_status_row(shell: &crate::state::ShellSetupStatus) -> iced::widget::Row
 
     if shell.configuring {
         return row![
-            text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+            text(&shell.shell_name)
+                .size(13)
+                .width(Length::Fixed(crate::theme::tokens::COL_SHELL_NAME)),
             text("Configuring...").size(12),
         ]
         .spacing(8)
@@ -253,7 +258,9 @@ fn shell_status_row(shell: &crate::state::ShellSetupStatus) -> iced::widget::Row
         ShellVerificationStatus::Configured | ShellVerificationStatus::FunctionalButNotInConfig
     ) {
         let mut row = row![
-            text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+            text(&shell.shell_name)
+                .size(13)
+                .width(Length::Fixed(crate::theme::tokens::COL_SHELL_NAME)),
             text(status_text)
                 .size(12)
                 .color(iced::Color::from_rgb8(52, 199, 89)),
@@ -273,7 +280,9 @@ fn shell_status_row(shell: &crate::state::ShellSetupStatus) -> iced::widget::Row
 
     if matches!(shell.status, ShellVerificationStatus::NoConfigFile) {
         return row![
-            text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+            text(&shell.shell_name)
+                .size(13)
+                .width(Length::Fixed(crate::theme::tokens::COL_SHELL_NAME)),
             text(status_text)
                 .size(12)
                 .color(crate::theme::tokens::TEXT_MUTED),
@@ -283,7 +292,9 @@ fn shell_status_row(shell: &crate::state::ShellSetupStatus) -> iced::widget::Row
     }
 
     row![
-        text(&shell.shell_name).size(13).width(Length::Fixed(100.0)),
+        text(&shell.shell_name)
+            .size(13)
+            .width(Length::Fixed(crate::theme::tokens::COL_SHELL_NAME)),
         text(status_text)
             .size(12)
             .color(crate::theme::tokens::EOL_ORANGE),

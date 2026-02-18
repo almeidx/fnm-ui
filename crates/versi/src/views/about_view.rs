@@ -51,9 +51,12 @@ pub fn view(state: &MainState, has_tabs: bool) -> Element<'_, Message> {
     .width(Length::Fill);
 
     column![
-        container(header).padding(iced::Padding::new(0.0).right(24.0)),
+        container(header).padding(iced::Padding::new(0.0).right(crate::theme::tokens::INSET_RIGHT)),
         Space::new().height(12),
-        scrollable(content.padding(iced::Padding::default().right(24.0))).height(Length::Fill),
+        scrollable(
+            content.padding(iced::Padding::default().right(crate::theme::tokens::INSET_RIGHT))
+        )
+        .height(Length::Fill),
     ]
     .spacing(0)
     .padding(super::content_padding(has_tabs))

@@ -26,8 +26,8 @@ pub fn view(state: &OnboardingState, backend_name: BackendKind) -> Element<'_, M
             nav_buttons,
         ]
         .spacing(32)
-        .padding(48)
-        .max_width(600),
+        .padding(iced::Padding::new(crate::theme::tokens::ONBOARDING_PADDING))
+        .max_width(crate::theme::tokens::ONBOARDING_MAX_WIDTH),
     )
     .center_x(Length::Fill)
     .center_y(Length::Fill)
@@ -224,7 +224,9 @@ fn configure_shell_step(
 
     for shell in &state.detected_shells {
         let shell_row = row![
-            text(&shell.shell_name).size(16).width(Length::Fixed(120.0)),
+            text(&shell.shell_name)
+                .size(16)
+                .width(Length::Fixed(crate::theme::tokens::COL_VERSION)),
             if shell.configured {
                 container(text("Configured").size(14))
                     .padding([4, 8])

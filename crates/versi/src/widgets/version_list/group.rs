@@ -200,7 +200,7 @@ fn expanded_group_view<'a>(
                 top: 0.0,
                 right: 0.0,
                 bottom: 0.0,
-                left: 24.0,
+                left: crate::theme::tokens::GROUP_INDENT,
             }),
         ]
         .spacing(4),

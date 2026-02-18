@@ -80,8 +80,8 @@ pub(super) fn modal_overlay<'a>(
     let modal_container = mouse_area(
         container(modal_content)
             .style(styles::modal_container)
-            .padding(28)
-            .max_width(480),
+            .padding(iced::Padding::new(crate::theme::tokens::MODAL_PADDING))
+            .max_width(crate::theme::tokens::MODAL_MAX_WIDTH),
     )
     .on_press(Message::NoOp);
 
@@ -361,7 +361,10 @@ fn version_detail_view<'a>(
 
 fn meta_row<'a>(label: &'a str, value: &'a str, muted: iced::Color) -> Element<'a, Message> {
     row![
-        text(label).size(12).width(Length::Fixed(64.0)).color(muted),
+        text(label)
+            .size(12)
+            .width(Length::Fixed(crate::theme::tokens::COL_META_LABEL))
+            .color(muted),
         text(value).size(12),
     ]
     .spacing(8)
@@ -411,7 +414,7 @@ fn keyboard_shortcuts_view() -> Element<'static, Message> {
                 container(text(key).size(12))
                     .style(styles::kbd_container)
                     .padding([2, 8])
-                    .width(Length::Fixed(80.0)),
+                    .width(Length::Fixed(crate::theme::tokens::COL_KBD_KEY)),
                 text(desc).size(13).color(muted),
             ]
             .spacing(12)

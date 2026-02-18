@@ -74,7 +74,9 @@ pub(super) fn context_menu_overlay<'a>(
             .into(),
     );
 
-    let menu_column = column(items).spacing(2).width(180);
+    let menu_column = column(items)
+        .spacing(2)
+        .width(crate::theme::tokens::CONTEXT_MENU_WIDTH);
 
     let menu_widget = mouse_area(
         container(menu_column)

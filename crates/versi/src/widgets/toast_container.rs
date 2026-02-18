@@ -81,6 +81,6 @@ fn toast_view(toast: &Toast) -> Element<'_, Message> {
             snap: false,
         })
         .padding([12, 16])
-        .max_width(400)
+        .max_width(crate::theme::tokens::TOAST_MAX_WIDTH)
         .into()
 }

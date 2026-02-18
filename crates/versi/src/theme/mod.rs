@@ -14,6 +14,23 @@ pub mod tokens {
     pub const DANGER: iced::Color = iced::Color::from_rgb(1.0, 69.0 / 255.0, 58.0 / 255.0);
     pub const EOL_ORANGE: iced::Color = iced::Color::from_rgb(1.0, 149.0 / 255.0, 0.0);
 
+    pub const COL_VERSION: f32 = 120.0;
+    pub const COL_SHELL_NAME: f32 = 100.0;
+    pub const COL_DATE: f32 = 80.0;
+    pub const COL_KBD_KEY: f32 = 80.0;
+    pub const COL_META_LABEL: f32 = 64.0;
+
+    pub const CONTEXT_MENU_WIDTH: f32 = 180.0;
+    pub const TOAST_MAX_WIDTH: f32 = 400.0;
+    pub const MODAL_MAX_WIDTH: f32 = 480.0;
+    pub const ONBOARDING_MAX_WIDTH: f32 = 600.0;
+
+    pub const INSET_RIGHT: f32 = 24.0;
+    pub const SCROLLBAR_GUTTER: f32 = 32.0;
+    pub const MODAL_PADDING: f32 = 28.0;
+    pub const ONBOARDING_PADDING: f32 = 48.0;
+    pub const GROUP_INDENT: f32 = 24.0;
+
     pub fn card_bg(is_dark: bool) -> iced::Color {
         if is_dark {
             iced::Color::from_rgba8(44, 44, 46, 0.72)

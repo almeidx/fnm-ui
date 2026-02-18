@@ -44,7 +44,7 @@ pub fn view<'a>(
         &ctx,
     );
 
-    let right_inset = iced::Padding::new(0.0).right(24.0);
+    let right_inset = iced::Padding::new(0.0).right(crate::theme::tokens::INSET_RIGHT);
     let mut content_column = column![
         container(header).padding(right_inset),
         container(search_bar).padding(right_inset),

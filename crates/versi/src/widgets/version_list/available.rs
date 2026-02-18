@@ -201,8 +201,8 @@ pub(super) fn available_version_row<'a>(
     let row_content = row![
         container(text(version_label.clone()).size(14))
             .padding([2, 4])
-            .width(Length::Fixed(120.0)),
-        container(date_text).width(Length::Fixed(80.0)),
+            .width(Length::Fixed(crate::theme::tokens::COL_VERSION)),
+        container(date_text).width(Length::Fixed(crate::theme::tokens::COL_DATE)),
         badges,
         Space::new().width(Length::Fill),
         action_button,

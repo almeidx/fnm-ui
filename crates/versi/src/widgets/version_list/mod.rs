@@ -157,7 +157,7 @@ pub fn view<'a>(
     scrollable(
         column(content_items)
             .spacing(12)
-            .padding(iced::Padding::new(0.0).right(32.0)),
+            .padding(iced::Padding::new(0.0).right(crate::theme::tokens::SCROLLBAR_GUTTER)),
     )
     .height(Length::Fill)
     .into()

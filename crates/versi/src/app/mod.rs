@@ -161,8 +161,12 @@ impl Versi {
                 };
 
                 if let Some(tabs) = tab_row {
-                    let tabs_container = container(tabs)
-                        .padding(iced::Padding::new(0.0).top(12.0).left(24.0).right(24.0));
+                    let tabs_container = container(tabs).padding(
+                        iced::Padding::new(0.0)
+                            .top(12.0)
+                            .left(crate::theme::tokens::INSET_RIGHT)
+                            .right(crate::theme::tokens::INSET_RIGHT),
+                    );
                     column![tabs_container, inner].spacing(0).into()
                 } else {
                     inner

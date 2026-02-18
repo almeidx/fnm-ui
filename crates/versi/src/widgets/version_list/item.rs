@@ -35,7 +35,7 @@ pub(super) fn version_item_view<'a>(
     let row_content = row![
         container(text(version_str.clone()).size(14))
             .padding([2, 4])
-            .width(Length::Fixed(120.0)),
+            .width(Length::Fixed(crate::theme::tokens::COL_VERSION)),
     ]
     .spacing(8)
     .align_y(Alignment::Center);
