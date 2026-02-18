@@ -1,5 +1,7 @@
-use async_trait::async_trait;
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use async_trait::async_trait;
 
 use crate::error::BackendError;
 use crate::types::{InstalledVersion, NodeVersion, RemoteVersion};
@@ -34,12 +36,12 @@ pub trait BackendProvider: Send + Sync {
         current_version: &str,
         detection: &BackendDetection,
     ) -> Result<Option<BackendUpdate>, BackendError>;
-    fn create_manager(&self, detection: &BackendDetection) -> Box<dyn VersionManager>;
+    fn create_manager(&self, detection: &BackendDetection) -> Arc<dyn VersionManager>;
     fn create_manager_for_wsl(
         &self,
         distro: String,
         backend_path: String,
-    ) -> Box<dyn VersionManager>;
+    ) -> Arc<dyn VersionManager>;
 
     fn wsl_search_paths(&self) -> Vec<&'static str> {
         vec![]
@@ -74,7 +76,7 @@ pub struct ShellInitOptions {
 }
 
 #[async_trait]
-pub trait VersionManager: Send + Sync + VersionManagerClone {
+pub trait VersionManager: Send + Sync {
     fn name(&self) -> &'static str;
 
     fn capabilities(&self) -> ManagerCapabilities;
@@ -110,31 +112,6 @@ pub trait VersionManager: Send + Sync + VersionManagerClone {
     fn shell_init_command(&self, shell: &str, options: &ShellInitOptions) -> Option<String>;
 }
 
-pub trait VersionManagerClone: Send + Sync {
-    fn clone_box(&self) -> Box<dyn VersionManager>;
-}
-
-impl<T> VersionManagerClone for T
-where
-    T: 'static + VersionManager + Clone,
-{
-    fn clone_box(&self) -> Box<dyn VersionManager> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn VersionManager> {
-    fn clone(&self) -> Box<dyn VersionManager> {
-        self.clone_box()
-    }
-}
-
-impl<T: VersionManager + Clone + 'static> From<T> for Box<dyn VersionManager> {
-    fn from(manager: T) -> Self {
-        Box::new(manager)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -143,7 +120,6 @@ mod tests {
 
     use super::*;
 
-    #[derive(Clone)]
     struct MockManager {
         info: BackendInfo,
         remote: Vec<RemoteVersion>,
@@ -251,9 +227,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn boxed_clone_preserves_manager_behavior_and_info() {
-        let boxed: Box<dyn VersionManager> = MockManager::new(vec![remote("v20.1.0", None)]).into();
-        let cloned = boxed.clone();
+    async fn arc_clone_preserves_manager_behavior_and_info() {
+        let arc: Arc<dyn VersionManager> =
+            Arc::new(MockManager::new(vec![remote("v20.1.0", None)]));
+        let cloned = arc.clone();
 
         assert_eq!(cloned.name(), "mock");
         assert_eq!(

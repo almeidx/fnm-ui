@@ -83,7 +83,7 @@ impl Versi {
         &mut self,
         result: &InitResult,
         active_backend_name: BackendKind,
-    ) -> (PathBuf, Option<PathBuf>, Box<dyn VersionManager>) {
+    ) -> (PathBuf, Option<PathBuf>, Arc<dyn VersionManager>) {
         if let Some(provider) = self.providers.get(&active_backend_name) {
             self.provider = provider.clone();
         }
@@ -515,7 +515,7 @@ pub(super) fn create_backend_for_environment(
     detected_path: &Path,
     detected_dir: Option<&PathBuf>,
     provider: &Arc<dyn BackendProvider>,
-) -> Box<dyn VersionManager> {
+) -> Arc<dyn VersionManager> {
     match env_id {
         EnvironmentId::Native => {
             let detection = BackendDetection {

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 
 use versi_backend::{
@@ -62,7 +64,7 @@ impl BackendProvider for FnmProvider {
         check_for_fnm_update(client, current_version).await
     }
 
-    fn create_manager(&self, detection: &BackendDetection) -> Box<dyn VersionManager> {
+    fn create_manager(&self, detection: &BackendDetection) -> Arc<dyn VersionManager> {
         let path = detection
             .path
             .clone()
@@ -74,15 +76,15 @@ impl BackendProvider for FnmProvider {
         } else {
             backend
         };
-        Box::new(backend)
+        Arc::new(backend)
     }
 
     fn create_manager_for_wsl(
         &self,
         distro: String,
         backend_path: String,
-    ) -> Box<dyn VersionManager> {
-        Box::new(FnmBackend::with_wsl(distro, backend_path))
+    ) -> Arc<dyn VersionManager> {
+        Arc::new(FnmBackend::with_wsl(distro, backend_path))
     }
 
     fn wsl_search_paths(&self) -> Vec<&'static str> {

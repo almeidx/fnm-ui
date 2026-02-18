@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::time::Instant;
 
 use chrono::{DateTime, Utc};
@@ -31,7 +32,7 @@ pub struct MainState {
     pub toasts: Vec<Toast>,
     pub modal: Option<Modal>,
     pub search_query: String,
-    pub backend: Box<dyn VersionManager>,
+    pub backend: Arc<dyn VersionManager>,
     pub app_update: Option<AppUpdate>,
     pub app_update_state: AppUpdateState,
     pub backend_update: Option<BackendUpdate>,
@@ -88,7 +89,7 @@ impl std::fmt::Debug for MainState {
 
 impl MainState {
     pub fn new_with_environments(
-        backend: Box<dyn VersionManager>,
+        backend: Arc<dyn VersionManager>,
         environments: Vec<EnvironmentState>,
         backend_name: BackendKind,
     ) -> Self {

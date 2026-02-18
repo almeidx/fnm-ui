@@ -1,5 +1,7 @@
-use async_trait::async_trait;
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use async_trait::async_trait;
 
 use versi_backend::{
     BackendDetection, BackendError, BackendProvider, BackendUpdate, VersionManager,
@@ -77,7 +79,7 @@ impl BackendProvider for NvmProvider {
         check_for_nvm_update(client, current_version, &variant).await
     }
 
-    fn create_manager(&self, detection: &BackendDetection) -> Box<dyn VersionManager> {
+    fn create_manager(&self, detection: &BackendDetection) -> Arc<dyn VersionManager> {
         let variant = variant_from_detection(detection);
 
         let nvm_detection = crate::detection::NvmDetection {
@@ -103,14 +105,14 @@ impl BackendProvider for NvmProvider {
 
         let client = NvmClient { environment };
 
-        Box::new(NvmBackend::new(client, detection.version.clone()))
+        Arc::new(NvmBackend::new(client, detection.version.clone()))
     }
 
     fn create_manager_for_wsl(
         &self,
         distro: String,
         backend_path: String,
-    ) -> Box<dyn VersionManager> {
+    ) -> Arc<dyn VersionManager> {
         let nvm_dir = if backend_path.ends_with("nvm.sh") {
             backend_path
                 .strip_suffix("/nvm.sh")
@@ -121,7 +123,7 @@ impl BackendProvider for NvmProvider {
         };
 
         let client = NvmClient::wsl(distro, nvm_dir);
-        Box::new(NvmBackend::new(client, None))
+        Arc::new(NvmBackend::new(client, None))
     }
 
     fn wsl_search_paths(&self) -> Vec<&'static str> {
