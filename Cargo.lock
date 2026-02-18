@@ -5438,6 +5438,7 @@ dependencies = [
  "serde",
  "tokio",
  "versi-backend",
+ "versi-core",
  "versi-platform",
  "which",
 ]

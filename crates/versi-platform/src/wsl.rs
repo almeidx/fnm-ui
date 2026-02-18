@@ -215,7 +215,13 @@ fn parse_wsl_list(output: &str, running_distros: &[String]) -> Vec<WslDistro> {
             let parts: Vec<&str> = line.split_whitespace().collect();
             let name = parts.first()?;
             let is_running = running_distros.iter().any(|r| r == name);
-            let version = parts.get(2).and_then(|v| v.parse().ok()).unwrap_or(2);
+            let version = match parts.get(2) {
+                Some(v) => v.parse().unwrap_or_else(|e| {
+                    debug!("Failed to parse WSL version for {name:?}: {e}, defaulting to 2");
+                    2
+                }),
+                None => 2,
+            };
             Some(WslDistro {
                 name: (*name).to_string(),
                 is_default,

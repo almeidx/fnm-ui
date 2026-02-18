@@ -1,3 +1,4 @@
+use log::debug;
 use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
 
 pub fn parse_unix_installed(output: &str) -> Vec<InstalledVersion> {
@@ -54,15 +55,18 @@ pub fn parse_unix_installed(output: &str) -> Vec<InstalledVersion> {
             continue;
         }
 
-        if let Ok(version) = version_str.parse::<NodeVersion>() {
-            let is_default = default_version.as_ref() == Some(&version);
-            versions.push(InstalledVersion {
-                version,
-                is_default,
-                lts_codename: None,
-                install_date: None,
-                disk_size: None,
-            });
+        match version_str.parse::<NodeVersion>() {
+            Ok(version) => {
+                let is_default = default_version.as_ref() == Some(&version);
+                versions.push(InstalledVersion {
+                    version,
+                    is_default,
+                    lts_codename: None,
+                    install_date: None,
+                    disk_size: None,
+                });
+            }
+            Err(e) => debug!("Skipping unparseable installed version {version_str:?}: {e}"),
         }
     }
 
@@ -92,14 +96,17 @@ pub fn parse_windows_installed(output: &str) -> Vec<InstalledVersion> {
             continue;
         }
 
-        if let Ok(version) = version_str.parse::<NodeVersion>() {
-            versions.push(InstalledVersion {
-                version,
-                is_default: is_default || is_current,
-                lts_codename: None,
-                install_date: None,
-                disk_size: None,
-            });
+        match version_str.parse::<NodeVersion>() {
+            Ok(version) => {
+                versions.push(InstalledVersion {
+                    version,
+                    is_default: is_default || is_current,
+                    lts_codename: None,
+                    install_date: None,
+                    disk_size: None,
+                });
+            }
+            Err(e) => debug!("Skipping unparseable installed version {version_str:?}: {e}"),
         }
     }
 
@@ -136,12 +143,15 @@ pub fn parse_unix_remote(output: &str) -> Vec<RemoteVersion> {
 
         let is_latest = rest.contains("Latest LTS");
 
-        if let Ok(version) = version_str.parse::<NodeVersion>() {
-            versions.push(RemoteVersion {
-                version,
-                lts_codename,
-                is_latest,
-            });
+        match version_str.parse::<NodeVersion>() {
+            Ok(version) => {
+                versions.push(RemoteVersion {
+                    version,
+                    lts_codename,
+                    is_latest,
+                });
+            }
+            Err(e) => debug!("Skipping unparseable remote version {version_str:?}: {e}"),
         }
     }
 
