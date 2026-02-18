@@ -213,29 +213,16 @@ fn parse_wsl_list(output: &str, running_distros: &[String]) -> Vec<WslDistro> {
             let line = line.trim_start_matches('*').trim();
 
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 3 {
-                let name = parts[0].to_string();
-                let is_running = running_distros.iter().any(|r| r == &name);
-                Some(WslDistro {
-                    name,
-                    is_default,
-                    version: parts[2].parse().unwrap_or(2),
-                    backend_path: None,
-                    is_running,
-                })
-            } else if !parts.is_empty() {
-                let name = parts[0].to_string();
-                let is_running = running_distros.iter().any(|r| r == &name);
-                Some(WslDistro {
-                    name,
-                    is_default,
-                    version: 2,
-                    backend_path: None,
-                    is_running,
-                })
-            } else {
-                None
-            }
+            let name = parts.first()?;
+            let is_running = running_distros.iter().any(|r| r == name);
+            let version = parts.get(2).and_then(|v| v.parse().ok()).unwrap_or(2);
+            Some(WslDistro {
+                name: (*name).to_string(),
+                is_default,
+                version,
+                backend_path: None,
+                is_running,
+            })
         })
         .collect()
 }
