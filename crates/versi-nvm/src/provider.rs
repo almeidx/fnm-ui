@@ -52,14 +52,14 @@ impl BackendProvider for NvmProvider {
 
     async fn detect(&self) -> BackendDetection {
         let detection = detect_nvm().await;
-        let path = detection.nvm_dir.clone().or(detection.nvm_exe.clone());
+        let path = detection.nvm_dir.clone().or(detection.nvm_exe);
 
         BackendDetection {
             found: detection.found,
-            path,
-            version: detection.version,
             in_path: detection.found,
+            version: detection.version,
             data_dir: detection.nvm_dir,
+            path,
         }
     }
 
@@ -79,31 +79,31 @@ impl BackendProvider for NvmProvider {
 
     fn create_manager(&self, detection: &BackendDetection) -> Arc<dyn VersionManager> {
         let variant = variant_from_detection(detection);
+        let data_dir = detection.data_dir.clone();
+        let version = detection.version.clone();
 
         let nvm_detection = crate::detection::NvmDetection {
             found: detection.found,
-            nvm_dir: detection.data_dir.clone(),
+            nvm_dir: data_dir.clone(),
             nvm_exe: if variant == NvmVariant::Windows {
                 detection.path.clone()
             } else {
                 None
             },
-            version: detection.version.clone(),
+            version: version.clone(),
             variant,
         };
 
         let environment =
             detect_nvm_environment(&nvm_detection).unwrap_or_else(|| NvmEnvironment::Unix {
-                nvm_dir: detection
-                    .data_dir
-                    .clone()
+                nvm_dir: data_dir
                     .or_else(|| detection.path.clone())
                     .unwrap_or_else(|| PathBuf::from("~/.nvm")),
             });
 
         let client = NvmClient { environment };
 
-        Arc::new(NvmBackend::new(client, detection.version.clone()))
+        Arc::new(NvmBackend::new(client, version))
     }
 
     fn create_manager_for_wsl(
