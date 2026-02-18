@@ -55,6 +55,19 @@ pub(super) fn header_view(state: &MainState) -> Element<'_, Message> {
     .into()
 }
 
+fn badge_btn(label: &str) -> iced::widget::Button<'static, Message> {
+    button(container(text(label.to_string()).size(11)).padding([2, 8]))
+        .style(styles::app_update_button)
+        .padding(0)
+}
+
+fn external_link_btn() -> iced::widget::Button<'static, Message> {
+    button(container(icon::arrow_up_right(11.0)).padding([2, 4]))
+        .on_press(Message::OpenAppUpdate)
+        .style(styles::app_update_button)
+        .padding(0)
+}
+
 fn app_update_badge<'a>(
     update: &versi_core::AppUpdate,
     update_state: &AppUpdateState,
@@ -63,77 +76,42 @@ fn app_update_badge<'a>(
 
     match update_state {
         AppUpdateState::Idle => {
-            let main_btn = button(
-                container(
-                    row![text(format!("v{} available — Update", update.latest_version)).size(11),]
-                        .spacing(2)
-                        .align_y(Alignment::Center),
-                )
-                .padding([2, 8]),
-            )
-            .style(styles::app_update_button)
-            .padding(0);
-
+            let label = format!("v{} available — Update", update.latest_version);
             let main_btn = if update.download_url.is_some() {
-                main_btn.on_press(Message::StartAppUpdate)
+                badge_btn(&label).on_press(Message::StartAppUpdate)
             } else {
-                main_btn.on_press(Message::OpenAppUpdate)
+                badge_btn(&label).on_press(Message::OpenAppUpdate)
             };
-
             badge_row = badge_row.push(main_btn);
 
             if update.download_url.is_some() {
-                badge_row = badge_row.push(
-                    button(container(icon::arrow_up_right(11.0)).padding([2, 4]))
-                        .on_press(Message::OpenAppUpdate)
-                        .style(styles::app_update_button)
-                        .padding(0),
-                );
+                badge_row = badge_row.push(external_link_btn());
             }
         }
         AppUpdateState::Downloading { downloaded, total } => {
             let label = if *total > 0 {
-                let pct = downloaded.saturating_mul(100) / *total;
-                let pct = pct.min(100);
+                let pct = (downloaded.saturating_mul(100) / *total).min(100);
                 format!("Updating {pct}%")
             } else {
                 "Updating...".to_string()
             };
-            badge_row = badge_row.push(
-                button(container(text(label).size(11)).padding([2, 8]))
-                    .style(styles::app_update_button)
-                    .padding(0),
-            );
+            badge_row = badge_row.push(badge_btn(&label));
         }
         AppUpdateState::Extracting => {
-            badge_row = badge_row.push(
-                button(container(text("Extracting...").size(11)).padding([2, 8]))
-                    .style(styles::app_update_button)
-                    .padding(0),
-            );
+            badge_row = badge_row.push(badge_btn("Extracting..."));
         }
         AppUpdateState::Applying => {
-            badge_row = badge_row.push(
-                button(container(text("Applying...").size(11)).padding([2, 8]))
-                    .style(styles::app_update_button)
-                    .padding(0),
-            );
+            badge_row = badge_row.push(badge_btn("Applying..."));
         }
         AppUpdateState::RestartRequired => {
-            badge_row = badge_row.push(
-                button(container(text("Restart to update").size(11)).padding([2, 8]))
-                    .on_press(Message::RestartApp)
-                    .style(styles::app_update_button)
-                    .padding(0),
-            );
+            badge_row =
+                badge_row.push(badge_btn("Restart to update").on_press(Message::RestartApp));
         }
         AppUpdateState::Failed(err) => {
+            let retry_btn = badge_btn("Update failed — Retry").on_press(Message::StartAppUpdate);
             badge_row = badge_row.push(
                 tooltip(
-                    button(container(text("Update failed — Retry").size(11)).padding([2, 8]))
-                        .on_press(Message::StartAppUpdate)
-                        .style(styles::app_update_button)
-                        .padding(0),
+                    retry_btn,
                     container(text(err.to_string()).size(12))
                         .padding([4, 8])
                         .style(styles::tooltip_container),
@@ -141,13 +119,7 @@ fn app_update_badge<'a>(
                 )
                 .gap(4.0),
             );
-
-            badge_row = badge_row.push(
-                button(container(icon::arrow_up_right(11.0)).padding([2, 4]))
-                    .on_press(Message::OpenAppUpdate)
-                    .style(styles::app_update_button)
-                    .padding(0),
-            );
+            badge_row = badge_row.push(external_link_btn());
         }
     }
 
