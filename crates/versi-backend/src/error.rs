@@ -20,8 +20,11 @@ pub enum BackendError {
     #[error("Version not found: {0}")]
     VersionNotFound(String),
 
-    #[error("IO error: {0}")]
-    IoError(String),
+    #[error("IO error ({kind}): {message}")]
+    IoError {
+        kind: std::io::ErrorKind,
+        message: String,
+    },
 
     #[error("Operation not supported by this backend: {0}")]
     Unsupported(String),
@@ -35,7 +38,10 @@ pub enum BackendError {
 
 impl From<std::io::Error> for BackendError {
     fn from(err: std::io::Error) -> Self {
-        BackendError::IoError(err.to_string())
+        BackendError::IoError {
+            kind: err.kind(),
+            message: err.to_string(),
+        }
     }
 }
 
@@ -46,7 +52,9 @@ mod tests {
     #[test]
     fn io_error_conversion_maps_to_io_variant() {
         let mapped = BackendError::from(std::io::Error::other("permission denied"));
-        assert!(matches!(mapped, BackendError::IoError(msg) if msg.contains("permission denied")));
+        assert!(
+            matches!(mapped, BackendError::IoError { kind, ref message } if kind == std::io::ErrorKind::Other && message.contains("permission denied"))
+        );
     }
 
     #[test]
