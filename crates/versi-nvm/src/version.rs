@@ -186,29 +186,6 @@ pub fn parse_windows_remote(output: &str) -> Vec<RemoteVersion> {
     versions
 }
 
-fn strip_ansi(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\x1b' {
-            if chars.next() == Some('[') {
-                for c in chars.by_ref() {
-                    if c.is_ascii_alphabetic() {
-                        break;
-                    }
-                }
-            }
-        } else {
-            result.push(c);
-        }
-    }
-    result
-}
-
-pub fn clean_output(output: &str) -> String {
-    strip_ansi(output)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,20 +254,6 @@ mod tests {
         assert!(!versions[0].is_latest);
         assert_eq!(versions[1].lts_codename.as_deref(), Some("Hydrogen"));
         assert!(versions[1].is_latest);
-    }
-
-    #[test]
-    fn test_clean_output_strips_ansi() {
-        let input = "\x1b[32m->     v20.11.0\x1b[0m";
-        let cleaned = clean_output(input);
-        assert_eq!(cleaned, "->     v20.11.0");
-    }
-
-    #[test]
-    fn test_clean_output_no_ansi() {
-        let input = "v20.11.0";
-        let cleaned = clean_output(input);
-        assert_eq!(cleaned, "v20.11.0");
     }
 
     #[test]

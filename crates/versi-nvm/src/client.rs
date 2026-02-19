@@ -2,8 +2,7 @@ use std::path::PathBuf;
 use tokio::process::Command;
 
 use crate::version::{
-    clean_output, parse_unix_installed, parse_unix_remote, parse_windows_installed,
-    parse_windows_remote,
+    parse_unix_installed, parse_unix_remote, parse_windows_installed, parse_windows_remote,
 };
 use versi_backend::{BackendError, InstalledVersion, NodeVersion, RemoteVersion};
 use versi_platform::HideWindow;
@@ -86,7 +85,7 @@ impl NvmClient {
 
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            Ok(clean_output(&stdout))
+            Ok(strip_ansi(&stdout))
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             Err(BackendError::CommandFailed { stderr })
@@ -254,6 +253,25 @@ impl NvmClient {
     }
 }
 
+fn strip_ansi(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            if chars.next() == Some('[') {
+                for c in chars.by_ref() {
+                    if c.is_ascii_alphabetic() {
+                        break;
+                    }
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -274,6 +292,18 @@ mod tests {
     fn is_windows_returns_false_for_wsl_environment() {
         let client = NvmClient::wsl("Ubuntu".to_string(), "/home/user/.nvm".to_string());
         assert!(!client.is_windows());
+    }
+
+    #[test]
+    fn strip_ansi_removes_escape_sequences() {
+        let input = "\x1b[32m->     v20.11.0\x1b[0m";
+        assert_eq!(strip_ansi(input), "->     v20.11.0");
+    }
+
+    #[test]
+    fn strip_ansi_passes_through_plain_text() {
+        let input = "v20.11.0";
+        assert_eq!(strip_ansi(input), "v20.11.0");
     }
 
     #[test]
