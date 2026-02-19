@@ -35,6 +35,10 @@ use versi_backend::BackendDetection;
 #[cfg(test)]
 use versi_platform::EnvironmentId;
 
+#[cfg(target_os = "linux")]
+const TICK_INTERVAL_FAST_MS: u64 = 100;
+const TICK_INTERVAL_DEFAULT_MS: u64 = 1000;
+
 fn should_dismiss_context_menu(message: &Message) -> bool {
     !matches!(
         message,
@@ -197,11 +201,15 @@ impl Versi {
         let tick_ms = {
             #[cfg(target_os = "linux")]
             {
-                if tray::is_tray_active() { 100 } else { 1000 }
+                if tray::is_tray_active() {
+                    TICK_INTERVAL_FAST_MS
+                } else {
+                    TICK_INTERVAL_DEFAULT_MS
+                }
             }
             #[cfg(not(target_os = "linux"))]
             {
-                1000u64
+                TICK_INTERVAL_DEFAULT_MS
             }
         };
         let tick =
