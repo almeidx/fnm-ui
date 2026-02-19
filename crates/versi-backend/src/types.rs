@@ -19,11 +19,6 @@ impl NodeVersion {
             patch,
         }
     }
-
-    #[must_use]
-    pub fn major_group(&self) -> u32 {
-        self.major
-    }
 }
 
 impl Ord for NodeVersion {
@@ -200,12 +195,6 @@ mod tests {
         let v1: NodeVersion = "v20.11.0".parse().unwrap();
         let v2: NodeVersion = "v20.11.0".parse().unwrap();
         assert_eq!(v1, v2);
-    }
-
-    #[test]
-    fn test_version_major_group() {
-        let v = NodeVersion::new(20, 11, 0);
-        assert_eq!(v.major_group(), 20);
     }
 
     #[test]
