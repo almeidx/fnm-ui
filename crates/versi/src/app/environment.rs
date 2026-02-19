@@ -300,9 +300,7 @@ mod tests {
 
         app.handle_search_changed(String::new());
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.active_filters.is_empty());
         assert_eq!(state.search_query, "");
     }
@@ -314,9 +312,7 @@ mod tests {
         app.handle_search_filter_toggled(SearchFilter::Installed);
         app.handle_search_filter_toggled(SearchFilter::NotInstalled);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(!state.active_filters.contains(&SearchFilter::Installed));
         assert!(state.active_filters.contains(&SearchFilter::NotInstalled));
     }
@@ -328,9 +324,7 @@ mod tests {
         app.handle_search_filter_toggled(SearchFilter::Active);
         app.handle_search_filter_toggled(SearchFilter::Eol);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(!state.active_filters.contains(&SearchFilter::Active));
         assert!(state.active_filters.contains(&SearchFilter::Eol));
     }
@@ -355,9 +349,7 @@ mod tests {
 
         app.handle_version_group_toggled(20);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         let groups = &state.active_environment().version_groups;
         assert!(groups.iter().any(|g| g.major == 20 && g.is_expanded));
         assert!(groups.iter().any(|g| g.major == 22 && g.is_expanded));
@@ -374,9 +366,7 @@ mod tests {
         let _ = app.handle_refresh_environment();
 
         assert!(old_token.is_cancelled());
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.active_environment().load_cancel_token.is_some());
     }
 }

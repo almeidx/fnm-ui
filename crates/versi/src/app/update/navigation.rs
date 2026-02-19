@@ -206,9 +206,7 @@ mod tests {
 
         let _ = app.dispatch_navigation(Message::ShowVersionDetail("v20.11.0".to_string()));
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             state.modal,
             Some(Modal::VersionDetail { ref version }) if version == "v20.11.0"
@@ -225,9 +223,7 @@ mod tests {
 
         app.close_modal_or_return_to_versions();
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.modal.is_none());
         assert_eq!(state.view, MainViewKind::About);
     }
@@ -242,9 +238,7 @@ mod tests {
 
         app.close_modal_or_return_to_versions();
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.view, MainViewKind::Versions);
     }
 
@@ -264,9 +258,7 @@ mod tests {
         app.move_version_selection(true);
         app.move_version_selection(true);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.hovered_version.as_deref(), Some("v20.10.0"));
     }
 
@@ -276,27 +268,23 @@ mod tests {
 
         let _ = app.select_environment_by_step(false);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.active_environment_idx, 1);
     }
 
     #[test]
     fn dispatch_navigation_handles_fetch_version_metadata_message() {
         let mut app = test_app_with_two_environments();
-        let before_seq = if let AppState::Main(state) = &app.state {
-            state.available_versions.metadata_fetch.request_seq
-        } else {
-            panic!("expected main state");
-        };
+        let before_seq = app
+            .main_state()
+            .available_versions
+            .metadata_fetch
+            .request_seq;
 
         let result = app.dispatch_navigation(Message::FetchVersionMetadata);
 
         assert!(result.is_ok());
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(
             state.available_versions.metadata_fetch.request_seq,
             before_seq.wrapping_add(1)

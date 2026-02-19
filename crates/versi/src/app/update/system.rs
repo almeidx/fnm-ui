@@ -182,9 +182,7 @@ mod tests {
 
         let _ = app.dispatch_system(Message::VersionListCursorMoved(point));
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.cursor_position, point);
     }
 
@@ -202,9 +200,7 @@ mod tests {
             is_default: false,
         });
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             state.context_menu,
             Some(ref menu)
@@ -226,9 +222,7 @@ mod tests {
 
         let _ = app.dispatch_system(Message::CloseContextMenu);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.context_menu.is_none());
     }
 
@@ -238,9 +232,7 @@ mod tests {
 
         let _ = app.dispatch_system(Message::ShowKeyboardShortcuts);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(state.modal, Some(Modal::KeyboardShortcuts)));
     }
 }

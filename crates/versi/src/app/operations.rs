@@ -341,9 +341,7 @@ mod tests {
 
         app.handle_close_modal();
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.modal.is_none());
     }
 
@@ -356,9 +354,7 @@ mod tests {
 
         let _ = app.handle_start_install("v20.11.0".to_string());
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.operation_queue.active_installs.len(), 1);
         assert!(state.operation_queue.pending.is_empty());
     }
@@ -376,9 +372,7 @@ mod tests {
 
         let _ = app.handle_start_install("v22.1.0".to_string());
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.operation_queue.pending.len(), 1);
         assert!(matches!(
             state.operation_queue.pending.front(),
@@ -399,9 +393,7 @@ mod tests {
 
         let _ = app.handle_uninstall("v20.11.0".to_string());
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             state.modal,
             Some(Modal::ConfirmUninstallDefault { ref version }) if version == "v20.11.0"
@@ -420,9 +412,7 @@ mod tests {
 
         let _ = app.handle_uninstall("v20.11.0".to_string());
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             state.operation_queue.pending.front(),
             Some(Operation::Uninstall { version }) if version == "v20.11.0"
@@ -440,9 +430,7 @@ mod tests {
 
         let _ = app.handle_set_default("v22.0.0".to_string());
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             state.operation_queue.pending.front(),
             Some(Operation::SetDefault { version }) if version == "v22.0.0"

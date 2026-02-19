@@ -338,9 +338,7 @@ mod tests {
             ),
         ]);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(!state.settings_state.checking_shells);
         assert_eq!(state.settings_state.shell_statuses.len(), 5);
         assert!(matches!(

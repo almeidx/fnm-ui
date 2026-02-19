@@ -80,9 +80,7 @@ mod tests {
 
         app.dismiss_context_menu_if_needed(&Message::RefreshEnvironment);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.context_menu.is_none());
     }
 
@@ -100,9 +98,7 @@ mod tests {
             is_default: false,
         });
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.context_menu.is_some());
     }
 

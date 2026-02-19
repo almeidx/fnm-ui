@@ -55,9 +55,7 @@ fn remote_versions_fetched_updates_cache_on_success() {
         Ok(vec![remote("v22.10.0", true), remote("v22.9.0", false)]),
     );
 
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert!(!state.available_versions.loading);
     assert!(state.available_versions.remote.error.is_none());
     assert_eq!(state.available_versions.versions.len(), 2);
@@ -80,9 +78,7 @@ fn release_schedule_fetched_ignores_stale_request() {
 
     app.handle_release_schedule_fetched(2, Ok(sample_schedule()));
 
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert_eq!(
         state
             .available_versions
@@ -108,9 +104,7 @@ fn release_schedule_fetched_sets_schedule_and_clears_error() {
 
     app.handle_release_schedule_fetched(5, Ok(sample_schedule()));
 
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert!(state.available_versions.schedule.is_some());
     assert!(state.available_versions.schedule_fetch.error.is_none());
 }
@@ -126,9 +120,7 @@ fn version_metadata_fetched_ignores_stale_request() {
 
     app.handle_version_metadata_fetched(3, Ok(sample_metadata()));
 
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert_eq!(
         state
             .available_versions
@@ -157,9 +149,7 @@ fn version_metadata_fetched_stores_metadata_on_success() {
 
     app.handle_version_metadata_fetched(8, Ok(sample_metadata()));
 
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert!(state.available_versions.metadata.is_some());
     assert!(state.available_versions.metadata_fetch.error.is_none());
 }
@@ -180,9 +170,7 @@ fn version_metadata_fetched_stores_error_on_failure() {
         )),
     );
 
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert!(matches!(
         state.available_versions.metadata_fetch.error,
         Some(AppError::VersionFetchFailed {
@@ -206,9 +194,7 @@ fn app_update_checked_sets_update_on_success() {
 
     app.handle_app_update_checked(Ok(Some(update.clone())));
 
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert_eq!(
         state
             .app_update
@@ -229,9 +215,7 @@ fn backend_update_checked_sets_update_on_success() {
 
     app.handle_backend_update_checked(Ok(Some(update.clone())));
 
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert_eq!(
         state
             .backend_update
@@ -252,9 +236,7 @@ fn fetch_release_schedule_cancels_previous_token() {
     let _ = app.handle_fetch_release_schedule();
 
     assert!(old_token.is_cancelled());
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert!(
         state
             .available_versions
@@ -275,9 +257,7 @@ fn fetch_version_metadata_cancels_previous_token() {
     let _ = app.handle_fetch_version_metadata();
 
     assert!(old_token.is_cancelled());
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert!(
         state
             .available_versions
@@ -299,9 +279,7 @@ fn fetch_remote_versions_cancels_previous_token_when_loading() {
     let _ = app.handle_fetch_remote_versions();
 
     assert!(old_token.is_cancelled());
-    let AppState::Main(state) = &app.state else {
-        panic!("expected main state");
-    };
+    let state = app.main_state();
     assert!(state.available_versions.loading);
     assert!(state.available_versions.remote.cancel_token.is_some());
 }

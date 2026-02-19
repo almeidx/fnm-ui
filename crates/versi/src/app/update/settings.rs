@@ -277,9 +277,7 @@ mod tests {
 
         let _ = app.dispatch_settings(Message::NavigateToAbout);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.view, MainViewKind::About);
     }
 
@@ -292,9 +290,7 @@ mod tests {
 
         let _ = app.dispatch_settings(Message::VersionRowHovered(Some("v20.11.0".to_string())));
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.hovered_version.is_none());
     }
 
@@ -308,9 +304,7 @@ mod tests {
 
         let _ = app.dispatch_settings(Message::ToastDismiss(1));
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.toasts.len(), 1);
         assert_eq!(state.toasts[0].id, 2);
     }

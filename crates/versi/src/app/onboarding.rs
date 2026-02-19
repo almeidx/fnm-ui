@@ -284,16 +284,12 @@ mod tests {
     fn onboarding_next_from_welcome_uses_backend_count() {
         let mut multi = test_onboarding_app(2);
         let _ = multi.handle_onboarding_next();
-        let AppState::Onboarding(state) = &multi.state else {
-            panic!("expected onboarding state");
-        };
+        let state = multi.onboarding_state();
         assert_eq!(state.step, OnboardingStep::SelectBackend);
 
         let mut single = test_onboarding_app(1);
         let _ = single.handle_onboarding_next();
-        let AppState::Onboarding(state) = &single.state else {
-            panic!("expected onboarding state");
-        };
+        let state = single.onboarding_state();
         assert_eq!(state.step, OnboardingStep::InstallBackend);
     }
 
@@ -304,9 +300,7 @@ mod tests {
             state.step = OnboardingStep::InstallBackend;
         }
         multi.handle_onboarding_back();
-        let AppState::Onboarding(state) = &multi.state else {
-            panic!("expected onboarding state");
-        };
+        let state = multi.onboarding_state();
         assert_eq!(state.step, OnboardingStep::SelectBackend);
 
         let mut single = test_onboarding_app(1);
@@ -314,9 +308,7 @@ mod tests {
             state.step = OnboardingStep::InstallBackend;
         }
         single.handle_onboarding_back();
-        let AppState::Onboarding(state) = &single.state else {
-            panic!("expected onboarding state");
-        };
+        let state = single.onboarding_state();
         assert_eq!(state.step, OnboardingStep::Welcome);
     }
 
@@ -330,9 +322,7 @@ mod tests {
         }
 
         let _ = app.handle_onboarding_backend_install_result(Ok(()));
-        let AppState::Onboarding(state) = &app.state else {
-            panic!("expected onboarding state");
-        };
+        let state = app.onboarding_state();
         assert!(!state.backend_installing);
         assert_eq!(state.step, OnboardingStep::ConfigureShell);
 
@@ -343,9 +333,7 @@ mod tests {
         let _ = app.handle_onboarding_backend_install_result(Err(
             AppError::backend_install_failed("fnm", "install failed"),
         ));
-        let AppState::Onboarding(state) = &app.state else {
-            panic!("expected onboarding state");
-        };
+        let state = app.onboarding_state();
         assert!(!state.backend_installing);
         assert_eq!(
             state.install_error,
@@ -381,9 +369,7 @@ mod tests {
         }
 
         app.handle_onboarding_shell_config_result(&Ok(()));
-        let AppState::Onboarding(state) = &app.state else {
-            panic!("expected onboarding state");
-        };
+        let state = app.onboarding_state();
         assert!(state.detected_shells[0].configured);
         assert!(!state.detected_shells[0].configuring);
         assert!(state.detected_shells[0].error.is_none());
@@ -403,9 +389,7 @@ mod tests {
 
         let err = AppError::shell_config_failed("Fish", "write config", "config failed");
         app.handle_onboarding_shell_config_result(&Err(err.clone()));
-        let AppState::Onboarding(state) = &app.state else {
-            panic!("expected onboarding state");
-        };
+        let state = app.onboarding_state();
         assert_eq!(state.detected_shells[0].error, Some(err));
         assert!(!state.detected_shells[0].configured);
         assert!(!state.detected_shells[0].configuring);

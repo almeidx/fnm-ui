@@ -167,9 +167,7 @@ mod tests {
 
         let _ = app.handle_start_app_update();
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             state.app_update_state,
             AppUpdateState::Downloading {
@@ -189,9 +187,7 @@ mod tests {
 
         let _ = app.handle_start_app_update();
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(state.app_update_state, AppUpdateState::Idle));
 
         if let AppState::Main(state) = &mut app.state {
@@ -204,9 +200,7 @@ mod tests {
 
         let _ = app.handle_start_app_update();
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(state.app_update_state, AppUpdateState::Applying));
     }
 
@@ -215,9 +209,7 @@ mod tests {
         let mut app = test_app_with_two_environments();
 
         app.handle_app_update_progress(10, 100);
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             state.app_update_state,
             AppUpdateState::Downloading {
@@ -227,15 +219,11 @@ mod tests {
         ));
 
         app.handle_app_update_extracting();
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(state.app_update_state, AppUpdateState::Extracting));
 
         app.handle_app_update_applying();
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(state.app_update_state, AppUpdateState::Applying));
     }
 
@@ -244,9 +232,7 @@ mod tests {
         let mut app = test_app_with_two_environments();
         let _ = app.handle_app_update_complete(Ok(ApplyResult::RestartRequired));
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             state.app_update_state,
             AppUpdateState::RestartRequired
@@ -255,9 +241,7 @@ mod tests {
         let mut app = test_app_with_two_environments();
         let _ = app
             .handle_app_update_complete(Err(AppError::auto_update_failed("apply", "apply failed")));
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             &state.app_update_state,
             AppUpdateState::Failed(AppError::AutoUpdateFailed { phase, details })

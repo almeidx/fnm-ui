@@ -26,7 +26,7 @@ use crate::message::Message;
 use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
 use crate::state::{AppState, MainViewKind};
 #[cfg(test)]
-use crate::state::{EnvironmentState, MainState};
+use crate::state::{EnvironmentState, MainState, OnboardingState};
 use crate::theme::{dark_theme, light_theme};
 use crate::tray;
 use crate::views;
@@ -409,6 +409,30 @@ fn test_app_with_two_environments() -> Versi {
 }
 
 #[cfg(test)]
+impl Versi {
+    fn main_state(&self) -> &MainState {
+        match &self.state {
+            AppState::Main(state) => state,
+            other => panic!("expected Main state, got {other:?}"),
+        }
+    }
+
+    fn main_state_mut(&mut self) -> &mut MainState {
+        match &mut self.state {
+            AppState::Main(state) => state,
+            other => panic!("expected Main state, got {other:?}"),
+        }
+    }
+
+    fn onboarding_state(&self) -> &OnboardingState {
+        match &self.state {
+            AppState::Onboarding(state) => state,
+            other => panic!("expected Onboarding state, got {other:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use versi_backend::{InstalledVersion, NodeVersion, RemoteVersion};
     use versi_platform::EnvironmentId;
@@ -444,9 +468,7 @@ mod tests {
 
         let _ = app.handle_environment_selected(1);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.active_environment_idx, 1);
         assert_eq!(state.backend_name, BackendKind::Nvm);
         assert_eq!(app.provider.name(), BackendKind::Nvm.as_str());
@@ -461,9 +483,7 @@ mod tests {
             version: "20.11.0".to_string(),
         });
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.active_environment_idx, 1);
         assert_eq!(state.backend_name, BackendKind::Nvm);
         assert_eq!(app.provider.name(), BackendKind::Nvm.as_str());
@@ -487,9 +507,7 @@ mod tests {
             Err(AppError::environment_load_failed("backend unavailable")),
         );
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
 
         let failed_env = state
             .environments
@@ -532,9 +550,7 @@ mod tests {
             }]),
         );
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         let env = state
             .environments
             .iter()
@@ -573,9 +589,7 @@ mod tests {
             }]),
         );
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         let env = state
             .environments
             .iter()
@@ -604,9 +618,7 @@ mod tests {
             }]),
         );
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.available_versions.loading);
         assert!(state.available_versions.versions.is_empty());
     }
@@ -617,43 +629,29 @@ mod tests {
 
         let _ = app.update(Message::SearchChanged("20".to_string()));
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.search_query, "20");
     }
 
     #[test]
     fn update_routes_operation_messages() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.modal = Some(Modal::KeyboardShortcuts);
-        } else {
-            panic!("expected main state");
-        }
+        app.main_state_mut().modal = Some(Modal::KeyboardShortcuts);
 
         let _ = app.update(Message::CancelBulkOperation);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.modal.is_none());
     }
 
     #[test]
     fn update_routes_settings_messages() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.view = MainViewKind::Versions;
-        } else {
-            panic!("expected main state");
-        }
+        app.main_state_mut().view = MainViewKind::Versions;
 
         let _ = app.update(Message::NavigateToAbout);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.view, MainViewKind::About);
     }
 
@@ -664,9 +662,7 @@ mod tests {
 
         let _ = app.update(Message::VersionListCursorMoved(point));
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert_eq!(state.cursor_position, point);
     }
 }

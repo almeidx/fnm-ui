@@ -87,9 +87,7 @@ mod tests {
 
         let _ = app.dispatch_operations(Message::CancelBulkOperation);
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(state.modal.is_none());
     }
 
@@ -106,9 +104,7 @@ mod tests {
 
         let _ = app.dispatch_operations(Message::RequestBulkUninstallMajor { major: 20 });
 
-        let AppState::Main(state) = &app.state else {
-            panic!("expected main state");
-        };
+        let state = app.main_state();
         assert!(matches!(
             state.modal,
             Some(Modal::ConfirmBulkUninstallMajor { major: 20, ref versions })
