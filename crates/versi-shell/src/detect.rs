@@ -36,16 +36,29 @@ impl ShellType {
 
     #[must_use]
     pub fn config_files(&self) -> Vec<PathBuf> {
-        let home = dirs::home_dir().unwrap_or_default();
-
         match self {
-            ShellType::Bash => vec![
-                home.join(".bashrc"),
-                home.join(".bash_profile"),
-                home.join(".profile"),
-            ],
-            ShellType::Zsh => vec![home.join(".zshrc"), home.join(".zprofile")],
-            ShellType::Fish => vec![home.join(".config/fish/config.fish")],
+            ShellType::Bash => {
+                let Some(home) = dirs::home_dir() else {
+                    return vec![];
+                };
+                vec![
+                    home.join(".bashrc"),
+                    home.join(".bash_profile"),
+                    home.join(".profile"),
+                ]
+            }
+            ShellType::Zsh => {
+                let Some(home) = dirs::home_dir() else {
+                    return vec![];
+                };
+                vec![home.join(".zshrc"), home.join(".zprofile")]
+            }
+            ShellType::Fish => {
+                let Some(home) = dirs::home_dir() else {
+                    return vec![];
+                };
+                vec![home.join(".config/fish/config.fish")]
+            }
             ShellType::PowerShell => {
                 #[cfg(target_os = "windows")]
                 {
@@ -60,6 +73,9 @@ impl ShellType {
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
+                    let Some(home) = dirs::home_dir() else {
+                        return vec![];
+                    };
                     vec![home.join(".config/powershell/Microsoft.PowerShell_profile.ps1")]
                 }
             }
