@@ -7,14 +7,11 @@ pub fn parse_unix_installed(output: &str) -> Vec<InstalledVersion> {
     for line in output.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with("default")
-            && let Some(arrow_pos) = trimmed.find("-> ")
+            && let Some((_, after_arrow)) = trimmed.split_once("-> ")
         {
-            let resolved = if let Some(paren_arrow) = trimmed.find("(-> ") {
-                let after = &trimmed[paren_arrow + 4..];
-                after.trim_end_matches(')')
-            } else {
-                &trimmed[arrow_pos + 3..]
-            };
+            let resolved = after_arrow
+                .rsplit_once("(-> ")
+                .map_or(after_arrow, |(_, inner)| inner.trim_end_matches(')'));
             let version_str = resolved
                 .trim()
                 .trim_start_matches('v')
@@ -131,15 +128,10 @@ pub fn parse_unix_remote(output: &str) -> Vec<RemoteVersion> {
             continue;
         }
 
-        let lts_codename = if let Some(start) = rest.find("LTS: ") {
-            let after_lts = &rest[start + 5..];
-            after_lts
-                .split(')')
-                .next()
-                .map(std::string::ToString::to_string)
-        } else {
-            None
-        };
+        let lts_codename = rest
+            .split_once("LTS: ")
+            .and_then(|(_, after)| after.split(')').next())
+            .map(str::to_string);
 
         let is_latest = rest.contains("Latest LTS");
 
