@@ -124,8 +124,8 @@ impl BackendProvider for NvmProvider {
         Arc::new(NvmBackend::new(client, None))
     }
 
-    fn wsl_search_paths(&self) -> Vec<&'static str> {
-        vec!["$HOME/.nvm/nvm.sh"]
+    fn wsl_search_paths(&self) -> &'static [&'static str] {
+        &["$HOME/.nvm/nvm.sh"]
     }
 }
 

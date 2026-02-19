@@ -43,8 +43,8 @@ pub trait BackendProvider: Send + Sync {
         backend_path: String,
     ) -> Arc<dyn VersionManager>;
 
-    fn wsl_search_paths(&self) -> Vec<&'static str> {
-        vec![]
+    fn wsl_search_paths(&self) -> &'static [&'static str] {
+        &[]
     }
 }
 

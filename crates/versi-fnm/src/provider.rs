@@ -85,8 +85,8 @@ impl BackendProvider for FnmProvider {
         Arc::new(FnmBackend::with_wsl(distro, backend_path))
     }
 
-    fn wsl_search_paths(&self) -> Vec<&'static str> {
-        vec![
+    fn wsl_search_paths(&self) -> &'static [&'static str] {
+        &[
             "$HOME/.local/share/fnm/fnm",
             "$HOME/.cargo/bin/fnm",
             "/usr/local/bin/fnm",
