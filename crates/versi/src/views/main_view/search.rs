@@ -22,34 +22,23 @@ fn should_show_clear_button(query: &str) -> bool {
     !query.is_empty()
 }
 
-fn filter_chip_states(active_filters: &HashSet<SearchFilter>) -> [FilterChipState; 5] {
-    [
-        FilterChipState {
-            label: "LTS",
-            filter: SearchFilter::Lts,
-            active: active_filters.contains(&SearchFilter::Lts),
-        },
-        FilterChipState {
-            label: "Installed",
-            filter: SearchFilter::Installed,
-            active: active_filters.contains(&SearchFilter::Installed),
-        },
-        FilterChipState {
-            label: "Not installed",
-            filter: SearchFilter::NotInstalled,
-            active: active_filters.contains(&SearchFilter::NotInstalled),
-        },
-        FilterChipState {
-            label: "EOL",
-            filter: SearchFilter::Eol,
-            active: active_filters.contains(&SearchFilter::Eol),
-        },
-        FilterChipState {
-            label: "Active",
-            filter: SearchFilter::Active,
-            active: active_filters.contains(&SearchFilter::Active),
-        },
-    ]
+const FILTER_CHIPS: &[(&str, SearchFilter)] = &[
+    ("LTS", SearchFilter::Lts),
+    ("Installed", SearchFilter::Installed),
+    ("Not installed", SearchFilter::NotInstalled),
+    ("EOL", SearchFilter::Eol),
+    ("Active", SearchFilter::Active),
+];
+
+fn filter_chip_states(active_filters: &HashSet<SearchFilter>) -> Vec<FilterChipState> {
+    FILTER_CHIPS
+        .iter()
+        .map(|&(label, filter)| FilterChipState {
+            label,
+            filter,
+            active: active_filters.contains(&filter),
+        })
+        .collect()
 }
 
 pub(super) fn search_bar_view(state: &MainState) -> Element<'_, Message> {
@@ -104,15 +93,11 @@ fn chip_button(label: &str, filter: SearchFilter, active: bool) -> Element<'_, M
 
 pub(super) fn filter_chips_view(active_filters: &HashSet<SearchFilter>) -> Element<'_, Message> {
     let chips = filter_chip_states(active_filters);
-    row![
-        chip_button(chips[0].label, chips[0].filter, chips[0].active),
-        chip_button(chips[1].label, chips[1].filter, chips[1].active),
-        chip_button(chips[2].label, chips[2].filter, chips[2].active),
-        chip_button(chips[3].label, chips[3].filter, chips[3].active),
-        chip_button(chips[4].label, chips[4].filter, chips[4].active),
-    ]
-    .spacing(8)
-    .into()
+    let mut r = row![].spacing(8);
+    for chip in &chips {
+        r = r.push(chip_button(chip.label, chip.filter, chip.active));
+    }
+    r.into()
 }
 
 #[cfg(test)]
