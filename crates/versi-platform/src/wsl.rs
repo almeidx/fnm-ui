@@ -352,12 +352,12 @@ mod tests {
 
 pub async fn execute_in_wsl(distro: &str, command: &str) -> Result<String, WslError> {
     debug!(
-        "Executing in WSL {}: wsl.exe -d {} -- bash -c \"{}\"",
+        "Executing in WSL {}: wsl.exe -d {} -- sh -c \"{}\"",
         distro, distro, command
     );
 
     let output = tokio::process::Command::new("wsl.exe")
-        .args(["-d", distro, "--", "bash", "-c", command])
+        .args(["-d", distro, "--", "sh", "-c", command])
         .hide_window()
         .output()
         .await?;
