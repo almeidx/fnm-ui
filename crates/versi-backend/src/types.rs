@@ -110,7 +110,7 @@ pub struct VersionGroup {
 
 impl VersionGroup {
     #[must_use]
-    pub fn from_versions(versions: Vec<InstalledVersion>) -> Vec<Self> {
+    pub fn from_versions(versions: &[InstalledVersion]) -> Vec<Self> {
         use std::collections::BTreeMap;
 
         let mut groups: BTreeMap<u32, Vec<InstalledVersion>> = BTreeMap::new();
@@ -119,7 +119,7 @@ impl VersionGroup {
             groups
                 .entry(version.version.major)
                 .or_default()
-                .push(version);
+                .push(version.clone());
         }
 
         groups
@@ -241,7 +241,7 @@ mod tests {
             },
         ];
 
-        let groups = VersionGroup::from_versions(versions);
+        let groups = VersionGroup::from_versions(&versions);
 
         assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].major, 20);
@@ -269,7 +269,7 @@ mod tests {
             },
         ];
 
-        let groups = VersionGroup::from_versions(versions);
+        let groups = VersionGroup::from_versions(&versions);
 
         assert_eq!(groups[0].versions[0].version.minor, 11);
         assert_eq!(groups[0].versions[1].version.minor, 10);
@@ -278,7 +278,7 @@ mod tests {
     #[test]
     fn test_version_group_empty() {
         let versions: Vec<InstalledVersion> = vec![];
-        let groups = VersionGroup::from_versions(versions);
+        let groups = VersionGroup::from_versions(&versions);
         assert!(groups.is_empty());
     }
 
@@ -292,7 +292,7 @@ mod tests {
             disk_size: None,
         }];
 
-        let groups = VersionGroup::from_versions(versions);
+        let groups = VersionGroup::from_versions(&versions);
         assert!(groups[0].is_expanded);
     }
 }

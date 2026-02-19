@@ -399,7 +399,7 @@ mod tests {
 
     #[test]
     fn update_available_for_group_returns_newer_version_only() {
-        let group = VersionGroup::from_versions(vec![installed("v22.1.0"), installed("v22.0.0")])
+        let group = VersionGroup::from_versions(&[installed("v22.1.0"), installed("v22.0.0")])
             .into_iter()
             .find(|g| g.major == 22)
             .expect("major group should exist");

@@ -5435,7 +5435,6 @@ dependencies = [
  "dirs",
  "log",
  "reqwest",
- "serde",
  "tokio",
  "versi-backend",
  "versi-core",

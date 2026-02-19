@@ -73,7 +73,7 @@ impl EnvironmentState {
             .find(|v| v.is_default)
             .map(|v| v.version.clone());
         self.installed_set = versions.iter().map(|v| v.version.clone()).collect();
-        self.version_groups = VersionGroup::from_versions(versions.clone());
+        self.version_groups = VersionGroup::from_versions(&versions);
         self.installed_versions = versions;
         self.loading = false;
         self.error = None;

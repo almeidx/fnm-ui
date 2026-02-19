@@ -62,35 +62,30 @@ impl OperationQueue {
     }
 
     pub fn is_current_version(&self, version: &str) -> bool {
-        let in_installs = self.active_installs.iter().any(|op| match op {
-            Operation::Install { version: v, .. } => v == version,
-            _ => false,
-        });
-        if in_installs {
-            return true;
-        }
-        self.exclusive_op
-            .as_ref()
-            .is_some_and(|op| matches!(op, Operation::Install { version: v, .. } | Operation::Uninstall { version: v } | Operation::SetDefault { version: v } if v == version))
+        self.active_installs
+            .iter()
+            .any(|op| op.version() == version)
+            || self
+                .exclusive_op
+                .as_ref()
+                .is_some_and(|op| op.version() == version)
     }
 
     pub fn active_operation_for(&self, version: &str) -> Option<&Operation> {
-        if let Some(op) = self
-            .active_installs
+        self.active_installs
             .iter()
-            .find(|op| matches!(op, Operation::Install { version: v, .. } if v == version))
-        {
-            return Some(op);
-        }
-        self.exclusive_op.as_ref().filter(
-            |op| matches!(op, Operation::Install { version: v, .. } | Operation::Uninstall { version: v } | Operation::SetDefault { version: v } if v == version),
-        )
+            .find(|op| op.version() == version)
+            .or_else(|| {
+                self.exclusive_op
+                    .as_ref()
+                    .filter(|op| op.version() == version)
+            })
     }
 
     pub fn has_active_install(&self, version: &str) -> bool {
         self.active_installs
             .iter()
-            .any(|op| matches!(op, Operation::Install { version: v, .. } if v == version))
+            .any(|op| matches!(op, Operation::Install { .. }) && op.version() == version)
     }
 
     pub fn enqueue(&mut self, op: Operation) {
@@ -110,10 +105,7 @@ impl OperationQueue {
     }
 
     pub fn remove_completed_install(&mut self, version: &str) {
-        self.active_installs.retain(|op| match op {
-            Operation::Install { version: v, .. } => v != version,
-            _ => true,
-        });
+        self.active_installs.retain(|op| op.version() != version);
     }
 
     pub fn drain_next(&mut self) -> (Vec<String>, Option<Operation>) {
