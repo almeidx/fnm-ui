@@ -47,16 +47,9 @@ impl fmt::Display for NodeVersion {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Failed to parse version: {0}")]
 pub struct VersionParseError(pub String);
-
-impl fmt::Display for VersionParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Failed to parse version: {}", self.0)
-    }
-}
-
-impl std::error::Error for VersionParseError {}
 
 impl FromStr for NodeVersion {
     type Err = VersionParseError;
