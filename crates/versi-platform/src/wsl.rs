@@ -70,14 +70,16 @@ pub fn detect_wsl_distros(search_paths: &[&str]) -> Vec<WslDistro> {
                     }
                 }
 
-                let with_backend: Vec<_> = distros
-                    .iter()
-                    .filter(|d| d.backend_path.is_some())
-                    .collect();
+                let (with_backend, running) = distros.iter().fold((0usize, 0usize), |(b, r), d| {
+                    (
+                        b + usize::from(d.backend_path.is_some()),
+                        r + usize::from(d.is_running),
+                    )
+                });
                 info!(
                     "WSL detection complete: {} distros with backend, {} running, {} total",
-                    with_backend.len(),
-                    distros.iter().filter(|d| d.is_running).count(),
+                    with_backend,
+                    running,
                     distros.len()
                 );
                 distros
