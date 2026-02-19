@@ -158,6 +158,18 @@ For contributor and agent-facing details, see [AGENTS.md](AGENTS.md).
 - At least one backend available (`fnm` or `nvm`) for version management
 - Shell integration configured for full command-line behavior
 
+## Troubleshooting
+
+### Why does Versi show ~200+ MiB on Linux GNOME?
+
+Versi uses Iced's default GPU renderer (`wgpu`). On Linux desktops, tools like GNOME System Monitor often count GPU/driver-backed shared mappings in the app's memory total, which can make usage appear high (for example, a large "shared memory" number).
+
+For Iced + `wgpu` apps, seeing roughly this range at idle is generally expected:
+- **Total shown by system monitor**: often around `150-250 MiB` (includes shared GPU/driver mappings)
+- **Process-private memory**: usually much lower than the total shown
+
+If you want a more accurate process-private view, inspect `/proc/<pid>/smaps_rollup` (for example `Pss` and `Private_Dirty`) instead of relying only on the top-level total in desktop monitors.
+
 ## Contributing
 
 1. Fork and branch.
