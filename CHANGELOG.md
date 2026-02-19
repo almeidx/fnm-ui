@@ -3,6 +3,44 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.10.1] - 2026-02-19
+
+- refactor: update VersionGroup::from_versions to accept slices instead of vectors
+- refactor(platform): single-pass fold for WSL distro summary counts
+- refactor(nvm): move ANSI stripping from version parsing to client layer
+- fix(shell): return empty config paths when home directory is unavailable
+- Replace unsafe byte-offset string slicing in nvm version parsing
+- Extract main_state/onboarding_state test helpers to reduce boilerplate
+- Use split_once and strip_prefix/suffix in fnm version parsing
+- Reuse versi_core::GitHubRelease in nvm update module
+- Reduce unnecessary cloning in NvmProvider
+- fix(nvm,platform): log debug messages for silent parse failures
+- refactor(platform): deduplicate WslDistro construction in parse_wsl_list
+- fix(core): sanitize download filename extracted from URL
+- refactor(nvm): remove duplicated is_newer_version, use versi-core's
+- refactor(views): simplify app_update_badge with badge_btn and external_link_btn helpers
+- refactor(theme): extract hardcoded layout dimensions into token constants
+- refactor(theme): centralize repeated color literals into token constants
+- rename(theme): tahoe → tokens
+- refactor(theme): add RADIUS_XS constant and replace hardcoded border radii
+- refactor(backend): remove redundant FnmError and NvmError enums
+- refactor(backend): replace Box<dyn VersionManager> with Arc
+- refactor(nvm): remove Mutex anti-pattern from NvmProvider
+- fix(backend): return BackendError from check_for_update instead of String
+- fix(tray): log warning for unknown menu event IDs
+- refactor(views): extract duplicated has_tabs padding into content_padding
+- deps: Update Rust crate zip to 8.1.0 (#71)
+- chore: fix formatting
+- chore(fnm): remove dead _check_fnm_update function and serde_json dep
+- refactor(bulk_ops): deduplicate latest_by_major helpers
+- refactor(state): unify Operation and OperationRequest enums
+- refactor(state): extract FetchState to reduce VersionCache complexity
+- chore: remove unused dependencies
+- fix(nvm): log suppressed error in default_version()
+- fix(shell): use boundary-aware matching for flag removal
+- deps: Update patch/minor dependencies (#70)
+
+
 ## [0.10.0] - 2026-02-17
 
 - refactor(versions): split fetch and update-check handlers
