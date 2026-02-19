@@ -337,7 +337,7 @@ mod tests {
         let op = q.active_operation_for("20.0.0");
         assert!(matches!(
             op,
-            Some(Operation::Install { version, .. }) if version == "20.0.0"
+            Some(Operation::Install { version }) if version == "20.0.0"
         ));
     }
 
