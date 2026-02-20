@@ -306,22 +306,17 @@ impl VersionCache {
     }
 
     fn recompute_latest_by_major(&mut self) {
-        let mut latest_refs: HashMap<u32, &NodeVersion> = HashMap::new();
+        self.latest_by_major.clear();
+        self.latest_by_major.reserve(self.versions.len().min(32));
         for version in &self.versions {
-            latest_refs
+            self.latest_by_major
                 .entry(version.version.major)
                 .and_modify(|existing| {
-                    if version.version > **existing {
-                        *existing = &version.version;
+                    if version.version > *existing {
+                        *existing = version.version.clone();
                     }
                 })
-                .or_insert(&version.version);
-        }
-
-        self.latest_by_major.clear();
-        self.latest_by_major.reserve(latest_refs.len());
-        for (major, version) in latest_refs {
-            self.latest_by_major.insert(major, version.clone());
+                .or_insert_with(|| version.version.clone());
         }
     }
 
