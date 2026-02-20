@@ -124,7 +124,12 @@ pub(super) fn handle_fetch_release_schedule(app: &mut Versi) -> Task<Message> {
                         async move {
                             fetch_release_schedule(&client)
                                 .await
-                                .map_err(|error| AppError::version_fetch_failed("Release schedule", error))
+                                .map_err(|error| {
+                                    AppError::version_fetch_failed(
+                                        "Release schedule",
+                                        error.to_string(),
+                                    )
+                                })
                         }
                     }) => result
                 }
@@ -194,7 +199,12 @@ pub(super) fn handle_fetch_version_metadata(app: &mut Versi) -> Task<Message> {
                         async move {
                             fetch_version_metadata(&client)
                                 .await
-                                .map_err(|error| AppError::version_fetch_failed("Version metadata", error))
+                                .map_err(|error| {
+                                    AppError::version_fetch_failed(
+                                        "Version metadata",
+                                        error.to_string(),
+                                    )
+                                })
                         }
                     }) => result
                 }

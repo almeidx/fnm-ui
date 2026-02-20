@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use thiserror::Error;
 
 const SCHEDULE_URL: &str = "https://raw.githubusercontent.com/nodejs/Release/main/schedule.json";
 
@@ -19,6 +20,19 @@ pub struct VersionSchedule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReleaseSchedule {
     pub versions: HashMap<u32, VersionSchedule>,
+}
+
+#[derive(Debug, Error)]
+pub enum ScheduleError {
+    #[error("failed to fetch release schedule: {0}")]
+    Request(#[source] reqwest::Error),
+    #[error("failed to fetch release schedule: HTTP {status}{body_snippet}")]
+    HttpStatus {
+        status: reqwest::StatusCode,
+        body_snippet: String,
+    },
+    #[error("failed to parse release schedule: {0}")]
+    Parse(#[source] reqwest::Error),
 }
 
 impl ReleaseSchedule {
@@ -73,31 +87,31 @@ impl ReleaseSchedule {
 ///
 /// # Errors
 /// Returns an error when the schedule cannot be downloaded or deserialized.
-pub async fn fetch_release_schedule(client: &reqwest::Client) -> Result<ReleaseSchedule, String> {
+pub async fn fetch_release_schedule(
+    client: &reqwest::Client,
+) -> Result<ReleaseSchedule, ScheduleError> {
     let response = client
         .get(SCHEDULE_URL)
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch release schedule: {e}"))?;
+        .map_err(ScheduleError::Request)?;
 
     if !response.status().is_success() {
         let status = response.status();
-        let snippet = response
+        let body_snippet = response
             .text()
             .await
             .ok()
-            .map(|body| body.chars().take(160).collect::<String>())
-            .filter(|body| !body.is_empty())
-            .map_or_else(String::new, |body| format!(": {body}"));
-        return Err(format!(
-            "Failed to fetch release schedule: HTTP {status}{snippet}"
-        ));
+            .map(|body| response_snippet(&body, 160))
+            .unwrap_or_default();
+        return Err(ScheduleError::HttpStatus {
+            status,
+            body_snippet,
+        });
     }
 
-    let raw: HashMap<String, VersionSchedule> = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse release schedule: {e}"))?;
+    let raw: HashMap<String, VersionSchedule> =
+        response.json().await.map_err(ScheduleError::Parse)?;
 
     let versions: HashMap<u32, VersionSchedule> = raw
         .into_iter()
@@ -108,6 +122,15 @@ pub async fn fetch_release_schedule(client: &reqwest::Client) -> Result<ReleaseS
         .collect();
 
     Ok(ReleaseSchedule { versions })
+}
+
+fn response_snippet(body: &str, max_chars: usize) -> String {
+    let snippet: String = body.chars().take(max_chars).collect();
+    if snippet.is_empty() {
+        String::new()
+    } else {
+        format!(": {snippet}")
+    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,6 @@
 use semver::Version;
 use serde::Deserialize;
+use thiserror::Error;
 
 const GITHUB_REPO: &str = "almeidx/versi";
 
@@ -28,6 +29,19 @@ pub struct GitHubRelease {
     pub body: Option<String>,
     #[serde(default)]
     pub assets: Vec<GitHubAsset>,
+}
+
+#[derive(Debug, Error)]
+pub enum UpdateError {
+    #[error("failed to check for app update: {0}")]
+    Request(#[source] reqwest::Error),
+    #[error("app update check failed with HTTP {status}{body_snippet}")]
+    HttpStatus {
+        status: reqwest::StatusCode,
+        body_snippet: String,
+    },
+    #[error("failed to parse app update response: {0}")]
+    Parse(#[source] reqwest::Error),
 }
 
 pub fn asset_name(version: &str) -> Option<String> {
@@ -60,7 +74,7 @@ pub fn checksum_asset_name(version: &str) -> String {
 pub async fn check_for_update(
     client: &reqwest::Client,
     current_version: &str,
-) -> Result<Option<AppUpdate>, String> {
+) -> Result<Option<AppUpdate>, UpdateError> {
     let url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
 
     let response = client
@@ -68,16 +82,23 @@ pub async fn check_for_update(
         .header("User-Agent", "versi")
         .send()
         .await
-        .map_err(|e| format!("Failed to check for app update: {e}"))?;
+        .map_err(UpdateError::Request)?;
 
     if !response.status().is_success() {
-        return Ok(None);
+        let status = response.status();
+        let body_snippet = response
+            .text()
+            .await
+            .ok()
+            .map(|body| response_snippet(&body, 160))
+            .unwrap_or_default();
+        return Err(UpdateError::HttpStatus {
+            status,
+            body_snippet,
+        });
     }
 
-    let release: GitHubRelease = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse app update response: {e}"))?;
+    let release: GitHubRelease = response.json().await.map_err(UpdateError::Parse)?;
 
     let latest = release
         .tag_name
@@ -112,6 +133,15 @@ pub async fn check_for_update(
         }))
     } else {
         Ok(None)
+    }
+}
+
+fn response_snippet(body: &str, max_chars: usize) -> String {
+    let snippet: String = body.chars().take(max_chars).collect();
+    if snippet.is_empty() {
+        String::new()
+    } else {
+        format!(": {snippet}")
     }
 }
 

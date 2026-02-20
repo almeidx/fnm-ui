@@ -17,8 +17,8 @@ mod update;
 /// types.
 pub use commands::HideWindow;
 /// Release metadata model and fetch helper.
-pub use metadata::{VersionMeta, fetch_version_metadata};
+pub use metadata::{MetadataError, VersionMeta, fetch_version_metadata};
 /// Node release schedule model and fetch helper.
-pub use schedule::{ReleaseSchedule, fetch_release_schedule};
+pub use schedule::{ReleaseSchedule, ScheduleError, fetch_release_schedule};
 /// App update model, GitHub release mapping, and version comparison helpers.
-pub use update::{AppUpdate, GitHubRelease, check_for_update, is_newer_version};
+pub use update::{AppUpdate, GitHubRelease, UpdateError, check_for_update, is_newer_version};

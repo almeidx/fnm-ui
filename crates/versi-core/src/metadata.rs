@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use thiserror::Error;
 
 const INDEX_URL: &str = "https://nodejs.org/dist/index.json";
 
@@ -26,6 +27,19 @@ struct RawEntry {
     openssl: Option<String>,
 }
 
+#[derive(Debug, Error)]
+pub enum MetadataError {
+    #[error("failed to fetch version metadata: {0}")]
+    Request(#[source] reqwest::Error),
+    #[error("failed to fetch version metadata: HTTP {status}{body_snippet}")]
+    HttpStatus {
+        status: reqwest::StatusCode,
+        body_snippet: String,
+    },
+    #[error("failed to parse version metadata: {0}")]
+    Parse(#[source] reqwest::Error),
+}
+
 fn map_entries(entries: Vec<RawEntry>) -> HashMap<String, VersionMeta> {
     entries
         .into_iter()
@@ -50,33 +64,39 @@ fn map_entries(entries: Vec<RawEntry>) -> HashMap<String, VersionMeta> {
 /// Returns an error when the remote metadata cannot be fetched or parsed.
 pub async fn fetch_version_metadata(
     client: &reqwest::Client,
-) -> Result<HashMap<String, VersionMeta>, String> {
+) -> Result<HashMap<String, VersionMeta>, MetadataError> {
     let response = client
         .get(INDEX_URL)
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch version metadata: {e}"))?;
+        .map_err(MetadataError::Request)?;
 
     if !response.status().is_success() {
         let status = response.status();
-        let snippet = response
+        let body_snippet = response
             .text()
             .await
             .ok()
-            .map(|body| body.chars().take(160).collect::<String>())
-            .filter(|body| !body.is_empty())
-            .map_or_else(String::new, |body| format!(": {body}"));
-        return Err(format!(
-            "Failed to fetch version metadata: HTTP {status}{snippet}"
-        ));
+            .map(|body| response_snippet(&body, 160))
+            .unwrap_or_default();
+        return Err(MetadataError::HttpStatus {
+            status,
+            body_snippet,
+        });
     }
 
-    let entries: Vec<RawEntry> = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse version metadata: {e}"))?;
+    let entries: Vec<RawEntry> = response.json().await.map_err(MetadataError::Parse)?;
 
     Ok(map_entries(entries))
+}
+
+fn response_snippet(body: &str, max_chars: usize) -> String {
+    let snippet: String = body.chars().take(max_chars).collect();
+    if snippet.is_empty() {
+        String::new()
+    } else {
+        format!(": {snippet}")
+    }
 }
 
 #[cfg(test)]

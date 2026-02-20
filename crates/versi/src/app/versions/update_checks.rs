@@ -28,7 +28,7 @@ pub(super) fn handle_check_for_app_update(app: &mut Versi) -> Task<Message> {
         async move {
             check_for_update(&client, &current_version)
                 .await
-                .map_err(|error| AppError::update_check_failed("App", error))
+                .map_err(|error| AppError::update_check_failed("App", error.to_string()))
         },
         |result| Message::AppUpdateChecked(Box::new(result)),
     )
