@@ -485,9 +485,14 @@ mod tests {
     #[test]
     fn tray_set_default_switches_environment_before_queueing_operation() {
         let mut app = test_app_with_two_environments();
+        let target_env_id = if let AppState::Main(state) = &app.state {
+            state.environments[1].id.clone()
+        } else {
+            panic!("expected Main state")
+        };
 
         let _ = app.handle_tray_event(TrayMessage::SetDefault {
-            env_index: 1,
+            env_id: target_env_id,
             version: "20.11.0".to_string(),
         });
 

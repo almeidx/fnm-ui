@@ -7,6 +7,7 @@ use iced::Subscription;
 use iced::futures::SinkExt;
 use tray_icon::menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
+use versi_platform::EnvironmentId;
 
 use crate::message::Message;
 use crate::settings::TrayBehavior;
@@ -73,7 +74,10 @@ pub enum TrayMessage {
     OpenSettings,
     OpenAbout,
     Quit,
-    SetDefault { env_index: usize, version: String },
+    SetDefault {
+        env_id: EnvironmentId,
+        version: String,
+    },
 }
 
 pub struct TrayMenuData {
@@ -84,6 +88,7 @@ pub struct TrayMenuData {
 pub struct EnvironmentData {
     pub name: String,
     pub env_index: usize,
+    pub env_id: EnvironmentId,
     pub versions: Vec<VersionData>,
 }
 
@@ -103,6 +108,7 @@ impl TrayMenuData {
                 .map(|(idx, env)| EnvironmentData {
                     name: env.name.clone(),
                     env_index: idx,
+                    env_id: env.id.clone(),
                     versions: env
                         .installed_versions
                         .iter()
@@ -202,7 +208,11 @@ fn build_menu(data: &TrayMenuData) -> Menu {
             };
 
             let _ = menu.append(&MenuItem::with_id(
-                MenuId::new(format!("set:{}:{}", env.env_index, ver.version)),
+                MenuId::new(format!(
+                    "set:{}:{}",
+                    encode_environment_id(&env.env_id).unwrap_or_else(|| "invalid-env".to_string()),
+                    ver.version
+                )),
                 label,
                 true,
                 None,
@@ -270,9 +280,9 @@ fn parse_menu_event(id: &str) -> Option<TrayMessage> {
         s if s.starts_with("set:") => {
             let parts: Vec<&str> = s.splitn(3, ':').collect();
             if parts.len() == 3 {
-                let env_index = parts[1].parse().ok()?;
+                let env_id = decode_environment_id(parts[1])?;
                 let version = parts[2].to_string();
-                Some(TrayMessage::SetDefault { env_index, version })
+                Some(TrayMessage::SetDefault { env_id, version })
             } else {
                 None
             }
@@ -281,6 +291,48 @@ fn parse_menu_event(id: &str) -> Option<TrayMessage> {
             log::warn!("Unknown tray menu event ID: {other}");
             None
         }
+    }
+}
+
+fn encode_environment_id(env_id: &EnvironmentId) -> Option<String> {
+    let bytes = serde_json::to_vec(env_id).ok()?;
+    Some(hex_encode(&bytes))
+}
+
+fn decode_environment_id(encoded: &str) -> Option<EnvironmentId> {
+    let bytes = hex_decode(encoded)?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        use std::fmt::Write as _;
+        let _ = write!(out, "{byte:02x}");
+    }
+    out
+}
+
+fn hex_decode(value: &str) -> Option<Vec<u8>> {
+    if !value.len().is_multiple_of(2) {
+        return None;
+    }
+
+    let mut out = Vec::with_capacity(value.len() / 2);
+    for pair in value.as_bytes().chunks_exact(2) {
+        let hi = hex_nibble(pair[0])?;
+        let lo = hex_nibble(pair[1])?;
+        out.push((hi << 4) | lo);
+    }
+    Some(out)
+}
+
+fn hex_nibble(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'a'..=b'f' => Some(value - b'a' + 10),
+        b'A'..=b'F' => Some(value - b'A' + 10),
+        _ => None,
     }
 }
 
@@ -310,7 +362,7 @@ mod tests {
     use chrono::Utc;
     use versi_platform::EnvironmentId;
 
-    use super::{TrayMenuData, TrayMessage, parse_menu_event};
+    use super::{TrayMenuData, TrayMessage, encode_environment_id, parse_menu_event};
     use crate::backend_kind::BackendKind;
     use crate::state::EnvironmentState;
 
@@ -352,6 +404,7 @@ mod tests {
         assert!(menu.window_visible);
         assert_eq!(menu.environments.len(), 1);
         assert_eq!(menu.environments[0].env_index, 0);
+        assert_eq!(menu.environments[0].env_id, EnvironmentId::Native);
         assert_eq!(menu.environments[0].versions.len(), 1);
         assert_eq!(menu.environments[0].versions[0].version, "v20.11.0");
         assert!(menu.environments[0].versions[0].is_default);
@@ -377,12 +430,14 @@ mod tests {
         ));
         assert!(matches!(parse_menu_event("quit"), Some(TrayMessage::Quit)));
 
+        let native_id =
+            encode_environment_id(&EnvironmentId::Native).expect("native environment id encoding");
         assert!(matches!(
-            parse_menu_event("set:2:v20.11.0"),
-            Some(TrayMessage::SetDefault { env_index: 2, version })
-                if version == "v20.11.0"
+            parse_menu_event(&format!("set:{native_id}:v20.11.0")),
+            Some(TrayMessage::SetDefault { env_id, version })
+                if env_id == EnvironmentId::Native && version == "v20.11.0"
         ));
-        assert!(parse_menu_event("set:abc:v20.11.0").is_none());
+        assert!(parse_menu_event("set:nothex:v20.11.0").is_none());
         assert!(parse_menu_event("unknown").is_none());
     }
 }

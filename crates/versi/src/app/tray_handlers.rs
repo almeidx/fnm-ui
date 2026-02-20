@@ -24,8 +24,8 @@ impl Versi {
             _ if !matches!(self.state, AppState::Main(_)) => Task::none(),
             TrayMessage::OpenSettings => self.tray_open_settings(),
             TrayMessage::OpenAbout => self.tray_open_about(),
-            TrayMessage::SetDefault { env_index, version } => {
-                self.tray_set_default_for_environment(env_index, version)
+            TrayMessage::SetDefault { env_id, version } => {
+                self.tray_set_default_for_environment(&env_id, version)
             }
         }
     }
@@ -77,30 +77,38 @@ impl Versi {
 
     fn tray_set_default_for_environment(
         &mut self,
-        env_index: usize,
+        env_id: &versi_platform::EnvironmentId,
         version: String,
     ) -> Task<Message> {
-        if let Some((env_id, backend_name)) = self.switch_environment_from_tray(env_index) {
-            self.activate_tray_environment_backend(&env_id, backend_name);
+        if let Some((resolved_env_id, backend_name)) = self.switch_environment_from_tray(env_id) {
+            self.activate_tray_environment_backend(&resolved_env_id, backend_name);
+            return self.handle_set_default(version);
         }
-        self.handle_set_default(version)
+        log::warn!("Ignoring tray set-default request for unknown environment: {env_id:?}");
+        Task::none()
     }
 
     fn switch_environment_from_tray(
         &mut self,
-        env_index: usize,
+        env_id: &versi_platform::EnvironmentId,
     ) -> Option<(
         versi_platform::EnvironmentId,
         crate::backend_kind::BackendKind,
     )> {
-        if let AppState::Main(state) = &mut self.state
-            && env_index != state.active_environment_idx
-            && let Some(env) = state.environments.get(env_index)
-        {
-            state.active_environment_idx = env_index;
-            state.backend_name = env.backend_name;
-            state.backend_update = None;
-            return Some((env.id.clone(), env.backend_name));
+        if let AppState::Main(state) = &mut self.state {
+            let (target_idx, target_backend, target_env_id) = state
+                .environments
+                .iter()
+                .enumerate()
+                .find(|(_, env)| &env.id == env_id)
+                .map(|(idx, env)| (idx, env.backend_name, env.id.clone()))?;
+
+            if target_idx != state.active_environment_idx {
+                state.active_environment_idx = target_idx;
+                state.backend_name = target_backend;
+                state.backend_update = None;
+            }
+            return Some((target_env_id, target_backend));
         }
         None
     }
@@ -248,8 +256,13 @@ mod tests {
     #[test]
     fn tray_set_default_switches_environment_and_starts_default_operation() {
         let mut app = test_app_with_two_environments();
+        let target_env_id = if let AppState::Main(state) = &app.state {
+            state.environments[1].id.clone()
+        } else {
+            panic!("expected main state");
+        };
         let _ = app.handle_tray_event(TrayMessage::SetDefault {
-            env_index: 1,
+            env_id: target_env_id,
             version: "v20.11.0".to_string(),
         });
 
@@ -261,5 +274,21 @@ mod tests {
             Some(Operation::SetDefault { version }) if version == "v20.11.0"
         ));
         assert_eq!(app.provider.name(), "nvm");
+    }
+
+    #[test]
+    fn tray_set_default_ignores_unknown_environment() {
+        let mut app = test_app_with_two_environments();
+        let _ = app.handle_tray_event(TrayMessage::SetDefault {
+            env_id: versi_platform::EnvironmentId::Wsl {
+                distro: "Missing".to_string(),
+                backend_path: "/tmp/missing".to_string(),
+            },
+            version: "v20.11.0".to_string(),
+        });
+
+        let state = app.main_state();
+        assert_ne!(state.active_environment_idx, 1);
+        assert!(state.operation_queue.exclusive_op.is_none());
     }
 }
