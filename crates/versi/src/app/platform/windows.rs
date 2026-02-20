@@ -1,3 +1,5 @@
+use super::LaunchAtLoginError;
+
 pub(crate) fn set_update_badge(visible: bool) {
     use std::ptr;
 
@@ -196,7 +198,7 @@ pub(crate) fn is_wayland() -> bool {
     false
 }
 
-pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), LaunchAtLoginError> {
     use windows_sys::Win32::System::Registry::{
         HKEY_CURRENT_USER, KEY_SET_VALUE, REG_SZ, RegCloseKey, RegDeleteValueW, RegOpenKeyExW,
         RegSetValueExW,
@@ -219,11 +221,16 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
             &mut hkey,
         );
         if status != 0 {
-            return Err(format!("RegOpenKeyExW failed: {status}").into());
+            return Err(LaunchAtLoginError::Registry {
+                operation: "RegOpenKeyExW",
+                status,
+            });
         }
 
         let result = if enable {
-            let exe = std::env::current_exe()?;
+            let exe = std::env::current_exe().map_err(|error| {
+                LaunchAtLoginError::io("failed to resolve current executable", error)
+            })?;
             let command = quote_windows_command_arg(exe.to_string_lossy().as_ref());
             let exe_wide: Vec<u16> = command.encode_utf16().chain(std::iter::once(0)).collect();
             let byte_len = exe_wide.len() * 2;
@@ -242,7 +249,14 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
         RegCloseKey(hkey);
 
         if result != 0 && !(result == 2 && !enable) {
-            return Err(format!("Registry operation failed: {result}").into());
+            return Err(LaunchAtLoginError::Registry {
+                operation: if enable {
+                    "RegSetValueExW"
+                } else {
+                    "RegDeleteValueW"
+                },
+                status: result,
+            });
         }
     }
 

@@ -83,22 +83,26 @@ where
     )
 }
 
-pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+use super::LaunchAtLoginError;
+
+pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), LaunchAtLoginError> {
     use std::fs;
 
     let autostart_dir = dirs::config_dir()
-        .ok_or("could not determine config directory")?
+        .ok_or(LaunchAtLoginError::ConfigDirectoryUnavailable)?
         .join("autostart");
     let desktop_path = autostart_dir.join(versi_platform::DESKTOP_ENTRY_FILENAME);
 
     if !enable {
         if desktop_path.exists() {
-            fs::remove_file(&desktop_path)?;
+            fs::remove_file(&desktop_path)
+                .map_err(|error| LaunchAtLoginError::io("failed to remove desktop entry", error))?;
         }
         return Ok(());
     }
 
-    let exe = std::env::current_exe()?;
+    let exe = std::env::current_exe()
+        .map_err(|error| LaunchAtLoginError::io("failed to resolve current executable", error))?;
     let exec_entry = desktop_exec_for_path(&exe);
     let entry = format!(
         "[Desktop Entry]\n\
@@ -108,8 +112,10 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
          X-GNOME-Autostart-enabled=true\n"
     );
 
-    fs::create_dir_all(&autostart_dir)?;
-    fs::write(&desktop_path, entry)?;
+    fs::create_dir_all(&autostart_dir)
+        .map_err(|error| LaunchAtLoginError::io("failed to create autostart directory", error))?;
+    fs::write(&desktop_path, entry)
+        .map_err(|error| LaunchAtLoginError::io("failed to write desktop entry", error))?;
     Ok(())
 }
 

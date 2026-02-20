@@ -1,3 +1,5 @@
+use super::LaunchAtLoginError;
+
 pub(crate) fn set_update_badge(visible: bool) {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSApplication;
@@ -35,23 +37,25 @@ pub(crate) fn is_wayland() -> bool {
     false
 }
 
-pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), LaunchAtLoginError> {
     use std::fs;
     use std::path::PathBuf;
 
-    let home = dirs::home_dir().ok_or("could not determine home directory")?;
+    let home = dirs::home_dir().ok_or(LaunchAtLoginError::HomeDirectoryUnavailable)?;
     let plist_path = home
         .join("Library/LaunchAgents")
         .join(versi_platform::LAUNCHAGENT_PLIST_FILENAME);
 
     if !enable {
         if plist_path.exists() {
-            fs::remove_file(&plist_path)?;
+            fs::remove_file(&plist_path)
+                .map_err(|error| LaunchAtLoginError::io("failed to remove launch agent", error))?;
         }
         return Ok(());
     }
 
-    let exe = std::env::current_exe()?;
+    let exe = std::env::current_exe()
+        .map_err(|error| LaunchAtLoginError::io("failed to resolve current executable", error))?;
     let exe_str = exe.to_string_lossy();
 
     let (program_arg, extra_arg) = if let Some(app_pos) = exe_str.find(".app/") {
@@ -92,9 +96,12 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
     );
 
     if let Some(parent) = plist_path.parent() {
-        fs::create_dir_all(parent)?;
+        fs::create_dir_all(parent).map_err(|error| {
+            LaunchAtLoginError::io("failed to create LaunchAgents directory", error)
+        })?;
     }
-    fs::write(&plist_path, plist)?;
+    fs::write(&plist_path, plist)
+        .map_err(|error| LaunchAtLoginError::io("failed to write launch agent plist", error))?;
     Ok(())
 }
 
