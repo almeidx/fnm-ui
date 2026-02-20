@@ -178,12 +178,8 @@ impl Versi {
                         &options,
                     )
                     .await
-                    .map_err(|e| {
-                        AppError::shell_config_failed(
-                            shell_name,
-                            "configure WSL shell",
-                            e.to_string(),
-                        )
+                    .map_err(|error| {
+                        AppError::shell_config_failed(shell_name, "configure WSL shell", error)
                     })?;
 
                     return Ok::<_, AppError>(());
@@ -192,20 +188,14 @@ impl Versi {
                 let config_path = get_or_create_config_path(&shell_type)
                     .ok_or_else(|| AppError::shell_config_path_not_found(shell_name))?;
 
-                let mut config =
-                    ShellConfig::load(shell_type.clone(), config_path).map_err(|e| {
-                        AppError::shell_config_failed(shell_name, "load config", e.to_string())
-                    })?;
+                let mut config = ShellConfig::load(shell_type.clone(), config_path)
+                    .map_err(|e| AppError::shell_config_failed(shell_name, "load config", e))?;
 
                 if config.has_init(&marker) {
                     let edit = config.update_flags(&marker, &options);
                     if edit.has_changes() {
                         config.apply_edit(&edit).map_err(|e| {
-                            AppError::shell_config_failed(
-                                shell_name,
-                                "update config",
-                                e.to_string(),
-                            )
+                            AppError::shell_config_failed(shell_name, "update config", e)
                         })?;
                     }
                 } else {
@@ -223,7 +213,7 @@ impl Versi {
                     let edit = config.add_init(&init_command, &label);
                     if edit.has_changes() {
                         config.apply_edit(&edit).map_err(|e| {
-                            AppError::shell_config_failed(shell_name, "write config", e.to_string())
+                            AppError::shell_config_failed(shell_name, "write config", e)
                         })?;
                     }
                 }
@@ -281,12 +271,14 @@ impl Versi {
                     {
                         let edit = config.update_flags(&marker, &options);
                         if edit.has_changes() {
-                            config.apply_edit(&edit).map_err(|e| e.to_string())?;
+                            config
+                                .apply_edit(&edit)
+                                .map_err(crate::error::AppErrorDetail::from)?;
                         }
                     }
                 }
 
-                Ok::<_, String>(())
+                Ok::<_, crate::error::AppErrorDetail>(())
             },
             |_| Message::ShellFlagsUpdated,
         )

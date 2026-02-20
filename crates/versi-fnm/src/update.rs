@@ -35,7 +35,7 @@ pub async fn check_for_fnm_update(
         .header("User-Agent", "versi")
         .send()
         .await
-        .map_err(|error| BackendError::network_request("fnm update check", error.to_string()))?;
+        .map_err(|error| BackendError::network_request_from("fnm update check", error))?;
 
     if !response.status().is_success() {
         return Ok(None);
@@ -44,7 +44,7 @@ pub async fn check_for_fnm_update(
     let release: GitHubRelease = response
         .json()
         .await
-        .map_err(|error| BackendError::network_parse("fnm update check", error.to_string()))?;
+        .map_err(|error| BackendError::network_parse_from("fnm update check", error))?;
 
     Ok(backend_update_from_release(release, current_version))
 }

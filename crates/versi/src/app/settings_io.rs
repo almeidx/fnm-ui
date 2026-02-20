@@ -56,9 +56,9 @@ impl Versi {
                 match dialog {
                     Some(handle) => {
                         let imported = import_settings_from_path(handle.path()).await?;
-                        imported.save().map_err(|error| {
-                            AppError::settings_import_failed("save", error.to_string())
-                        })?;
+                        imported
+                            .save()
+                            .map_err(|error| AppError::settings_import_failed("save", error))?;
                         Ok(())
                     }
                     None => Err(AppError::settings_dialog_cancelled()),
@@ -100,10 +100,10 @@ async fn export_settings_to_path(
     path: &std::path::Path,
 ) -> Result<std::path::PathBuf, AppError> {
     let content = serde_json::to_string_pretty(settings)
-        .map_err(|error| AppError::settings_export_failed("serialize", error.to_string()))?;
+        .map_err(|error| AppError::settings_export_failed("serialize", error))?;
     tokio::fs::write(path, content)
         .await
-        .map_err(|error| AppError::settings_export_failed("write", error.to_string()))?;
+        .map_err(|error| AppError::settings_export_failed("write", error))?;
     Ok(path.to_path_buf())
 }
 
@@ -112,9 +112,8 @@ async fn import_settings_from_path(
 ) -> Result<crate::settings::AppSettings, AppError> {
     let content = tokio::fs::read_to_string(path)
         .await
-        .map_err(|error| AppError::settings_import_failed("read", error.to_string()))?;
-    serde_json::from_str(&content)
-        .map_err(|error| AppError::settings_import_failed("parse", error.to_string()))
+        .map_err(|error| AppError::settings_import_failed("read", error))?;
+    serde_json::from_str(&content).map_err(|error| AppError::settings_import_failed("parse", error))
 }
 
 #[cfg(test)]

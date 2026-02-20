@@ -71,7 +71,7 @@ impl fmt::Display for VersionComponent {
     }
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum VersionParseError {
     #[error("Expected X.Y.Z format, got: {input}")]
     InvalidFormat { input: String },

@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum BackendError {
     #[error("Backend not found")]
     NotFound,
@@ -70,12 +70,26 @@ impl BackendError {
         }
     }
 
+    pub fn network_request_from<E>(operation: &'static str, error: E) -> Self
+    where
+        E: std::fmt::Display,
+    {
+        Self::network_request(operation, error.to_string())
+    }
+
     pub fn network_parse(operation: &'static str, details: impl Into<String>) -> Self {
         Self::NetworkError {
             operation,
             stage: NetworkStage::ResponseParse,
             details: details.into(),
         }
+    }
+
+    pub fn network_parse_from<E>(operation: &'static str, error: E) -> Self
+    where
+        E: std::fmt::Display,
+    {
+        Self::network_parse(operation, error.to_string())
     }
 }
 

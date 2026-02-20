@@ -131,7 +131,7 @@ mod tests {
         assert!(matches!(
             state.error,
             Some(crate::error::AppError::EnvironmentUnavailable { ref reason })
-                if reason == "backend unavailable"
+                if reason == &crate::error::AppErrorDetail::from("backend unavailable")
         ));
     }
 

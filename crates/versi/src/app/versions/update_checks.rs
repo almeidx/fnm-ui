@@ -28,7 +28,7 @@ pub(super) fn handle_check_for_app_update(app: &mut Versi) -> Task<Message> {
         async move {
             check_for_update(&client, &current_version)
                 .await
-                .map_err(|error| AppError::update_check_failed("App", error.to_string()))
+                .map_err(|error| AppError::update_check_failed("App", error))
         },
         |result| Message::AppUpdateChecked(Box::new(result)),
     )
@@ -86,7 +86,7 @@ pub(super) fn handle_check_for_backend_update(app: &mut Versi) -> Task<Message> 
                 provider
                     .check_for_update(&client, &version, &detection)
                     .await
-                    .map_err(|error| AppError::update_check_failed("Backend", error.to_string()))
+                    .map_err(|error| AppError::update_check_failed("Backend", error))
             },
             |result| Message::BackendUpdateChecked(Box::new(result)),
         );

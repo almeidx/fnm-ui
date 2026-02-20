@@ -175,7 +175,7 @@ fn version_metadata_fetched_stores_error_on_failure() {
         Some(AppError::VersionFetchFailed {
             resource: "Version metadata",
             ref details
-        }) if details == "metadata failed"
+        }) if details == &crate::error::AppErrorDetail::from("metadata failed")
     ));
 }
 

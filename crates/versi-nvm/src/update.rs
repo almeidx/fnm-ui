@@ -23,7 +23,7 @@ pub async fn check_for_nvm_update(
         .header("User-Agent", "versi")
         .send()
         .await
-        .map_err(|error| BackendError::network_request("nvm update check", error.to_string()))?;
+        .map_err(|error| BackendError::network_request_from("nvm update check", error))?;
 
     if !response.status().is_success() {
         return Ok(None);
@@ -32,7 +32,7 @@ pub async fn check_for_nvm_update(
     let release: GitHubRelease = response
         .json()
         .await
-        .map_err(|error| BackendError::network_parse("nvm update check", error.to_string()))?;
+        .map_err(|error| BackendError::network_parse_from("nvm update check", error))?;
 
     let latest = release
         .tag_name

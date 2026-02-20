@@ -156,7 +156,7 @@ impl Versi {
                     fetch_timeout,
                     "Loading versions",
                     backend.list_installed(),
-                    |error| AppError::environment_load_failed(error.to_string()),
+                    |error| AppError::environment_load_failed(error),
                 )
                 .await;
                 (env_id, request_seq, result)

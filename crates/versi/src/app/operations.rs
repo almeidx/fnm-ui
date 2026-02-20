@@ -107,7 +107,7 @@ impl Versi {
                         timeout,
                         "Installation",
                         backend.install(&version),
-                        |error| AppError::operation_failed("Install", error.to_string()),
+                        |error| AppError::operation_failed("Install", error),
                     )
                     .await
                     {
@@ -200,7 +200,7 @@ impl Versi {
                         timeout,
                         "Uninstall",
                         backend.uninstall(&version),
-                        |error| AppError::operation_failed("Uninstall", error.to_string()),
+                        |error| AppError::operation_failed("Uninstall", error),
                     )
                     .await
                     {
@@ -270,7 +270,7 @@ impl Versi {
                         timeout,
                         "Set default",
                         backend.set_default(&version),
-                        |error| AppError::operation_failed("Set default", error.to_string()),
+                        |error| AppError::operation_failed("Set default", error),
                     )
                     .await
                     {

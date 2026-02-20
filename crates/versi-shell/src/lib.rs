@@ -16,7 +16,7 @@ mod verify;
 pub mod shells;
 
 /// Shell config model and edit result used for idempotent file updates.
-pub use config::{ShellConfig, ShellConfigEdit};
+pub use config::{ConfigError, ShellConfig, ShellConfigEdit};
 /// Shell detection models and entry points.
 pub use detect::{ShellInfo, ShellType, detect_native_shells, detect_shells, detect_wsl_shells};
 /// Verification and configuration helpers used by the app layer.

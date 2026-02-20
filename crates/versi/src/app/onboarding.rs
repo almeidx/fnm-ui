@@ -66,7 +66,7 @@ impl Versi {
                     provider
                         .install_backend()
                         .await
-                        .map_err(|e| AppError::backend_install_failed(backend_name, e.to_string()))
+                        .map_err(|error| AppError::backend_install_failed(backend_name, error))
                 },
                 Message::OnboardingBackendInstallResult,
             );
@@ -127,19 +127,14 @@ impl Versi {
                     let config_path = get_or_create_config_path(&shell_type)
                         .ok_or_else(|| AppError::shell_config_path_not_found(shell_name))?;
 
-                    let mut config = ShellConfig::load(shell_type, config_path).map_err(|e| {
-                        AppError::shell_config_failed(shell_name, "load config", e.to_string())
-                    })?;
+                    let mut config = ShellConfig::load(shell_type, config_path)
+                        .map_err(|e| AppError::shell_config_failed(shell_name, "load config", e))?;
 
                     if config.has_init(&backend_marker) {
                         let edit = config.update_flags(&backend_marker, &options);
                         if edit.has_changes() {
                             config.apply_edit(&edit).map_err(|e| {
-                                AppError::shell_config_failed(
-                                    shell_name,
-                                    "update config",
-                                    e.to_string(),
-                                )
+                                AppError::shell_config_failed(shell_name, "update config", e)
                             })?;
                         }
                     } else {
@@ -157,11 +152,7 @@ impl Versi {
                         let edit = config.add_init(&init_command, &backend_label);
                         if edit.has_changes() {
                             config.apply_edit(&edit).map_err(|e| {
-                                AppError::shell_config_failed(
-                                    shell_name,
-                                    "write config",
-                                    e.to_string(),
-                                )
+                                AppError::shell_config_failed(shell_name, "write config", e)
                             })?;
                         }
                     }
@@ -224,7 +215,7 @@ mod tests {
 
     use super::{Versi, shell_type_to_str};
     use crate::backend_kind::BackendKind;
-    use crate::error::AppError;
+    use crate::error::{AppError, AppErrorDetail};
     use crate::settings::AppSettings;
     use crate::state::{
         AppState, BackendOption, OnboardingState, OnboardingStep, ShellConfigStatus,
@@ -337,7 +328,7 @@ mod tests {
             state.install_error,
             Some(AppError::BackendInstallFailed {
                 backend: "fnm",
-                details: "install failed".to_string()
+                details: AppErrorDetail::from("install failed")
             })
         );
     }

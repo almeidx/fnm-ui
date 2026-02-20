@@ -38,7 +38,7 @@ pub(super) fn handle_fetch_remote_versions(app: &mut Versi) -> Task<Message> {
                                 fetch_timeout,
                                 "Fetch remote versions",
                                 backend.list_remote(),
-                                |error| AppError::version_fetch_failed("Remote versions", error.to_string()),
+                                |error| AppError::version_fetch_failed("Remote versions", error),
                             )
                             .await
                         }
@@ -121,10 +121,7 @@ pub(super) fn handle_fetch_release_schedule(app: &mut Versi) -> Task<Message> {
                             fetch_release_schedule(&client)
                                 .await
                                 .map_err(|error| {
-                                    AppError::version_fetch_failed(
-                                        "Release schedule",
-                                        error.to_string(),
-                                    )
+                                    AppError::version_fetch_failed("Release schedule", error)
                                 })
                         }
                     }) => result
@@ -189,10 +186,7 @@ pub(super) fn handle_fetch_version_metadata(app: &mut Versi) -> Task<Message> {
                             fetch_version_metadata(&client)
                                 .await
                                 .map_err(|error| {
-                                    AppError::version_fetch_failed(
-                                        "Version metadata",
-                                        error.to_string(),
-                                    )
+                                    AppError::version_fetch_failed("Version metadata", error)
                                 })
                         }
                     }) => result

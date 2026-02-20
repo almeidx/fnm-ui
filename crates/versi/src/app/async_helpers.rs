@@ -70,7 +70,7 @@ mod tests {
     use std::time::Duration;
 
     use super::{retry_with_delays, run_with_timeout};
-    use crate::error::AppError;
+    use crate::error::{AppError, AppErrorDetail};
 
     #[tokio::test]
     async fn run_with_timeout_returns_inner_success_value() {
@@ -100,7 +100,7 @@ mod tests {
             result,
             Err(AppError::OperationFailed {
                 operation: "fetch",
-                details: "boom".to_string()
+                details: AppErrorDetail::from("boom")
             })
         );
     }
@@ -161,7 +161,7 @@ mod tests {
             result,
             Err(AppError::OperationFailed {
                 operation: "load",
-                details: "still failing".to_string()
+                details: AppErrorDetail::from("still failing")
             })
         );
     }
@@ -174,7 +174,7 @@ mod tests {
             result,
             Err(AppError::OperationFailed {
                 operation: "load",
-                details: "no attempts configured".to_string()
+                details: AppErrorDetail::from("no attempts configured")
             })
         );
     }

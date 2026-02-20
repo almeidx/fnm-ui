@@ -1,4 +1,107 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AppErrorDetail {
+    Message(String),
+    Io {
+        kind: std::io::ErrorKind,
+        message: String,
+    },
+    Backend(versi_backend::BackendError),
+    ShellVerification(versi_shell::VerificationError),
+}
+
+impl std::fmt::Display for AppErrorDetail {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Message(message) => write!(f, "{message}"),
+            Self::Io { kind, message } => write!(f, "{kind}: {message}"),
+            Self::Backend(error) => write!(f, "{error}"),
+            Self::ShellVerification(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl From<String> for AppErrorDetail {
+    fn from(value: String) -> Self {
+        Self::Message(value)
+    }
+}
+
+impl From<&str> for AppErrorDetail {
+    fn from(value: &str) -> Self {
+        Self::Message(value.to_string())
+    }
+}
+
+impl From<std::io::Error> for AppErrorDetail {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io {
+            kind: error.kind(),
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<versi_backend::BackendError> for AppErrorDetail {
+    fn from(value: versi_backend::BackendError) -> Self {
+        Self::Backend(value)
+    }
+}
+
+impl From<versi_shell::VerificationError> for AppErrorDetail {
+    fn from(value: versi_shell::VerificationError) -> Self {
+        Self::ShellVerification(value)
+    }
+}
+
+impl From<versi_shell::ConfigError> for AppErrorDetail {
+    fn from(value: versi_shell::ConfigError) -> Self {
+        Self::ShellVerification(versi_shell::VerificationError::ConfigLoad(value.into()))
+    }
+}
+
+impl From<versi_shell::ShellConfigLoadError> for AppErrorDetail {
+    fn from(value: versi_shell::ShellConfigLoadError) -> Self {
+        Self::ShellVerification(versi_shell::VerificationError::ConfigLoad(value))
+    }
+}
+
+impl From<versi_shell::WslShellConfigError> for AppErrorDetail {
+    fn from(value: versi_shell::WslShellConfigError) -> Self {
+        Self::ShellVerification(versi_shell::VerificationError::Wsl(value))
+    }
+}
+
+impl From<versi_core::auto_update::AutoUpdateError> for AppErrorDetail {
+    fn from(value: versi_core::auto_update::AutoUpdateError) -> Self {
+        Self::Message(value.to_string())
+    }
+}
+
+impl From<versi_core::MetadataError> for AppErrorDetail {
+    fn from(value: versi_core::MetadataError) -> Self {
+        Self::Message(value.to_string())
+    }
+}
+
+impl From<versi_core::ScheduleError> for AppErrorDetail {
+    fn from(value: versi_core::ScheduleError) -> Self {
+        Self::Message(value.to_string())
+    }
+}
+
+impl From<versi_core::UpdateError> for AppErrorDetail {
+    fn from(value: versi_core::UpdateError) -> Self {
+        Self::Message(value.to_string())
+    }
+}
+
+impl From<serde_json::Error> for AppErrorDetail {
+    fn from(value: serde_json::Error) -> Self {
+        Self::Message(value.to_string())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppError {
     Message(String),
     Timeout {
@@ -14,45 +117,45 @@ pub enum AppError {
     ShellConfigFailed {
         shell: &'static str,
         action: &'static str,
-        details: String,
+        details: AppErrorDetail,
     },
     BackendInstallFailed {
         backend: &'static str,
-        details: String,
+        details: AppErrorDetail,
     },
     SettingsDialogCancelled,
     SettingsExportFailed {
         action: &'static str,
-        details: String,
+        details: AppErrorDetail,
     },
     SettingsImportFailed {
         action: &'static str,
-        details: String,
+        details: AppErrorDetail,
     },
     OperationFailed {
         operation: &'static str,
-        details: String,
+        details: AppErrorDetail,
     },
     OperationCancelled {
         operation: &'static str,
     },
     EnvironmentUnavailable {
-        reason: String,
+        reason: AppErrorDetail,
     },
     EnvironmentLoadFailed {
-        details: String,
+        details: AppErrorDetail,
     },
     VersionFetchFailed {
         resource: &'static str,
-        details: String,
+        details: AppErrorDetail,
     },
     AutoUpdateFailed {
         phase: &'static str,
-        details: String,
+        details: AppErrorDetail,
     },
     UpdateCheckFailed {
         target: &'static str,
-        details: String,
+        details: AppErrorDetail,
     },
 }
 
@@ -72,7 +175,7 @@ impl AppError {
     pub fn shell_config_failed(
         shell: &'static str,
         action: &'static str,
-        details: impl Into<String>,
+        details: impl Into<AppErrorDetail>,
     ) -> Self {
         Self::ShellConfigFailed {
             shell,
@@ -81,7 +184,10 @@ impl AppError {
         }
     }
 
-    pub fn backend_install_failed(backend: &'static str, details: impl Into<String>) -> Self {
+    pub fn backend_install_failed(
+        backend: &'static str,
+        details: impl Into<AppErrorDetail>,
+    ) -> Self {
         Self::BackendInstallFailed {
             backend,
             details: details.into(),
@@ -92,21 +198,27 @@ impl AppError {
         Self::SettingsDialogCancelled
     }
 
-    pub fn settings_export_failed(action: &'static str, details: impl Into<String>) -> Self {
+    pub fn settings_export_failed(
+        action: &'static str,
+        details: impl Into<AppErrorDetail>,
+    ) -> Self {
         Self::SettingsExportFailed {
             action,
             details: details.into(),
         }
     }
 
-    pub fn settings_import_failed(action: &'static str, details: impl Into<String>) -> Self {
+    pub fn settings_import_failed(
+        action: &'static str,
+        details: impl Into<AppErrorDetail>,
+    ) -> Self {
         Self::SettingsImportFailed {
             action,
             details: details.into(),
         }
     }
 
-    pub fn operation_failed(operation: &'static str, details: impl Into<String>) -> Self {
+    pub fn operation_failed(operation: &'static str, details: impl Into<AppErrorDetail>) -> Self {
         Self::OperationFailed {
             operation,
             details: details.into(),
@@ -117,33 +229,36 @@ impl AppError {
         Self::OperationCancelled { operation }
     }
 
-    pub fn environment_unavailable(reason: impl Into<String>) -> Self {
+    pub fn environment_unavailable(reason: impl Into<AppErrorDetail>) -> Self {
         Self::EnvironmentUnavailable {
             reason: reason.into(),
         }
     }
 
-    pub fn environment_load_failed(details: impl Into<String>) -> Self {
+    pub fn environment_load_failed(details: impl Into<AppErrorDetail>) -> Self {
         Self::EnvironmentLoadFailed {
             details: details.into(),
         }
     }
 
-    pub fn version_fetch_failed(resource: &'static str, details: impl Into<String>) -> Self {
+    pub fn version_fetch_failed(
+        resource: &'static str,
+        details: impl Into<AppErrorDetail>,
+    ) -> Self {
         Self::VersionFetchFailed {
             resource,
             details: details.into(),
         }
     }
 
-    pub fn auto_update_failed(phase: &'static str, details: impl Into<String>) -> Self {
+    pub fn auto_update_failed(phase: &'static str, details: impl Into<AppErrorDetail>) -> Self {
         Self::AutoUpdateFailed {
             phase,
             details: details.into(),
         }
     }
 
-    pub fn update_check_failed(target: &'static str, details: impl Into<String>) -> Self {
+    pub fn update_check_failed(target: &'static str, details: impl Into<AppErrorDetail>) -> Self {
         Self::UpdateCheckFailed {
             target,
             details: details.into(),
@@ -214,7 +329,7 @@ impl std::error::Error for AppError {}
 
 #[cfg(test)]
 mod tests {
-    use super::AppError;
+    use super::{AppError, AppErrorDetail};
 
     #[test]
     fn message_variant_and_display_match() {
@@ -261,7 +376,7 @@ mod tests {
             AppError::ShellConfigFailed {
                 shell: "Zsh",
                 action: "load config",
-                details: "permission denied".to_string()
+                details: AppErrorDetail::from("permission denied")
             }
         );
         assert_eq!(
@@ -277,18 +392,23 @@ mod tests {
 
     #[test]
     fn backend_install_failed_constructor_includes_backend_name() {
-        let error = AppError::backend_install_failed("fnm", "network unavailable");
+        let detail = versi_backend::BackendError::CommandFailed {
+            stderr: "permission denied".to_string(),
+        };
+        let error = AppError::backend_install_failed("fnm", detail);
 
         assert_eq!(
             error,
             AppError::BackendInstallFailed {
                 backend: "fnm",
-                details: "network unavailable".to_string()
+                details: AppErrorDetail::Backend(versi_backend::BackendError::CommandFailed {
+                    stderr: "permission denied".to_string()
+                })
             }
         );
         assert_eq!(
             error.to_string(),
-            "Failed to install backend fnm: network unavailable"
+            "Failed to install backend fnm: Command failed: permission denied"
         );
     }
 
@@ -305,21 +425,21 @@ mod tests {
             export,
             AppError::SettingsExportFailed {
                 action: "write file",
-                details: "permission denied".to_string()
+                details: AppErrorDetail::from("permission denied")
             }
         );
         assert_eq!(
             import,
             AppError::SettingsImportFailed {
                 action: "parse json",
-                details: "invalid type".to_string()
+                details: AppErrorDetail::from("invalid type")
             }
         );
         assert_eq!(
             op_failed,
             AppError::OperationFailed {
                 operation: "Install",
-                details: "backend reported failure".to_string()
+                details: AppErrorDetail::from("backend reported failure")
             }
         );
         assert_eq!(
@@ -355,35 +475,35 @@ mod tests {
         assert_eq!(
             unavailable,
             AppError::EnvironmentUnavailable {
-                reason: "backend unavailable".to_string()
+                reason: AppErrorDetail::from("backend unavailable")
             }
         );
 
         assert_eq!(
             env_load,
             AppError::EnvironmentLoadFailed {
-                details: "backend unavailable".to_string()
+                details: AppErrorDetail::from("backend unavailable")
             }
         );
         assert_eq!(
             fetch,
             AppError::VersionFetchFailed {
                 resource: "Release schedule",
-                details: "network timeout".to_string()
+                details: AppErrorDetail::from("network timeout")
             }
         );
         assert_eq!(
             update,
             AppError::AutoUpdateFailed {
                 phase: "restart",
-                details: "spawn failed".to_string()
+                details: AppErrorDetail::from("spawn failed")
             }
         );
         assert_eq!(
             update_check,
             AppError::UpdateCheckFailed {
                 target: "App",
-                details: "rate limited".to_string()
+                details: AppErrorDetail::from("rate limited")
             }
         );
         assert_eq!(unavailable.to_string(), "backend unavailable");
@@ -403,5 +523,21 @@ mod tests {
             update_check.to_string(),
             "App update check failed: rate limited"
         );
+    }
+
+    #[test]
+    fn io_detail_keeps_error_kind_and_message() {
+        let detail = AppErrorDetail::from(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "denied",
+        ));
+        assert!(matches!(
+            detail,
+            AppErrorDetail::Io {
+                kind: std::io::ErrorKind::PermissionDenied,
+                ..
+            }
+        ));
+        assert_eq!(detail.to_string(), "permission denied: denied");
     }
 }
