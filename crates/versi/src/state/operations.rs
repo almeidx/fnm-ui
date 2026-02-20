@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 
 #[derive(Debug, Clone)]
 pub enum Operation {
@@ -110,6 +110,7 @@ impl OperationQueue {
 
     pub fn drain_next(&mut self) -> (Vec<String>, Option<Operation>) {
         let mut install_versions: Vec<String> = Vec::new();
+        let mut queued_installs: HashSet<String> = HashSet::new();
         let mut exclusive_op: Option<Operation> = None;
 
         if self.exclusive_op.is_some() {
@@ -118,7 +119,7 @@ impl OperationQueue {
 
         while let Some(next) = self.pending.front() {
             if let Operation::Install { version } = next {
-                if !self.has_active_install(version) && !install_versions.contains(version) {
+                if !self.has_active_install(version) && queued_installs.insert(version.clone()) {
                     install_versions.push(version.clone());
                 }
                 self.pending.pop_front();
