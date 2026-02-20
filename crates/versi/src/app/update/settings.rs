@@ -210,7 +210,7 @@ impl Versi {
     }
 
     fn reveal_settings_file(&self) -> Task<Message> {
-        self.save_settings_with_log();
+        self.save_settings_with_log_sync();
         let Some(settings_path) = versi_platform::AppPaths::new()
             .ok()
             .map(|p| p.settings_file())
@@ -266,7 +266,11 @@ impl Versi {
         self.update_shell_flags()
     }
 
-    fn save_settings_with_log(&self) {
+    pub(crate) fn save_settings_with_log(&self) {
+        super::super::settings_save::enqueue_settings_save(self.settings.clone());
+    }
+
+    pub(crate) fn save_settings_with_log_sync(&self) {
         if let Err(e) = self.settings.save() {
             log::error!("Failed to save settings: {e}");
         }

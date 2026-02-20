@@ -78,9 +78,7 @@ impl Versi {
                 x: pos.x,
                 y: pos.y,
             });
-            if let Err(e) = self.settings.save() {
-                log::error!("Failed to save settings: {e}");
-            }
+            self.save_settings_with_log_sync();
         }
     }
 }

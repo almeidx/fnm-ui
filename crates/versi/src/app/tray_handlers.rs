@@ -186,9 +186,7 @@ impl Versi {
             }
         }
 
-        if let Err(e) = self.settings.save() {
-            log::error!("Failed to save settings: {e}");
-        }
+        self.save_settings_with_log();
 
         if old_behavior == TrayBehavior::Disabled && behavior != TrayBehavior::Disabled {
             if let Err(e) = tray::init_tray(behavior) {

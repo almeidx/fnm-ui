@@ -7,6 +7,7 @@ mod onboarding;
 mod operations;
 mod platform;
 mod settings_io;
+mod settings_save;
 mod shell;
 mod tray_handlers;
 mod update;
@@ -319,9 +320,7 @@ impl Versi {
 
     fn handle_preferred_backend_changed(&mut self, name: BackendKind) -> Task<Message> {
         self.settings.preferred_backend = Some(name);
-        if let Err(e) = self.settings.save() {
-            log::error!("Failed to save settings: {e}");
-        }
+        self.save_settings_with_log();
 
         if let AppState::Main(state) = &mut self.state {
             let is_detected = state.detected_backends.contains(&name);
