@@ -5471,6 +5471,7 @@ dependencies = [
  "log",
  "reqwest",
  "self-replace",
+ "semver",
  "serde",
  "sha2",
  "tempfile",

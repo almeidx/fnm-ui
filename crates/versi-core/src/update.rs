@@ -1,3 +1,4 @@
+use semver::Version;
 use serde::Deserialize;
 
 const GITHUB_REPO: &str = "almeidx/versi";
@@ -116,29 +117,40 @@ pub async fn check_for_update(
 
 #[must_use]
 pub fn is_newer_version(latest: &str, current: &str) -> bool {
-    let parse_version = |v: &str| -> Option<(u32, u32, u32)> {
-        let parts: Vec<&str> = v.split('.').collect();
-        if parts.len() >= 3 {
-            Some((
-                parts[0].parse().ok()?,
-                parts[1].parse().ok()?,
-                parts[2].parse().ok()?,
-            ))
-        } else if parts.len() == 2 {
-            Some((parts[0].parse().ok()?, parts[1].parse().ok()?, 0))
-        } else if parts.len() == 1 {
-            Some((parts[0].parse().ok()?, 0, 0))
-        } else {
-            None
-        }
-    };
-
-    match (parse_version(latest), parse_version(current)) {
-        (Some((l_major, l_minor, l_patch)), Some((c_major, c_minor, c_patch))) => {
-            (l_major, l_minor, l_patch) > (c_major, c_minor, c_patch)
-        }
+    match (parse_semver(latest), parse_semver(current)) {
+        (Some(latest), Some(current)) => latest > current,
         _ => latest != current,
     }
+}
+
+fn parse_semver(version: &str) -> Option<Version> {
+    if let Ok(parsed) = Version::parse(version) {
+        return Some(parsed);
+    }
+
+    let (core, suffix) = split_semver_core_and_suffix(version);
+    let mut parts = core.split('.');
+    let major = parts.next()?.parse::<u64>().ok()?;
+    let minor = parts.next().and_then(|part| part.parse::<u64>().ok());
+    let patch = parts.next().and_then(|part| part.parse::<u64>().ok());
+
+    if parts.next().is_some() {
+        return None;
+    }
+
+    let normalized = match (minor, patch) {
+        (None, None) => format!("{major}.0.0{suffix}"),
+        (Some(minor), None) => format!("{major}.{minor}.0{suffix}"),
+        (Some(minor), Some(patch)) => format!("{major}.{minor}.{patch}{suffix}"),
+        (None, Some(_)) => return None,
+    };
+
+    Version::parse(&normalized).ok()
+}
+
+fn split_semver_core_and_suffix(version: &str) -> (&str, &str) {
+    let suffix_idx = version.find(['-', '+']).unwrap_or(version.len());
+    (&version[..suffix_idx], &version[suffix_idx..])
 }
 
 #[cfg(test)]
@@ -150,7 +162,12 @@ mod tests {
         assert!(is_newer_version("1.0.1", "1.0.0"));
         assert!(is_newer_version("1.1.0", "1.0.0"));
         assert!(is_newer_version("2.0.0", "1.9.9"));
+        assert!(is_newer_version("1.2", "1.1.9"));
+        assert!(is_newer_version("1", "0.99.0"));
+        assert!(is_newer_version("1.0.0", "1.0.0-beta.2"));
         assert!(!is_newer_version("1.0.0", "1.0.0"));
+        assert!(!is_newer_version("1.2", "1.2.0"));
+        assert!(!is_newer_version("1.0.0-beta.2", "1.0.0-beta.10"));
         assert!(!is_newer_version("1.0.0", "1.0.1"));
         assert!(!is_newer_version("0.9.0", "1.0.0"));
     }

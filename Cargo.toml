@@ -35,6 +35,7 @@ self-replace = "1.5"
 futures-util = "0.3.32"
 tokio-util = "0.7.18"
 sha2 = "0.10.9"
+semver = "1.0.27"
 
 [workspace.lints.clippy]
 pedantic = "warn"
