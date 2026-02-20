@@ -3,9 +3,18 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 
+#[cfg(unix)]
+use versi_core::download_install_script_verified;
 use versi_platform::HideWindow;
 
 use crate::client::{NvmClient, NvmEnvironment};
+
+#[cfg(unix)]
+const NVM_INSTALL_SCRIPT_URL: &str =
+    "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh";
+#[cfg(unix)]
+const NVM_INSTALL_SCRIPT_SHA256: &str =
+    "4b7412c49960c7d31e8df72da90c1fb5b8cccb419ac99537b737028d497aba4f";
 
 #[derive(Debug, Clone)]
 pub struct NvmDetection {
@@ -166,7 +175,8 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
         let script_path = temp_script_path("nvm-install", "sh");
         let result = async {
             download_install_script(
-                "https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh",
+                NVM_INSTALL_SCRIPT_URL,
+                NVM_INSTALL_SCRIPT_SHA256,
                 &script_path,
             )
             .await?;
@@ -209,30 +219,16 @@ fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
 #[cfg(unix)]
 async fn download_install_script(
     url: &str,
+    expected_sha256: &str,
     path: &std::path::Path,
 ) -> Result<(), versi_backend::BackendError> {
-    let response = reqwest::get(url).await.map_err(|error| {
-        versi_backend::BackendError::InstallFailed(format!(
-            "Failed to download installer script: {error}"
-        ))
-    })?;
-    if !response.status().is_success() {
-        return Err(versi_backend::BackendError::InstallFailed(format!(
-            "Installer script download failed with status {}",
-            response.status()
-        )));
-    }
-
-    let script = response.bytes().await.map_err(|error| {
-        versi_backend::BackendError::InstallFailed(format!(
-            "Failed to read installer script: {error}"
-        ))
-    })?;
-    tokio::fs::write(path, &script).await.map_err(|error| {
-        versi_backend::BackendError::InstallFailed(format!(
-            "Failed to write installer script: {error}"
-        ))
-    })?;
+    download_install_script_verified(url, expected_sha256, path)
+        .await
+        .map_err(|error| {
+            versi_backend::BackendError::InstallFailed(format!(
+                "Failed to download/verify installer script: {error}"
+            ))
+        })?;
 
     #[cfg(unix)]
     {

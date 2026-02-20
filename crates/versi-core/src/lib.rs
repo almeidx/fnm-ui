@@ -9,6 +9,7 @@
 
 pub mod auto_update;
 pub mod commands;
+mod install_script;
 mod metadata;
 mod schedule;
 mod update;
@@ -16,6 +17,8 @@ mod update;
 /// Extension trait that normalizes "hide window" behavior on supported command
 /// types.
 pub use commands::HideWindow;
+/// Installer script download helper with retry/verification policy.
+pub use install_script::{InstallScriptError, download_install_script_verified};
 /// Release metadata model and fetch helper.
 pub use metadata::{MetadataError, VersionMeta, fetch_version_metadata};
 /// Node release schedule model and fetch helper.
