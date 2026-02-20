@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 
 use versi_platform::HideWindow;
@@ -161,14 +162,23 @@ pub fn detect_nvm_environment(detection: &NvmDetection) -> Option<NvmEnvironment
 pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     #[cfg(unix)]
     {
-        let status = Command::new("bash")
-            .args([
-                "-c",
-                "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash",
-            ])
-            .hide_window()
-            .status()
+        let script_path = temp_script_path("nvm-install", "sh");
+        let result = async {
+            download_install_script(
+                "https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh",
+                &script_path,
+            )
             .await?;
+            Command::new("bash")
+                .arg(&script_path)
+                .hide_window()
+                .status()
+                .await
+                .map_err(versi_backend::BackendError::from)
+        }
+        .await;
+        let _ = tokio::fs::remove_file(&script_path).await;
+        let status = result?;
 
         if status.success() {
             Ok(())
@@ -185,6 +195,43 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
             "Automatic nvm-windows installation is not supported. Please install manually from https://github.com/coreybutler/nvm-windows/releases".to_string(),
         ))
     }
+}
+
+fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    std::env::temp_dir().join(format!("{prefix}-{}-{nonce}.{ext}", std::process::id()))
+}
+
+async fn download_install_script(
+    url: &str,
+    path: &std::path::Path,
+) -> Result<(), versi_backend::BackendError> {
+    let response = reqwest::get(url).await.map_err(|error| {
+        versi_backend::BackendError::InstallFailed(format!("Failed to download installer script: {error}"))
+    })?;
+    if !response.status().is_success() {
+        return Err(versi_backend::BackendError::InstallFailed(format!(
+            "Installer script download failed with status {}",
+            response.status()
+        )));
+    }
+
+    let script = response.bytes().await.map_err(|error| {
+        versi_backend::BackendError::InstallFailed(format!("Failed to read installer script: {error}"))
+    })?;
+    tokio::fs::write(path, &script).await.map_err(|error| {
+        versi_backend::BackendError::InstallFailed(format!("Failed to write installer script: {error}"))
+    })?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
