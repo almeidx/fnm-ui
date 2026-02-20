@@ -24,6 +24,8 @@ pub(crate) fn set_update_badge(visible: bool) {
     }
     impl Drop for GdiGuard {
         fn drop(&mut self) {
+            // SAFETY: every handle stored in this guard was created in this
+            // module and is released at most once during drop.
             unsafe {
                 if let Some(icon) = self.icon.take() {
                     let _ = DestroyIcon(icon);
@@ -41,6 +43,8 @@ pub(crate) fn set_update_badge(visible: bool) {
         }
     }
 
+    // SAFETY: Win32 and COM APIs are called with validated handles/arguments,
+    // and all created GDI resources are tracked by `GdiGuard` for cleanup.
     unsafe {
         let Some(hwnd_raw) = crate::windows_window::find_versi_window() else {
             debug!("Could not find Versi window for badge");
@@ -203,6 +207,8 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
         .collect();
     let value_name: Vec<u16> = "Versi\0".encode_utf16().collect();
 
+    // SAFETY: registry API pointers are NUL-terminated UTF-16 buffers and the
+    // opened key handle is closed exactly once before returning.
     unsafe {
         let mut hkey = std::mem::zeroed();
         let status = RegOpenKeyExW(

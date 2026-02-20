@@ -18,6 +18,9 @@ mod windows_impl {
 
     impl SingleInstance {
         pub fn acquire() -> Result<Self, super::AcquireError> {
+            // SAFETY: calling Win32 mutex APIs with a static NUL-terminated
+            // name and null security attributes is valid here; handle results
+            // are checked before use.
             unsafe {
                 let handle = CreateMutexA(ptr::null(), 1, MUTEX_NAME.as_ptr());
 
@@ -40,6 +43,8 @@ mod windows_impl {
 
     impl Drop for SingleInstance {
         fn drop(&mut self) {
+            // SAFETY: `self.handle` was returned by `CreateMutexA` and remains
+            // owned by this guard until drop.
             unsafe {
                 CloseHandle(self.handle);
             }
@@ -51,6 +56,9 @@ mod windows_impl {
             SW_RESTORE, SetForegroundWindow, ShowWindow,
         };
 
+        // SAFETY: `find_versi_window` returns a HWND owned by the system.
+        // `ShowWindow`/`SetForegroundWindow` are invoked only when a handle is
+        // found.
         unsafe {
             if let Some(hwnd) = crate::windows_window::find_versi_window() {
                 ShowWindow(hwnd, SW_RESTORE);
