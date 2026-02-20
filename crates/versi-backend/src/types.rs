@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt;
+use std::fmt::Write as _;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -18,6 +19,17 @@ impl NodeVersion {
             minor,
             patch,
         }
+    }
+
+    pub fn write_prefixed_into(&self, out: &mut String) {
+        out.clear();
+        // Reserve enough for typical versions (for example "v22.15.0") and
+        // grow once if needed for very large numeric components.
+        if out.capacity() < 16 {
+            out.reserve(16 - out.capacity());
+        }
+        write!(out, "v{}.{}.{}", self.major, self.minor, self.patch)
+            .expect("writing to String should be infallible");
     }
 }
 
@@ -167,6 +179,19 @@ mod tests {
     fn test_version_display() {
         let v = NodeVersion::new(20, 11, 0);
         assert_eq!(v.to_string(), "v20.11.0");
+    }
+
+    #[test]
+    fn write_prefixed_into_reuses_buffer() {
+        let mut buf = String::with_capacity(16);
+        let first_ptr = buf.as_ptr();
+
+        NodeVersion::new(20, 11, 0).write_prefixed_into(&mut buf);
+        assert_eq!(buf, "v20.11.0");
+
+        NodeVersion::new(22, 1, 3).write_prefixed_into(&mut buf);
+        assert_eq!(buf, "v22.1.3");
+        assert_eq!(buf.as_ptr(), first_ptr);
     }
 
     #[test]

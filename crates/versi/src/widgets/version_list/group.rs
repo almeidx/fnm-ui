@@ -54,6 +54,7 @@ pub(super) fn version_group_view<'a>(
     group: &'a VersionGroup,
     default: Option<&'a versi_backend::NodeVersion>,
     search_query: &'a str,
+    query_lower: &str,
     update_available: Option<String>,
     active_filters: &'a HashSet<SearchFilter>,
     ctx: &VersionListContext<'a>,
@@ -83,7 +84,15 @@ pub(super) fn version_group_view<'a>(
     .into();
 
     if group.is_expanded {
-        expanded_group_view(group, default, search_query, active_filters, ctx, header)
+        expanded_group_view(
+            group,
+            default,
+            search_query,
+            query_lower,
+            active_filters,
+            ctx,
+            header,
+        )
     } else {
         container(header)
             .style(styles::card_container)
@@ -178,14 +187,25 @@ fn expanded_group_view<'a>(
     group: &'a VersionGroup,
     default: Option<&'a versi_backend::NodeVersion>,
     search_query: &'a str,
+    query_lower: &str,
     active_filters: &'a HashSet<SearchFilter>,
     ctx: &VersionListContext<'a>,
     header: Element<'a, Message>,
 ) -> Element<'a, Message> {
+    let mut version_text = String::with_capacity(16);
     let filtered_versions: Vec<&InstalledVersion> = group
         .versions
         .iter()
-        .filter(|v| filter_version(v, search_query, active_filters, ctx.schedule))
+        .filter(|v| {
+            filter_version(
+                v,
+                search_query,
+                query_lower,
+                active_filters,
+                ctx.schedule,
+                &mut version_text,
+            )
+        })
         .collect();
 
     let items: Vec<Element<Message>> = filtered_versions

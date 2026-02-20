@@ -21,6 +21,9 @@ struct RemoteVersionSearchEntry {
     lts_codename_lower: Option<String>,
 }
 
+const LATEST_BY_MAJOR_CAPACITY: usize = 32;
+const LATEST_BY_MINOR_CAPACITY: usize = 192;
+
 impl RemoteVersionSearchIndex {
     #[must_use]
     pub(crate) fn from_versions(versions: &[RemoteVersion]) -> Self {
@@ -55,6 +58,20 @@ pub(crate) fn matches_version_query(
 
     version_text.contains(query)
         || lts_codename_lower.is_some_and(|codename| codename.contains(query_lower))
+}
+
+pub(crate) fn matches_version_query_case_insensitive(
+    version_text: &str,
+    lts_codename: Option<&str>,
+    query: &str,
+    query_lower: &str,
+) -> bool {
+    if query_lower == "lts" {
+        return lts_codename.is_some();
+    }
+
+    version_text.contains(query)
+        || lts_codename.is_some_and(|codename| contains_case_insensitive(codename, query_lower))
 }
 
 pub(crate) fn passes_release_filters(
@@ -165,11 +182,20 @@ pub(crate) fn search_available_versions_with_index<'a>(
                 .map(|(version, _)| version),
         )
     } else {
-        latest_by_minor(
-            versions
-                .iter()
-                .filter(|v| matches_remote_query(v, query, &query_lower)),
-        )
+        let mut filtered: Vec<&RemoteVersion> = Vec::with_capacity(versions.len());
+        let mut version_text = String::with_capacity(16);
+        for version in versions {
+            version.version.write_prefixed_into(&mut version_text);
+            if matches_version_query_case_insensitive(
+                &version_text,
+                version.lts_codename.as_deref(),
+                query,
+                &query_lower,
+            ) {
+                filtered.push(version);
+            }
+        }
+        latest_by_minor(filtered.into_iter())
     };
     apply_active_filters(&mut result, active_filters, installed_set, schedule);
     result.truncate(limit);
@@ -180,21 +206,11 @@ pub(crate) fn search_available_versions_with_index<'a>(
     }
 }
 
-fn matches_remote_query(version: &RemoteVersion, query: &str, query_lower: &str) -> bool {
-    let version_text = version.version.to_string();
-    let lts_codename_lower = version.lts_codename.as_deref().map(str::to_lowercase);
-    matches_version_query(
-        &version_text,
-        lts_codename_lower.as_deref(),
-        query,
-        query_lower,
-    )
-}
-
 fn latest_by_major<'a>(
     versions: impl Iterator<Item = &'a RemoteVersion>,
 ) -> Vec<&'a RemoteVersion> {
-    let mut latest_by_major: HashMap<u32, &RemoteVersion> = HashMap::new();
+    let mut latest_by_major: HashMap<u32, &RemoteVersion> =
+        HashMap::with_capacity(LATEST_BY_MAJOR_CAPACITY);
 
     for version in versions {
         latest_by_major
@@ -215,7 +231,8 @@ fn latest_by_major<'a>(
 fn latest_by_minor<'a>(
     versions: impl Iterator<Item = &'a RemoteVersion>,
 ) -> Vec<&'a RemoteVersion> {
-    let mut latest_by_minor: HashMap<(u32, u32), &RemoteVersion> = HashMap::new();
+    let mut latest_by_minor: HashMap<(u32, u32), &RemoteVersion> =
+        HashMap::with_capacity(LATEST_BY_MINOR_CAPACITY);
 
     for version in versions {
         let key = (version.version.major, version.version.minor);
@@ -271,6 +288,25 @@ fn matches_active_filters(
     }
 
     passes_release_filters(version.version.major, active_filters, schedule)
+}
+
+fn contains_case_insensitive(haystack: &str, needle_lower: &str) -> bool {
+    if needle_lower.is_empty() {
+        return true;
+    }
+
+    if haystack.is_ascii() && needle_lower.is_ascii() {
+        let haystack_bytes = haystack.as_bytes();
+        let needle_bytes = needle_lower.as_bytes();
+        if needle_bytes.len() > haystack_bytes.len() {
+            return false;
+        }
+        return haystack_bytes
+            .windows(needle_bytes.len())
+            .any(|window| window.eq_ignore_ascii_case(needle_bytes));
+    }
+
+    haystack.to_lowercase().contains(needle_lower)
 }
 
 #[cfg(test)]

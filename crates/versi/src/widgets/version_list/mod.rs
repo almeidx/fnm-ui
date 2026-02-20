@@ -14,7 +14,7 @@ use versi_core::{ReleaseSchedule, VersionMeta};
 use crate::message::Message;
 use crate::state::{EnvironmentState, OperationQueue, SearchFilter};
 use crate::theme::styles;
-use crate::version_query::{matches_version_query, passes_release_filters};
+use crate::version_query::{matches_version_query_case_insensitive, passes_release_filters};
 
 use filters::search_available_versions;
 
@@ -30,6 +30,7 @@ pub struct VersionListContext<'a> {
 fn filter_group(
     group: &VersionGroup,
     query: &str,
+    query_lower: &str,
     active_filters: &HashSet<SearchFilter>,
     schedule: Option<&ReleaseSchedule>,
 ) -> bool {
@@ -45,8 +46,6 @@ fn filter_group(
         return false;
     }
 
-    let query_lower = query.to_lowercase();
-
     if query_lower == "lts" {
         let has_lts = group.versions.iter().any(|v| v.lts_codename.is_some());
         if !has_lts {
@@ -55,52 +54,42 @@ fn filter_group(
         return true;
     }
 
+    let mut version_text = String::with_capacity(16);
+
     if active_filters.contains(&SearchFilter::Lts) {
-        return group.versions.iter().any(|v| {
-            let version_text = v.version.to_string();
-            let lts_codename_lower = v.lts_codename.as_deref().map(str::to_lowercase);
-            v.lts_codename.is_some()
-                && matches_version_query(
-                    &version_text,
-                    lts_codename_lower.as_deref(),
-                    query,
-                    &query_lower,
-                )
-        });
+        for version in &group.versions {
+            if version.lts_codename.is_none() {
+                continue;
+            }
+            if matches_installed_query(version, query, query_lower, &mut version_text) {
+                return true;
+            }
+        }
+        return false;
     }
 
-    group.versions.iter().any(|v| {
-        let version_text = v.version.to_string();
-        let lts_codename_lower = v.lts_codename.as_deref().map(str::to_lowercase);
-        matches_version_query(
-            &version_text,
-            lts_codename_lower.as_deref(),
-            query,
-            &query_lower,
-        )
-    })
+    for version in &group.versions {
+        if matches_installed_query(version, query, query_lower, &mut version_text) {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn filter_version(
     version: &InstalledVersion,
     query: &str,
+    query_lower: &str,
     active_filters: &HashSet<SearchFilter>,
     schedule: Option<&ReleaseSchedule>,
+    version_text: &mut String,
 ) -> bool {
     if query.is_empty() {
         return true;
     }
 
-    let query_lower = query.to_lowercase();
-
-    let version_text = version.version.to_string();
-    let lts_codename_lower = version.lts_codename.as_deref().map(str::to_lowercase);
-    let text_match = matches_version_query(
-        &version_text,
-        lts_codename_lower.as_deref(),
-        query,
-        &query_lower,
-    );
+    let text_match = matches_installed_query(version, query, query_lower, version_text);
 
     if !text_match {
         return false;
@@ -119,6 +108,21 @@ fn filter_version(
     true
 }
 
+fn matches_installed_query(
+    version: &InstalledVersion,
+    query: &str,
+    query_lower: &str,
+    version_text: &mut String,
+) -> bool {
+    version.version.write_prefixed_into(version_text);
+    matches_version_query_case_insensitive(
+        version_text,
+        version.lts_codename.as_deref(),
+        query,
+        query_lower,
+    )
+}
+
 pub fn view<'a>(
     env: &'a EnvironmentState,
     search_query: &'a str,
@@ -132,10 +136,13 @@ pub fn view<'a>(
         return status_view;
     }
 
+    let query_lower = search_query.to_lowercase();
+
     let mut content_items: Vec<Element<Message>> = Vec::new();
     content_items.extend(installed_groups_content(
         env,
         search_query,
+        &query_lower,
         latest_by_major,
         active_filters,
         ctx,
@@ -202,6 +209,7 @@ fn loading_or_error_view(env: &EnvironmentState) -> Option<Element<'_, Message>>
 fn installed_groups_content<'a>(
     env: &'a EnvironmentState,
     search_query: &'a str,
+    query_lower: &str,
     latest_by_major: &'a HashMap<u32, NodeVersion>,
     active_filters: &'a HashSet<SearchFilter>,
     ctx: &VersionListContext<'a>,
@@ -209,7 +217,15 @@ fn installed_groups_content<'a>(
     let filtered_groups: Vec<&VersionGroup> = env
         .version_groups
         .iter()
-        .filter(|group| filter_group(group, search_query, active_filters, ctx.schedule))
+        .filter(|group| {
+            filter_group(
+                group,
+                search_query,
+                query_lower,
+                active_filters,
+                ctx.schedule,
+            )
+        })
         .collect();
 
     if filtered_groups.is_empty() || !search_query.is_empty() {
@@ -224,6 +240,7 @@ fn installed_groups_content<'a>(
                 group,
                 env.default_version.as_ref(),
                 search_query,
+                query_lower,
                 update_available,
                 active_filters,
                 ctx,
