@@ -159,6 +159,10 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 - Follow standard Rust conventions (rustfmt)
 - Use `thiserror` for error types
+- Prefer typed error enums over stringly errors:
+  - Do not introduce `Result<_, String>`, `Error(String)`, or `Box<dyn std::error::Error>` for internal/domain flows.
+  - Avoid `map_err(|e| e.to_string())` in app/backend/shell/platform logic; preserve typed context and convert at UI/logging boundaries only.
+  - When an error must be clone/equality-friendly for state/tests, use a structured detail enum (for example kind + message) instead of raw strings.
 - Prefer `async/await` over callbacks
 - Keep view functions pure (no side effects)
 - Use meaningful message names that describe the event
