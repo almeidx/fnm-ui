@@ -3,6 +3,51 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.10.2] - 2026-02-20
+
+- build(deps): drop reqwest decompression codec features
+- build(ui): disable iced defaults with explicit runtime features
+- build(deps): minimize reqwest chrono and simplelog features
+- fix(windows): restore compile on CI and clean platform warnings
+- build(deps): disable tokio defaults and trim tokio-util
+- build(deps): reduce default dependency feature surface
+- refactor(tests): use main state helpers in app tests
+- chore(windows): document Win32 unsafe invariants
+- perf(queue): use hash set for install dedup in drain
+- perf(version): cut string allocations in hot compare paths
+- fix(nvm): avoid path interpolation in shell bootstrap
+- fix(tray): route set-default by stable environment id
+- fix(storage): use atomic replace semantics on Windows
+- fix(tray): make subscription worker shutdown deterministic
+- fix(windows): locate Versi window without exact title match
+- fix: clippy warning
+- perf(search): reduce per-keystroke allocation churn
+- refactor(state): simplify latest-by-major recomputation
+- refactor(shell): type WSL shell configuration errors
+- refactor(platform): type app path resolution errors
+- chore: fix formatting
+- refactor(auto-update): replace string errors with typed variants
+- refactor(core): use typed errors for remote fetch operations
+- refactor(tray): replace polling loop with blocking event bridge
+- fix(settings): sanitize persisted values and write atomically
+- fix(instance): enforce single-instance lock on non-windows
+- refactor(update): use semver for app version comparisons
+- fix(network): validate HTTP status for metadata and schedule fetches
+- fix(wsl): parse distro names with embedded spaces
+- fix(platform): quote launch-at-login executable paths
+- refactor(security): replace piped installer scripts with downloaded temp scripts
+- feat(security): verify update artifacts with published sha256 checksums
+- feat(settings): add configurable app update behavior
+- fix(wsl): use sh instead of bash in execute_in_wsl for portability
+- refactor: preserve io::ErrorKind in BackendError::IoError conversion
+- refactor: extract tick rate magic numbers into named constants
+- refactor: derive filter chips from a const table instead of a fixed-size array
+- refactor: remove trivial NodeVersion::major_group() getter
+- refactor: remove redundant `..` in Operation::Install match arm
+- refactor: derive VersionParseError Display/Error via thiserror
+- refactor: return static slices from wsl_search_paths instead of Vec
+
+
 ## [0.10.1] - 2026-02-19
 
 - refactor: update VersionGroup::from_versions to accept slices instead of vectors
