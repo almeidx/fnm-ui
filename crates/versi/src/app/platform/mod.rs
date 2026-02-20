@@ -2,6 +2,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub(crate) enum LaunchAtLoginError {
+    #[cfg(target_os = "macos")]
     #[error("could not determine home directory")]
     HomeDirectoryUnavailable,
     #[cfg(target_os = "linux")]
