@@ -221,10 +221,7 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
         let result = if enable {
             let exe = std::env::current_exe()?;
             let command = quote_windows_command_arg(exe.to_string_lossy().as_ref());
-            let exe_wide: Vec<u16> = command
-                .encode_utf16()
-                .chain(std::iter::once(0))
-                .collect();
+            let exe_wide: Vec<u16> = command.encode_utf16().chain(std::iter::once(0)).collect();
             let byte_len = exe_wide.len() * 2;
             RegSetValueExW(
                 hkey,

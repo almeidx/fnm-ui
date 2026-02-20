@@ -218,9 +218,10 @@ impl MainState {
         if self.app_update_check_in_flight {
             return false;
         }
-        self.app_update_last_checked_at.is_none_or(|last_checked_at| {
-            Instant::now().saturating_duration_since(last_checked_at) >= interval
-        })
+        self.app_update_last_checked_at
+            .is_none_or(|last_checked_at| {
+                Instant::now().saturating_duration_since(last_checked_at) >= interval
+            })
     }
 }
 

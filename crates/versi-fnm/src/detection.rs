@@ -202,7 +202,9 @@ async fn download_install_script(
     path: &std::path::Path,
 ) -> Result<(), versi_backend::BackendError> {
     let response = reqwest::get(url).await.map_err(|error| {
-        versi_backend::BackendError::InstallFailed(format!("Failed to download installer script: {error}"))
+        versi_backend::BackendError::InstallFailed(format!(
+            "Failed to download installer script: {error}"
+        ))
     })?;
     if !response.status().is_success() {
         return Err(versi_backend::BackendError::InstallFailed(format!(
@@ -212,10 +214,14 @@ async fn download_install_script(
     }
 
     let script = response.bytes().await.map_err(|error| {
-        versi_backend::BackendError::InstallFailed(format!("Failed to read installer script: {error}"))
+        versi_backend::BackendError::InstallFailed(format!(
+            "Failed to read installer script: {error}"
+        ))
     })?;
     tokio::fs::write(path, &script).await.map_err(|error| {
-        versi_backend::BackendError::InstallFailed(format!("Failed to write installer script: {error}"))
+        versi_backend::BackendError::InstallFailed(format!(
+            "Failed to write installer script: {error}"
+        ))
     })?;
 
     #[cfg(unix)]

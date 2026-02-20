@@ -73,9 +73,7 @@ mod other_impl {
     fn lock_file_path() -> Result<PathBuf, super::AcquireError> {
         let paths = AppPaths::new().map_err(super::AcquireError::Unavailable)?;
         paths.ensure_dirs().map_err(|error| {
-            super::AcquireError::Unavailable(format!(
-                "failed to create app directories: {error}"
-            ))
+            super::AcquireError::Unavailable(format!("failed to create app directories: {error}"))
         })?;
         Ok(paths.data_dir.join("instance.lock"))
     }

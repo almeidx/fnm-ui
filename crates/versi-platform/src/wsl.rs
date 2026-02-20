@@ -381,8 +381,7 @@ mod tests {
 
     #[test]
     fn test_parse_wsl_list_name_with_spaces() {
-        let output =
-            "  NAME      STATE           VERSION\n* Ubuntu 22.04    Running         2\n  Debian    Stopped         2";
+        let output = "  NAME      STATE           VERSION\n* Ubuntu 22.04    Running         2\n  Debian    Stopped         2";
         let running = vec!["Ubuntu 22.04".to_string()];
         let distros = parse_wsl_list(output, &running);
 
