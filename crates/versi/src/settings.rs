@@ -455,23 +455,43 @@ fn temp_settings_path(settings_path: &Path) -> PathBuf {
 }
 
 fn replace_file(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
-    match std::fs::rename(src, dst) {
-        Ok(()) => Ok(()),
-        Err(error) => {
-            #[cfg(target_os = "windows")]
-            {
-                if dst.exists() {
-                    std::fs::remove_file(dst)?;
-                    std::fs::rename(src, dst)
-                } else {
-                    Err(error)
-                }
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                Err(error)
-            }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::Storage::FileSystem::{
+            MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+        };
+
+        let src_utf16: Vec<u16> = src
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let dst_utf16: Vec<u16> = dst
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        // SAFETY: both paths are NUL-terminated UTF-16 buffers that live for
+        // the duration of the FFI call.
+        let moved = unsafe {
+            MoveFileExW(
+                src_utf16.as_ptr(),
+                dst_utf16.as_ptr(),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+            )
+        };
+        if moved != 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error())
         }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::fs::rename(src, dst)
     }
 }
 

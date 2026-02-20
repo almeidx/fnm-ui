@@ -83,20 +83,53 @@ fn write_atomic(path: &Path, data: &[u8]) -> std::io::Result<()> {
         ));
     };
 
-    #[cfg(windows)]
-    if let Err(error) = std::fs::remove_file(path)
-        && error.kind() != std::io::ErrorKind::NotFound
-    {
-        let _ = std::fs::remove_file(&tmp_path);
-        return Err(error);
-    }
-
-    if let Err(error) = std::fs::rename(&tmp_path, path) {
+    if let Err(error) = replace_file(&tmp_path, path) {
         let _ = std::fs::remove_file(&tmp_path);
         return Err(error);
     }
 
     Ok(())
+}
+
+fn replace_file(src: &Path, dst: &Path) -> std::io::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::Storage::FileSystem::{
+            MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+        };
+
+        let src_utf16: Vec<u16> = src
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let dst_utf16: Vec<u16> = dst
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        // SAFETY: both paths are NUL-terminated UTF-16 buffers that live for
+        // the duration of the FFI call.
+        let moved = unsafe {
+            MoveFileExW(
+                src_utf16.as_ptr(),
+                dst_utf16.as_ptr(),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+            )
+        };
+        if moved != 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error())
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::fs::rename(src, dst)
+    }
 }
 
 #[cfg(test)]
