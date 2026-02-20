@@ -12,12 +12,12 @@ fn badge_sender() -> &'static std::sync::mpsc::Sender<bool> {
 
     BADGE_SENDER.get_or_init(|| {
         let (sender, receiver) = mpsc::channel::<bool>();
-        std::thread::spawn(move || run_badge_worker(receiver));
+        std::thread::spawn(move || run_badge_worker(&receiver));
         sender
     })
 }
 
-fn run_badge_worker(receiver: std::sync::mpsc::Receiver<bool>) {
+fn run_badge_worker(receiver: &std::sync::mpsc::Receiver<bool>) {
     use log::debug;
 
     let mut connection: Option<zbus::blocking::Connection> = None;
