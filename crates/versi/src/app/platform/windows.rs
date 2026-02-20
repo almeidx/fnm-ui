@@ -220,8 +220,8 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
 
         let result = if enable {
             let exe = std::env::current_exe()?;
-            let exe_wide: Vec<u16> = exe
-                .to_string_lossy()
+            let command = quote_windows_command_arg(exe.to_string_lossy().as_ref());
+            let exe_wide: Vec<u16> = command
                 .encode_utf16()
                 .chain(std::iter::once(0))
                 .collect();
@@ -248,10 +248,39 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
+fn quote_windows_command_arg(raw: &str) -> String {
+    if raw.contains(' ') || raw.contains('\t') || raw.contains('"') {
+        format!("\"{}\"", raw.replace('"', "\\\""))
+    } else {
+        raw.to_string()
+    }
+}
+
 pub(crate) fn reveal_in_file_manager(path: &std::path::Path) {
     use versi_core::HideWindow;
     let _ = std::process::Command::new("explorer")
         .arg(format!("/select,{}", path.to_string_lossy()))
         .hide_window()
         .spawn();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::quote_windows_command_arg;
+
+    #[test]
+    fn quote_windows_command_arg_quotes_whitespace() {
+        assert_eq!(
+            quote_windows_command_arg("C:\\Program Files\\versi\\versi.exe"),
+            "\"C:\\Program Files\\versi\\versi.exe\""
+        );
+    }
+
+    #[test]
+    fn quote_windows_command_arg_leaves_simple_path_unquoted() {
+        assert_eq!(
+            quote_windows_command_arg("C:\\versi\\versi.exe"),
+            "C:\\versi\\versi.exe"
+        );
+    }
 }

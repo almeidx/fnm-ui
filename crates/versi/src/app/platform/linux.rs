@@ -62,18 +62,29 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
     }
 
     let exe = std::env::current_exe()?;
+    let exec_entry = desktop_exec_for_path(&exe);
     let entry = format!(
         "[Desktop Entry]\n\
          Type=Application\n\
          Name=Versi\n\
          Exec={}\n\
          X-GNOME-Autostart-enabled=true\n",
-        exe.display()
+        exec_entry
     );
 
     fs::create_dir_all(&autostart_dir)?;
     fs::write(&desktop_path, entry)?;
     Ok(())
+}
+
+fn desktop_exec_for_path(path: &std::path::Path) -> String {
+    let raw = path.to_string_lossy();
+    if raw.chars().any(char::is_whitespace) {
+        let escaped = raw.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("\"{escaped}\"")
+    } else {
+        raw.into_owned()
+    }
 }
 
 pub(crate) fn reveal_in_file_manager(path: &std::path::Path) {
@@ -84,6 +95,9 @@ pub(crate) fn reveal_in_file_manager(path: &std::path::Path) {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
+    use super::desktop_exec_for_path;
     use super::is_wayland_with;
 
     #[test]
@@ -124,5 +138,17 @@ mod tests {
         let result = is_wayland_with(|_| Err(std::env::VarError::NotPresent));
 
         assert!(!result);
+    }
+
+    #[test]
+    fn desktop_exec_quotes_paths_with_spaces() {
+        let exec = desktop_exec_for_path(Path::new("/opt/Versi App/versi"));
+        assert_eq!(exec, "\"/opt/Versi App/versi\"");
+    }
+
+    #[test]
+    fn desktop_exec_keeps_simple_paths_unquoted() {
+        let exec = desktop_exec_for_path(Path::new("/usr/local/bin/versi"));
+        assert_eq!(exec, "/usr/local/bin/versi");
     }
 }
