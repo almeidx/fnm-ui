@@ -1,7 +1,26 @@
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum AcquireError {
+    #[error("another Versi instance is already running")]
     AlreadyRunning,
-    Unavailable(String),
+    #[error("failed to resolve application paths: {0}")]
+    Paths(#[from] versi_platform::AppPathsError),
+    #[error("{context}: {source}")]
+    Io {
+        context: &'static str,
+        #[source]
+        source: std::io::Error,
+    },
+    #[cfg(windows)]
+    #[error("win32 call {api} failed with code {code}")]
+    Win32 { api: &'static str, code: u32 },
+}
+
+impl AcquireError {
+    fn io(context: &'static str, source: std::io::Error) -> Self {
+        Self::Io { context, source }
+    }
 }
 
 #[cfg(windows)]
@@ -25,9 +44,11 @@ mod windows_impl {
                 let handle = CreateMutexA(ptr::null(), 1, MUTEX_NAME.as_ptr());
 
                 if handle.is_null() {
-                    return Err(super::AcquireError::Unavailable(
-                        "CreateMutexA returned a null handle".to_string(),
-                    ));
+                    let code = GetLastError();
+                    return Err(super::AcquireError::Win32 {
+                        api: "CreateMutexA",
+                        code,
+                    });
                 }
 
                 let last_error = GetLastError();
@@ -78,11 +99,10 @@ mod other_impl {
     use versi_platform::AppPaths;
 
     fn lock_file_path() -> Result<PathBuf, super::AcquireError> {
-        let paths =
-            AppPaths::new().map_err(|error| super::AcquireError::Unavailable(error.to_string()))?;
-        paths.ensure_dirs().map_err(|error| {
-            super::AcquireError::Unavailable(format!("failed to create app directories: {error}"))
-        })?;
+        let paths = AppPaths::new()?;
+        paths
+            .ensure_dirs()
+            .map_err(|error| super::AcquireError::io("failed to create app directories", error))?;
         Ok(paths.data_dir.join("instance.lock"))
     }
 
@@ -100,9 +120,7 @@ mod other_impl {
                 .truncate(false)
                 .open(lock_file_path)
                 .map_err(|error| {
-                    super::AcquireError::Unavailable(format!(
-                        "failed to open instance lock file: {error}"
-                    ))
+                    super::AcquireError::io("failed to open instance lock file", error)
                 })?;
 
             match lock_file.try_lock_exclusive() {
@@ -111,9 +129,10 @@ mod other_impl {
                     return Err(super::AcquireError::AlreadyRunning);
                 }
                 Err(error) => {
-                    return Err(super::AcquireError::Unavailable(format!(
-                        "failed to acquire instance lock: {error}"
-                    )));
+                    return Err(super::AcquireError::io(
+                        "failed to acquire instance lock",
+                        error,
+                    ));
                 }
             }
 
@@ -122,9 +141,7 @@ mod other_impl {
                 .and_then(|()| lock_file.seek(SeekFrom::Start(0)).map(|_| ()))
                 .and_then(|()| writeln!(lock_file, "{}", std::process::id()))
                 .map_err(|error| {
-                    super::AcquireError::Unavailable(format!(
-                        "failed to write instance lock metadata: {error}"
-                    ))
+                    super::AcquireError::io("failed to write instance lock metadata", error)
                 })?;
 
             Ok(Self { _file: lock_file })

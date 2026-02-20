@@ -27,7 +27,7 @@ fn main() -> iced::Result {
             single_instance::bring_existing_window_to_front();
             return Ok(());
         }
-        Err(single_instance::AcquireError::Unavailable(error)) => {
+        Err(error) => {
             eprintln!("Error: failed to acquire single-instance lock: {error}");
             std::process::exit(1);
         }
