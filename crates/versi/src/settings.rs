@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use versi_platform::AppPaths;
 
 use crate::backend_kind::BackendKind;
@@ -154,6 +155,19 @@ fn default_retry_delays() -> Vec<u64> {
     vec![0, 2, 5, 15]
 }
 
+const CACHE_TTL_HOURS_RANGE: std::ops::RangeInclusive<u64> = 1..=168;
+const INSTALL_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 30..=7_200;
+const OPERATION_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 5..=900;
+const FETCH_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 5..=300;
+const HTTP_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 3..=120;
+const TOAST_TIMEOUT_SECS_RANGE: std::ops::RangeInclusive<u64> = 1..=60;
+const MAX_VISIBLE_TOASTS_RANGE: std::ops::RangeInclusive<usize> = 1..=10;
+const SEARCH_RESULTS_LIMIT_RANGE: std::ops::RangeInclusive<usize> = 1..=200;
+const MODAL_PREVIEW_LIMIT_RANGE: std::ops::RangeInclusive<usize> = 1..=50;
+const MAX_LOG_SIZE_BYTES_RANGE: std::ops::RangeInclusive<u64> = 1_024 * 1_024..=100 * 1_024 * 1_024;
+const MAX_RETRY_DELAY_SECS: u64 = 600;
+const MAX_RETRY_STEPS: usize = 8;
+
 fn deserialize_backend_shell_options<'de, D>(
     deserializer: D,
 ) -> Result<HashMap<BackendKind, ShellOptions>, D::Error>
@@ -225,12 +239,48 @@ impl AppSettings {
         let Ok(paths) = AppPaths::new() else {
             return Self::default();
         };
-        let settings_path = paths.settings_file();
+        Self::load_from_path(&paths.settings_file())
+    }
 
+    pub fn save(&self) -> Result<(), std::io::Error> {
+        let paths = AppPaths::new().map_err(std::io::Error::other)?;
+        paths.ensure_dirs()?;
+
+        self.save_to_path(&paths.settings_file())
+    }
+
+    pub fn shell_options_for(&self, backend: BackendKind) -> ShellOptions {
+        self.backend_shell_options
+            .get(&backend)
+            .copied()
+            .unwrap_or_default()
+    }
+
+    pub fn shell_options_for_mut(&mut self, backend: BackendKind) -> &mut ShellOptions {
+        self.backend_shell_options.entry(backend).or_default()
+    }
+
+    fn load_from_path(settings_path: &Path) -> Self {
         let mut settings: Self = if settings_path.exists() {
-            match std::fs::read_to_string(&settings_path) {
-                Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-                Err(_) => Self::default(),
+            match std::fs::read_to_string(settings_path) {
+                Ok(content) => match serde_json::from_str(&content) {
+                    Ok(settings) => settings,
+                    Err(error) => {
+                        warn_settings_io(&format!(
+                            "Failed to parse settings file at {}: {error}",
+                            settings_path.display()
+                        ));
+                        quarantine_invalid_settings_file(settings_path);
+                        Self::default()
+                    }
+                },
+                Err(error) => {
+                    warn_settings_io(&format!(
+                        "Failed to read settings file at {}: {error}",
+                        settings_path.display()
+                    ));
+                    Self::default()
+                }
             }
         } else {
             Self::default()
@@ -244,27 +294,184 @@ impl AppSettings {
                 .insert(BackendKind::Fnm, legacy);
         }
 
+        if settings.sanitize_in_place() {
+            warn_settings_io(
+                "Loaded settings contained out-of-range values; defaults were applied where needed.",
+            );
+        }
+
         settings
     }
 
-    pub fn save(&self) -> Result<(), std::io::Error> {
-        let paths = AppPaths::new().map_err(std::io::Error::other)?;
-        paths.ensure_dirs()?;
+    fn save_to_path(&self, settings_path: &Path) -> Result<(), std::io::Error> {
+        let mut settings = self.clone();
+        if settings.sanitize_in_place() {
+            warn_settings_io("Saving sanitized settings after clamping out-of-range values.");
+        }
 
-        let content = serde_json::to_string_pretty(self)?;
-        std::fs::write(paths.settings_file(), content)?;
+        let content = serde_json::to_vec_pretty(&settings)?;
+        let parent = settings_path.parent().ok_or_else(|| {
+            std::io::Error::other("settings path does not have a parent directory")
+        })?;
+        let temp_path = temp_settings_path(settings_path);
+
+        {
+            let mut file = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&temp_path)?;
+            file.write_all(&content)?;
+            file.sync_all()?;
+        }
+
+        if let Err(error) = replace_file(&temp_path, settings_path) {
+            let _ = std::fs::remove_file(&temp_path);
+            return Err(error);
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        if let Ok(dir_handle) = std::fs::File::open(parent) {
+            let _ = dir_handle.sync_all();
+        }
+
         Ok(())
     }
 
-    pub fn shell_options_for(&self, backend: BackendKind) -> ShellOptions {
-        self.backend_shell_options
-            .get(&backend)
-            .copied()
-            .unwrap_or_default()
+    fn sanitize_in_place(&mut self) -> bool {
+        let mut changed = false;
+
+        changed |= clamp_u64(&mut self.cache_ttl_hours, &CACHE_TTL_HOURS_RANGE);
+        changed |= clamp_u64(&mut self.install_timeout_secs, &INSTALL_TIMEOUT_SECS_RANGE);
+        changed |= clamp_u64(
+            &mut self.uninstall_timeout_secs,
+            &OPERATION_TIMEOUT_SECS_RANGE,
+        );
+        changed |= clamp_u64(
+            &mut self.set_default_timeout_secs,
+            &OPERATION_TIMEOUT_SECS_RANGE,
+        );
+        changed |= clamp_u64(&mut self.fetch_timeout_secs, &FETCH_TIMEOUT_SECS_RANGE);
+        changed |= clamp_u64(&mut self.http_timeout_secs, &HTTP_TIMEOUT_SECS_RANGE);
+        changed |= clamp_u64(&mut self.toast_timeout_secs, &TOAST_TIMEOUT_SECS_RANGE);
+        changed |= clamp_usize(&mut self.max_visible_toasts, &MAX_VISIBLE_TOASTS_RANGE);
+        changed |= clamp_usize(&mut self.search_results_limit, &SEARCH_RESULTS_LIMIT_RANGE);
+        changed |= clamp_usize(&mut self.modal_preview_limit, &MODAL_PREVIEW_LIMIT_RANGE);
+        changed |= clamp_u64(&mut self.max_log_size_bytes, &MAX_LOG_SIZE_BYTES_RANGE);
+
+        let original_retry_delays = self.retry_delays_secs.clone();
+        self.retry_delays_secs
+            .retain(|delay| *delay <= MAX_RETRY_DELAY_SECS);
+        if self.retry_delays_secs.len() > MAX_RETRY_STEPS {
+            self.retry_delays_secs.truncate(MAX_RETRY_STEPS);
+        }
+        if self.retry_delays_secs.is_empty() {
+            self.retry_delays_secs = default_retry_delays();
+        }
+        changed |= self.retry_delays_secs != original_retry_delays;
+
+        changed
+    }
+}
+
+fn clamp_u64(value: &mut u64, range: &std::ops::RangeInclusive<u64>) -> bool {
+    let clamped = (*value).clamp(*range.start(), *range.end());
+    let changed = clamped != *value;
+    *value = clamped;
+    changed
+}
+
+fn clamp_usize(value: &mut usize, range: &std::ops::RangeInclusive<usize>) -> bool {
+    let clamped = (*value).clamp(*range.start(), *range.end());
+    let changed = clamped != *value;
+    *value = clamped;
+    changed
+}
+
+fn warn_settings_io(message: &str) {
+    eprintln!("Versi settings warning: {message}");
+    log::warn!("{message}");
+}
+
+fn quarantine_invalid_settings_file(settings_path: &Path) {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let file_name = settings_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("settings.json");
+    let mut last_error = None;
+
+    for attempt in 0..5 {
+        let suffix = if attempt == 0 {
+            format!("{file_name}.corrupt-{timestamp}")
+        } else {
+            format!("{file_name}.corrupt-{timestamp}-{attempt}")
+        };
+        let backup_path = settings_path.with_file_name(suffix);
+
+        match std::fs::rename(settings_path, &backup_path) {
+            Ok(()) => {
+                warn_settings_io(&format!(
+                    "Moved invalid settings file to {}",
+                    backup_path.display()
+                ));
+                return;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+            Err(error) => {
+                last_error = Some(error);
+            }
+        }
     }
 
-    pub fn shell_options_for_mut(&mut self, backend: BackendKind) -> &mut ShellOptions {
-        self.backend_shell_options.entry(backend).or_default()
+    if let Some(error) = last_error {
+        warn_settings_io(&format!(
+            "Failed to quarantine invalid settings file {}: {error}",
+            settings_path.display()
+        ));
+    }
+}
+
+fn temp_settings_path(settings_path: &Path) -> PathBuf {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let file_name = settings_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("settings.json");
+    settings_path.with_file_name(format!(
+        "{file_name}.tmp-{}-{timestamp}",
+        std::process::id()
+    ))
+}
+
+fn replace_file(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
+    match std::fs::rename(src, dst) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            #[cfg(target_os = "windows")]
+            {
+                if dst.exists() {
+                    std::fs::remove_file(dst)?;
+                    std::fs::rename(src, dst)
+                } else {
+                    Err(error)
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                Err(error)
+            }
+        }
     }
 }
 
@@ -309,9 +516,14 @@ pub enum TrayBehavior {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    use std::fs;
 
-    use super::{AppSettings, AppUpdateBehavior, BackendKind, ShellOptions, WindowGeometry};
+    use serde_json::json;
+    use tempfile::tempdir;
+
+    use super::{
+        AppSettings, AppUpdateBehavior, BackendKind, ShellOptions, ThemeSetting, WindowGeometry,
+    };
 
     #[test]
     fn shell_options_default_enables_use_on_cd_only() {
@@ -447,5 +659,98 @@ mod tests {
             y: 100.0,
         };
         assert!(!out_of_bounds.is_likely_visible());
+    }
+
+    #[test]
+    fn sanitize_clamps_out_of_range_settings_values() {
+        let mut settings = AppSettings {
+            cache_ttl_hours: 0,
+            install_timeout_secs: 1,
+            uninstall_timeout_secs: 9_999,
+            set_default_timeout_secs: 0,
+            fetch_timeout_secs: 999,
+            http_timeout_secs: 0,
+            toast_timeout_secs: 0,
+            max_visible_toasts: 0,
+            search_results_limit: 999,
+            modal_preview_limit: 0,
+            max_log_size_bytes: 1,
+            retry_delays_secs: vec![900, 800, 700],
+            ..AppSettings::default()
+        };
+
+        let changed = settings.sanitize_in_place();
+
+        assert!(changed);
+        assert_eq!(settings.cache_ttl_hours, 1);
+        assert_eq!(settings.install_timeout_secs, 30);
+        assert_eq!(settings.uninstall_timeout_secs, 900);
+        assert_eq!(settings.set_default_timeout_secs, 5);
+        assert_eq!(settings.fetch_timeout_secs, 300);
+        assert_eq!(settings.http_timeout_secs, 3);
+        assert_eq!(settings.toast_timeout_secs, 1);
+        assert_eq!(settings.max_visible_toasts, 1);
+        assert_eq!(settings.search_results_limit, 200);
+        assert_eq!(settings.modal_preview_limit, 1);
+        assert_eq!(settings.max_log_size_bytes, 1_024 * 1_024);
+        assert_eq!(settings.retry_delays_secs, vec![0, 2, 5, 15]);
+    }
+
+    #[test]
+    fn load_from_path_quarantines_invalid_json() {
+        let temp_dir = tempdir().expect("create temp dir");
+        let settings_path = temp_dir.path().join("settings.json");
+        fs::write(&settings_path, "{ invalid json ").expect("write invalid settings");
+
+        let loaded = AppSettings::load_from_path(&settings_path);
+
+        assert!(matches!(loaded.theme, ThemeSetting::System));
+        assert!(!settings_path.exists());
+
+        let quarantined_files: Vec<_> = fs::read_dir(temp_dir.path())
+            .expect("read temp directory")
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("settings.json.corrupt-"))
+            .collect();
+        assert_eq!(quarantined_files.len(), 1);
+    }
+
+    #[test]
+    fn save_to_path_writes_replacement_file_without_temp_leftovers() {
+        let temp_dir = tempdir().expect("create temp dir");
+        let settings_path = temp_dir.path().join("settings.json");
+
+        let first = AppSettings {
+            theme: ThemeSetting::Dark,
+            ..AppSettings::default()
+        };
+        first
+            .save_to_path(&settings_path)
+            .expect("save first settings payload");
+
+        let second = AppSettings {
+            theme: ThemeSetting::Light,
+            search_results_limit: 1_000,
+            ..AppSettings::default()
+        };
+        second
+            .save_to_path(&settings_path)
+            .expect("save second settings payload");
+
+        let loaded = AppSettings::load_from_path(&settings_path);
+        assert!(matches!(loaded.theme, ThemeSetting::Light));
+        assert_eq!(loaded.search_results_limit, 200);
+
+        let has_temp_files = fs::read_dir(temp_dir.path())
+            .expect("read temp directory")
+            .filter_map(Result::ok)
+            .any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .contains("settings.json.tmp-")
+            });
+        assert!(!has_temp_files);
     }
 }
