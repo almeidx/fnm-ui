@@ -12,9 +12,9 @@ pub(crate) fn set_update_badge(visible: bool) {
     };
     use windows::Win32::UI::Shell::ITaskbarList3;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateIconIndirect, DestroyIcon, FindWindowA, HICON, ICONINFO,
+        CreateIconIndirect, DestroyIcon, HICON, ICONINFO,
     };
-    use windows::core::{PCSTR, PCWSTR, s, w};
+    use windows::core::{PCWSTR, w};
 
     struct GdiGuard {
         dc: Option<HDC>,
@@ -42,13 +42,11 @@ pub(crate) fn set_update_badge(visible: bool) {
     }
 
     unsafe {
-        let hwnd = match FindWindowA(PCSTR::null(), s!("Versi")) {
-            Ok(h) if !h.is_invalid() => h,
-            _ => {
-                debug!("Could not find Versi window for badge");
-                return;
-            }
+        let Some(hwnd_raw) = crate::windows_window::find_versi_window() else {
+            debug!("Could not find Versi window for badge");
+            return;
         };
+        let hwnd = windows::Win32::Foundation::HWND(hwnd_raw as isize);
 
         let com_initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
 

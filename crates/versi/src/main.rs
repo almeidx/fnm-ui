@@ -17,6 +17,8 @@ mod tray;
 mod version_query;
 mod views;
 mod widgets;
+#[cfg(windows)]
+mod windows_window;
 
 fn main() -> iced::Result {
     let _instance_guard = match single_instance::SingleInstance::acquire() {

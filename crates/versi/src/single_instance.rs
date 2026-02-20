@@ -48,12 +48,11 @@ mod windows_impl {
 
     pub fn bring_existing_window_to_front() {
         use windows_sys::Win32::UI::WindowsAndMessaging::{
-            FindWindowA, SW_RESTORE, SetForegroundWindow, ShowWindow,
+            SW_RESTORE, SetForegroundWindow, ShowWindow,
         };
 
         unsafe {
-            let hwnd = FindWindowA(ptr::null(), b"Versi\0".as_ptr());
-            if !hwnd.is_null() {
+            if let Some(hwnd) = crate::windows_window::find_versi_window() {
                 ShowWindow(hwnd, SW_RESTORE);
                 SetForegroundWindow(hwnd);
             }
