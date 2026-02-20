@@ -63,23 +63,32 @@ impl FromStr for NodeVersion {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim().strip_prefix('v').unwrap_or(s.trim());
-        let parts: Vec<&str> = s.split('.').collect();
 
-        if parts.len() < 3 {
+        let mut parts = s.split('.');
+        let major_str = parts
+            .next()
+            .ok_or_else(|| VersionParseError(format!("Expected X.Y.Z format, got: {s}")))?;
+        let minor_str = parts
+            .next()
+            .ok_or_else(|| VersionParseError(format!("Expected X.Y.Z format, got: {s}")))?;
+        let patch_str = parts
+            .next()
+            .ok_or_else(|| VersionParseError(format!("Expected X.Y.Z format, got: {s}")))?;
+        if parts.next().is_some() {
             return Err(VersionParseError(format!(
                 "Expected X.Y.Z format, got: {s}"
             )));
         }
 
-        let major = parts[0]
+        let major = major_str
             .parse()
-            .map_err(|_| VersionParseError(format!("Invalid major version: {}", parts[0])))?;
-        let minor = parts[1]
+            .map_err(|_| VersionParseError(format!("Invalid major version: {major_str}")))?;
+        let minor = minor_str
             .parse()
-            .map_err(|_| VersionParseError(format!("Invalid minor version: {}", parts[1])))?;
-        let patch = parts[2]
+            .map_err(|_| VersionParseError(format!("Invalid minor version: {minor_str}")))?;
+        let patch = patch_str
             .parse()
-            .map_err(|_| VersionParseError(format!("Invalid patch version: {}", parts[2])))?;
+            .map_err(|_| VersionParseError(format!("Invalid patch version: {patch_str}")))?;
 
         Ok(NodeVersion::new(major, minor, patch))
     }

@@ -179,12 +179,14 @@ impl MainState {
     pub fn navigable_versions(&self, search_results_limit: usize) -> Vec<String> {
         let env = self.active_environment();
         let mut result = Vec::new();
+        let mut version_text = String::with_capacity(16);
 
         if self.search_query.is_empty() {
             for group in &env.version_groups {
                 if group.is_expanded {
                     for v in &group.versions {
-                        result.push(v.version.to_string());
+                        v.version.write_prefixed_into(&mut version_text);
+                        result.push(version_text.clone());
                     }
                 }
             }
@@ -200,7 +202,8 @@ impl MainState {
             );
 
             for v in search.versions {
-                result.push(v.version.to_string());
+                v.version.write_prefixed_into(&mut version_text);
+                result.push(version_text.clone());
             }
         }
 

@@ -373,11 +373,12 @@ fn meta_row<'a>(label: &'a str, value: &'a str, muted: iced::Color) -> Element<'
 }
 
 fn lookup_lts<'a>(version: &str, state: &'a MainState) -> Option<&'a str> {
+    let parsed = version.parse::<versi_backend::NodeVersion>().ok()?;
     state
         .available_versions
         .versions
         .iter()
-        .find(|v| v.version.to_string() == version)
+        .find(|v| v.version == parsed)
         .and_then(|v| v.lts_codename.as_deref())
 }
 

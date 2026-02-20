@@ -6,6 +6,7 @@
 use std::time::Duration;
 
 use iced::Task;
+use versi_backend::NodeVersion;
 
 use crate::error::AppError;
 use crate::message::Message;
@@ -38,11 +39,14 @@ fn enqueue_exclusive_if_busy(state: &mut MainState, request: Operation) -> bool 
 }
 
 fn should_confirm_default_uninstall(state: &MainState, version: &str) -> bool {
+    let Ok(version) = version.parse::<NodeVersion>() else {
+        return false;
+    };
     state
         .active_environment()
         .default_version
         .as_ref()
-        .is_some_and(|dv| dv.to_string() == version)
+        .is_some_and(|dv| dv == &version)
 }
 
 fn error_text(error: Option<AppError>) -> String {
