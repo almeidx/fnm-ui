@@ -3,6 +3,7 @@ use std::path::Path;
 
 use log::{debug, info, warn};
 use sha2::{Digest, Sha256};
+use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 
@@ -21,6 +22,60 @@ pub enum ApplyResult {
     ExitForInstaller,
 }
 
+#[derive(Debug, Error)]
+pub enum AutoUpdateError {
+    #[error("{context}: {source}")]
+    Io {
+        context: &'static str,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("{context}: {source}")]
+    Http {
+        context: &'static str,
+        #[source]
+        source: reqwest::Error,
+    },
+    #[error("{context}: {source}")]
+    Zip {
+        context: &'static str,
+        #[source]
+        source: zip::result::ZipError,
+    },
+    #[error("{context}: {details}")]
+    Platform {
+        context: &'static str,
+        details: String,
+    },
+    #[error("{0}")]
+    Invalid(String),
+}
+
+impl AutoUpdateError {
+    fn io(context: &'static str, source: std::io::Error) -> Self {
+        Self::Io { context, source }
+    }
+
+    fn http(context: &'static str, source: reqwest::Error) -> Self {
+        Self::Http { context, source }
+    }
+
+    fn zip(context: &'static str, source: zip::result::ZipError) -> Self {
+        Self::Zip { context, source }
+    }
+
+    fn platform(context: &'static str, details: String) -> Self {
+        Self::Platform { context, details }
+    }
+
+    fn io_with_path(context: &'static str, path: &Path, source: &std::io::Error) -> Self {
+        Self::io(
+            context,
+            std::io::Error::new(source.kind(), format!("{}: {source}", path.display())),
+        )
+    }
+}
+
 /// Download and apply a packaged Versi update.
 ///
 /// # Errors
@@ -30,13 +85,15 @@ pub async fn download_and_apply(
     download_url: &str,
     checksum_url: Option<&str>,
     progress: mpsc::Sender<UpdateProgress>,
-) -> Result<ApplyResult, String> {
-    let cache_dir = versi_platform::AppPaths::new()?.cache_dir;
+) -> Result<ApplyResult, AutoUpdateError> {
+    let cache_dir = versi_platform::AppPaths::new()
+        .map_err(|error| AutoUpdateError::platform("failed to resolve app paths", error))?
+        .cache_dir;
     std::fs::create_dir_all(&cache_dir)
-        .map_err(|e| format!("Failed to create cache directory: {e}"))?;
+        .map_err(|error| AutoUpdateError::io("failed to create cache directory", error))?;
 
     let temp_dir = tempfile::tempdir_in(&cache_dir)
-        .map_err(|e| format!("Failed to create temp directory: {e}"))?;
+        .map_err(|error| AutoUpdateError::io("failed to create temp directory", error))?;
 
     let raw_name = download_url.rsplit('/').next().unwrap_or("update-download");
     let file_name = Path::new(raw_name)
@@ -63,7 +120,7 @@ pub async fn download_and_apply(
     let _ = progress.send(UpdateProgress::Extracting).await;
     let extract_dir = temp_dir.path().join("extracted");
     std::fs::create_dir_all(&extract_dir)
-        .map_err(|e| format!("Failed to create extraction directory: {e}"))?;
+        .map_err(|error| AutoUpdateError::io("failed to create extraction directory", error))?;
     extract_zip(&download_path, &extract_dir)?;
 
     let _ = progress.send(UpdateProgress::Applying).await;
@@ -75,30 +132,32 @@ async fn verify_download_checksum(
     checksum_url: Option<&str>,
     asset_name: &str,
     downloaded_path: &Path,
-) -> Result<(), String> {
+) -> Result<(), AutoUpdateError> {
     let checksum_url = checksum_url.ok_or_else(|| {
-        format!(
+        AutoUpdateError::Invalid(format!(
             "Missing checksum asset for {asset_name}. Refusing to apply unverified update."
-        )
+        ))
     })?;
     let response = client
         .get(checksum_url)
         .send()
         .await
-        .map_err(|e| format!("Failed to download checksums: {e}"))?;
+        .map_err(|error| AutoUpdateError::http("failed to download checksums", error))?;
     if !response.status().is_success() {
-        return Err(format!(
+        return Err(AutoUpdateError::Invalid(format!(
             "Failed to download checksums: HTTP {}",
             response.status()
-        ));
+        )));
     }
 
     let checksums = response
         .text()
         .await
-        .map_err(|e| format!("Failed to read checksums: {e}"))?;
+        .map_err(|error| AutoUpdateError::http("failed to read checksums", error))?;
     let expected = parse_expected_checksum(&checksums, asset_name).ok_or_else(|| {
-        format!("No checksum entry found for update asset '{asset_name}' in checksums file")
+        AutoUpdateError::Invalid(format!(
+            "No checksum entry found for update asset '{asset_name}' in checksums file"
+        ))
     })?;
     let actual = sha256_file(downloaded_path)?;
 
@@ -106,9 +165,9 @@ async fn verify_download_checksum(
         info!("Update checksum verified for {asset_name}");
         Ok(())
     } else {
-        Err(format!(
+        Err(AutoUpdateError::Invalid(format!(
             "Checksum mismatch for {asset_name}. Refusing to apply update."
-        ))
+        )))
     }
 }
 
@@ -116,7 +175,10 @@ fn parse_expected_checksum(checksums: &str, asset_name: &str) -> Option<String> 
     checksums.lines().find_map(|line| {
         let mut parts = line.split_whitespace();
         let hash = parts.next()?;
-        let name = parts.next()?.trim_start_matches('*').trim_start_matches("./");
+        let name = parts
+            .next()?
+            .trim_start_matches('*')
+            .trim_start_matches("./");
         if name == asset_name {
             Some(hash.to_ascii_lowercase())
         } else {
@@ -125,16 +187,17 @@ fn parse_expected_checksum(checksums: &str, asset_name: &str) -> Option<String> 
     })
 }
 
-fn sha256_file(path: &Path) -> Result<String, String> {
-    let mut file = std::fs::File::open(path)
-        .map_err(|e| format!("Failed to open downloaded update for checksum: {e}"))?;
+fn sha256_file(path: &Path) -> Result<String, AutoUpdateError> {
+    let mut file = std::fs::File::open(path).map_err(|error| {
+        AutoUpdateError::io_with_path("failed to open file for checksum", path, &error)
+    })?;
     let mut hasher = Sha256::new();
     let mut buffer = [0_u8; 8192];
 
     loop {
-        let read = file
-            .read(&mut buffer)
-            .map_err(|e| format!("Failed to read downloaded update for checksum: {e}"))?;
+        let read = file.read(&mut buffer).map_err(|error| {
+            AutoUpdateError::io_with_path("failed to read file for checksum", path, &error)
+        })?;
         if read == 0 {
             break;
         }
@@ -149,56 +212,60 @@ async fn download_file(
     url: &str,
     dest: &Path,
     progress: &mpsc::Sender<UpdateProgress>,
-) -> Result<(), String> {
+) -> Result<(), AutoUpdateError> {
     use futures_util::StreamExt;
 
     let response = client
         .get(url)
         .send()
         .await
-        .map_err(|e| format!("Download request failed: {e}"))?;
+        .map_err(|error| AutoUpdateError::http("download request failed", error))?;
 
     if !response.status().is_success() {
-        return Err(format!("Download failed with status {}", response.status()));
+        return Err(AutoUpdateError::Invalid(format!(
+            "Download failed with status {}",
+            response.status()
+        )));
     }
 
     let total = response.content_length().unwrap_or(0);
     let mut downloaded: u64 = 0;
 
-    let mut file = tokio::fs::File::create(dest)
-        .await
-        .map_err(|e| format!("Failed to create download file: {e}"))?;
+    let mut file = tokio::fs::File::create(dest).await.map_err(|error| {
+        AutoUpdateError::io_with_path("failed to create download file", dest, &error)
+    })?;
 
     let mut stream = response.bytes_stream();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| format!("Download stream error: {e}"))?;
-        file.write_all(&chunk)
-            .await
-            .map_err(|e| format!("Failed to write download data: {e}"))?;
+        let chunk = chunk.map_err(|error| AutoUpdateError::http("download stream error", error))?;
+        file.write_all(&chunk).await.map_err(|error| {
+            AutoUpdateError::io_with_path("failed to write download data", dest, &error)
+        })?;
         downloaded += chunk.len() as u64;
         let _ = progress
             .send(UpdateProgress::Downloading { downloaded, total })
             .await;
     }
 
-    file.flush()
-        .await
-        .map_err(|e| format!("Failed to flush download file: {e}"))?;
+    file.flush().await.map_err(|error| {
+        AutoUpdateError::io_with_path("failed to flush download file", dest, &error)
+    })?;
 
     info!("Download complete: {downloaded} bytes");
     Ok(())
 }
 
-fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
-    let file =
-        std::fs::File::open(zip_path).map_err(|e| format!("Failed to open zip file: {e}"))?;
-    let mut archive =
-        zip::ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {e}"))?;
+fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), AutoUpdateError> {
+    let file = std::fs::File::open(zip_path).map_err(|error| {
+        AutoUpdateError::io_with_path("failed to open zip file", zip_path, &error)
+    })?;
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|error| AutoUpdateError::zip("failed to read zip archive", error))?;
 
     for i in 0..archive.len() {
         let mut entry = archive
             .by_index(i)
-            .map_err(|e| format!("Failed to read zip entry: {e}"))?;
+            .map_err(|error| AutoUpdateError::zip("failed to read zip entry", error))?;
         let Some(name) = entry.enclosed_name() else {
             warn!("Skipping zip entry with unsafe path");
             continue;
@@ -206,21 +273,29 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
         let out_path = dest.join(name);
 
         if entry.is_dir() {
-            std::fs::create_dir_all(&out_path)
-                .map_err(|e| format!("Failed to create directory {}: {e}", out_path.display()))?;
+            std::fs::create_dir_all(&out_path).map_err(|error| {
+                AutoUpdateError::io_with_path(
+                    "failed to create extraction directory",
+                    &out_path,
+                    &error,
+                )
+            })?;
         } else {
             if let Some(parent) = out_path.parent() {
-                std::fs::create_dir_all(parent).map_err(|e| {
-                    format!(
-                        "Failed to create parent directory {}: {e}",
-                        parent.display()
+                std::fs::create_dir_all(parent).map_err(|error| {
+                    AutoUpdateError::io_with_path(
+                        "failed to create extraction parent directory",
+                        parent,
+                        &error,
                     )
                 })?;
             }
-            let mut outfile = std::fs::File::create(&out_path)
-                .map_err(|e| format!("Failed to create file {}: {e}", out_path.display()))?;
-            std::io::copy(&mut entry, &mut outfile)
-                .map_err(|e| format!("Failed to extract {}: {e}", out_path.display()))?;
+            let mut outfile = std::fs::File::create(&out_path).map_err(|error| {
+                AutoUpdateError::io_with_path("failed to create extracted file", &out_path, &error)
+            })?;
+            std::io::copy(&mut entry, &mut outfile).map_err(|error| {
+                AutoUpdateError::io_with_path("failed to extract archive entry", &out_path, &error)
+            })?;
 
             #[cfg(unix)]
             {
@@ -238,7 +313,7 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
 }
 
 #[cfg(target_os = "macos")]
-fn apply_update(extract_dir: &Path) -> Result<ApplyResult, String> {
+fn apply_update(extract_dir: &Path) -> Result<ApplyResult, AutoUpdateError> {
     let new_app = find_app_bundle(extract_dir)?;
     let current_bundle = current_app_bundle()?;
     let old_bundle = current_bundle.with_extension("app.old");
@@ -250,12 +325,18 @@ fn apply_update(extract_dir: &Path) -> Result<ApplyResult, String> {
     );
 
     if old_bundle.exists() {
-        std::fs::remove_dir_all(&old_bundle)
-            .map_err(|e| format!("Failed to remove old backup: {e}"))?;
+        std::fs::remove_dir_all(&old_bundle).map_err(|error| {
+            AutoUpdateError::io_with_path("failed to remove old backup", &old_bundle, &error)
+        })?;
     }
 
-    std::fs::rename(&current_bundle, &old_bundle)
-        .map_err(|e| format!("Failed to move current bundle aside: {e}"))?;
+    std::fs::rename(&current_bundle, &old_bundle).map_err(|error| {
+        AutoUpdateError::io_with_path(
+            "failed to move current app bundle aside",
+            &current_bundle,
+            &error,
+        )
+    })?;
 
     match move_dir(&new_app, &current_bundle) {
         Ok(()) => {}
@@ -275,60 +356,75 @@ fn apply_update(extract_dir: &Path) -> Result<ApplyResult, String> {
 }
 
 #[cfg(target_os = "macos")]
-fn find_app_bundle(dir: &Path) -> Result<std::path::PathBuf, String> {
-    for entry in std::fs::read_dir(dir).map_err(|e| format!("Failed to read extract dir: {e}"))? {
-        let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
+fn find_app_bundle(dir: &Path) -> Result<std::path::PathBuf, AutoUpdateError> {
+    for entry in std::fs::read_dir(dir)
+        .map_err(|error| AutoUpdateError::io_with_path("failed to read extract dir", dir, &error))?
+    {
+        let entry = entry.map_err(|error| {
+            AutoUpdateError::io("failed to read extract directory entry", error)
+        })?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) == Some("app") && path.is_dir() {
             return Ok(path);
         }
     }
-    Err("No .app bundle found in extracted archive".to_string())
+    Err(AutoUpdateError::Invalid(
+        "No .app bundle found in extracted archive".to_string(),
+    ))
 }
 
 #[cfg(target_os = "macos")]
-fn current_app_bundle() -> Result<std::path::PathBuf, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("Failed to get current exe: {e}"))?;
+fn current_app_bundle() -> Result<std::path::PathBuf, AutoUpdateError> {
+    let exe = std::env::current_exe()
+        .map_err(|error| AutoUpdateError::io("failed to get current executable", error))?;
     let mut path = exe.as_path();
     loop {
         if path.extension().and_then(|e| e.to_str()) == Some("app") {
             return Ok(path.to_path_buf());
         }
-        path = path
-            .parent()
-            .ok_or_else(|| "Current executable is not inside a .app bundle".to_string())?;
+        path = path.parent().ok_or_else(|| {
+            AutoUpdateError::Invalid("Current executable is not inside a .app bundle".to_string())
+        })?;
     }
 }
 
 #[cfg(target_os = "macos")]
-fn move_dir(src: &Path, dest: &Path) -> Result<(), String> {
+fn move_dir(src: &Path, dest: &Path) -> Result<(), AutoUpdateError> {
     if std::fs::rename(src, dest).is_ok() {
         return Ok(());
     }
 
     copy_dir_recursive(src, dest)?;
-    std::fs::remove_dir_all(src).map_err(|e| format!("Failed to clean up source dir: {e}"))?;
+    std::fs::remove_dir_all(src).map_err(|error| {
+        AutoUpdateError::io_with_path("failed to clean up source directory", src, &error)
+    })?;
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
-fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
-    std::fs::create_dir_all(dest)
-        .map_err(|e| format!("Failed to create dir {}: {e}", dest.display()))?;
+fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), AutoUpdateError> {
+    std::fs::create_dir_all(dest).map_err(|error| {
+        AutoUpdateError::io_with_path("failed to create directory", dest, &error)
+    })?;
 
-    for entry in std::fs::read_dir(src).map_err(|e| format!("Failed to read dir: {e}"))? {
-        let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
+    for entry in std::fs::read_dir(src)
+        .map_err(|error| AutoUpdateError::io_with_path("failed to read directory", src, &error))?
+    {
+        let entry =
+            entry.map_err(|error| AutoUpdateError::io("failed to read directory entry", error))?;
         let src_path = entry.path();
         let dest_path = dest.join(entry.file_name());
 
         if src_path.is_dir() {
             copy_dir_recursive(&src_path, &dest_path)?;
         } else {
-            std::fs::copy(&src_path, &dest_path).map_err(|e| {
-                format!(
-                    "Failed to copy {} -> {}: {e}",
-                    src_path.display(),
-                    dest_path.display()
+            std::fs::copy(&src_path, &dest_path).map_err(|error| {
+                AutoUpdateError::io(
+                    "failed to copy file during update apply",
+                    std::io::Error::new(
+                        error.kind(),
+                        format!("{} -> {}: {error}", src_path.display(), dest_path.display()),
+                    ),
                 )
             })?;
         }
@@ -337,13 +433,16 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
 }
 
 #[cfg(target_os = "linux")]
-fn apply_update(extract_dir: &Path) -> Result<ApplyResult, String> {
+fn apply_update(extract_dir: &Path) -> Result<ApplyResult, AutoUpdateError> {
     let new_binary = extract_dir.join("versi");
     if !new_binary.exists() {
-        return Err("No 'versi' binary found in extracted archive".to_string());
+        return Err(AutoUpdateError::Invalid(
+            "No 'versi' binary found in extracted archive".to_string(),
+        ));
     }
 
-    let exe = std::env::current_exe().map_err(|e| format!("Failed to get current exe: {e}"))?;
+    let exe = std::env::current_exe()
+        .map_err(|error| AutoUpdateError::io("failed to get current executable", error))?;
 
     info!("Replacing binary via self-replace");
     match self_replace::self_replace(&new_binary) {
@@ -357,12 +456,15 @@ fn apply_update(extract_dir: &Path) -> Result<ApplyResult, String> {
             info!("Permission denied, trying pkexec for elevated replacement");
             apply_update_with_pkexec(&new_binary, &exe)
         }
-        Err(e) => Err(format!("Failed to replace binary: {e}")),
+        Err(error) => Err(AutoUpdateError::io("failed to replace binary", error)),
     }
 }
 
 #[cfg(target_os = "linux")]
-fn apply_update_with_pkexec(new_binary: &Path, target: &Path) -> Result<ApplyResult, String> {
+fn apply_update_with_pkexec(
+    new_binary: &Path,
+    target: &Path,
+) -> Result<ApplyResult, AutoUpdateError> {
     let status = std::process::Command::new("pkexec")
         .args([
             "cp",
@@ -371,15 +473,15 @@ fn apply_update_with_pkexec(new_binary: &Path, target: &Path) -> Result<ApplyRes
             &target.to_string_lossy(),
         ])
         .status()
-        .map_err(|e| format!("Failed to run pkexec: {e}"))?;
+        .map_err(|error| AutoUpdateError::io("failed to run pkexec", error))?;
 
     if !status.success() {
-        return Err(format!(
+        return Err(AutoUpdateError::Invalid(format!(
             "Elevated update failed. Binary is installed in a system location.\n\
              To update manually, run:\n  sudo cp {} {}",
             new_binary.display(),
             target.display()
-        ));
+        )));
     }
 
     let _ = std::process::Command::new("pkexec")
@@ -391,24 +493,26 @@ fn apply_update_with_pkexec(new_binary: &Path, target: &Path) -> Result<ApplyRes
 }
 
 #[cfg(target_os = "windows")]
-fn apply_update(_extract_dir: &Path) -> Result<ApplyResult, String> {
+fn apply_update(_extract_dir: &Path) -> Result<ApplyResult, AutoUpdateError> {
     unreachable!("Windows uses MSI path, not extract+apply")
 }
 
 #[cfg(target_os = "windows")]
-fn apply_msi(msi_path: &Path) -> Result<ApplyResult, String> {
+fn apply_msi(msi_path: &Path) -> Result<ApplyResult, AutoUpdateError> {
     info!("Launching MSI installer: {}", msi_path.display());
     std::process::Command::new("msiexec")
         .args(["/i", &msi_path.to_string_lossy(), "/passive"])
         .spawn()
-        .map_err(|e| format!("Failed to launch MSI installer: {e}"))?;
+        .map_err(|error| AutoUpdateError::io("failed to launch MSI installer", error))?;
 
     Ok(ApplyResult::ExitForInstaller)
 }
 
 #[cfg(not(target_os = "windows"))]
-fn apply_msi(_msi_path: &Path) -> Result<ApplyResult, String> {
-    Err("MSI installation is only supported on Windows".to_string())
+fn apply_msi(_msi_path: &Path) -> Result<ApplyResult, AutoUpdateError> {
+    Err(AutoUpdateError::Invalid(
+        "MSI installation is only supported on Windows".to_string(),
+    ))
 }
 
 pub fn cleanup_old_app_bundle() {
@@ -443,12 +547,12 @@ pub fn cleanup_old_app_bundle() {
 ///
 /// # Errors
 /// Returns an error if the running app bundle cannot be located or reopened.
-pub fn restart_app() -> Result<(), String> {
+pub fn restart_app() -> Result<(), AutoUpdateError> {
     let bundle = current_app_bundle()?;
     std::process::Command::new("open")
         .args(["-n", &bundle.to_string_lossy()])
         .spawn()
-        .map_err(|e| format!("Failed to restart app: {e}"))?;
+        .map_err(|error| AutoUpdateError::io("failed to restart app", error))?;
     Ok(())
 }
 
@@ -458,8 +562,9 @@ pub fn restart_app() -> Result<(), String> {
 /// # Errors
 /// Returns an error if the current executable path cannot be resolved or a new
 /// process cannot be spawned.
-pub fn restart_app() -> Result<(), String> {
-    let exe = std::env::current_exe().map_err(|e| format!("Failed to get current exe: {e}"))?;
+pub fn restart_app() -> Result<(), AutoUpdateError> {
+    let exe = std::env::current_exe()
+        .map_err(|error| AutoUpdateError::io("failed to get current executable", error))?;
 
     // On Linux, after self_replace, /proc/self/exe points to the old deleted inode
     // and current_exe() returns a path with " (deleted)" appended.
@@ -479,7 +584,7 @@ pub fn restart_app() -> Result<(), String> {
     info!("Restarting from: {}", exe.display());
     std::process::Command::new(&exe)
         .spawn()
-        .map_err(|e| format!("Failed to restart app: {e}"))?;
+        .map_err(|error| AutoUpdateError::io("failed to restart app", error))?;
     Ok(())
 }
 
@@ -487,7 +592,7 @@ pub fn restart_app() -> Result<(), String> {
 mod tests {
     use std::io::Write as _;
 
-    use super::{extract_zip, parse_expected_checksum, sha256_file};
+    use super::{AutoUpdateError, extract_zip, parse_expected_checksum, sha256_file};
 
     #[test]
     fn extract_zip_expands_files_and_directories() {
@@ -577,7 +682,8 @@ bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bar.zip
         let result = super::apply_msi(std::path::Path::new("/tmp/update.msi"));
         assert!(matches!(
             result,
-            Err(ref message) if message == "MSI installation is only supported on Windows"
+            Err(AutoUpdateError::Invalid(ref message))
+                if message == "MSI installation is only supported on Windows"
         ));
     }
 }

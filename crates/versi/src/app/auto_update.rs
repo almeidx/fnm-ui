@@ -74,9 +74,9 @@ impl Versi {
                     }
 
                     let result = match download_handle.await {
-                        Ok(result) => {
-                            result.map_err(|error| AppError::auto_update_failed("apply", error))
-                        }
+                        Ok(result) => result.map_err(|error| {
+                            AppError::auto_update_failed("apply", error.to_string())
+                        }),
                         Err(error) => Err(AppError::auto_update_failed(
                             "task join",
                             format!("update task panicked: {error}"),
@@ -134,8 +134,10 @@ impl Versi {
         info!("Restarting app for update");
         if let Err(error) = versi_core::auto_update::restart_app() {
             if let AppState::Main(state) = &mut self.state {
-                state.app_update_state =
-                    AppUpdateState::Failed(AppError::auto_update_failed("restart", error));
+                state.app_update_state = AppUpdateState::Failed(AppError::auto_update_failed(
+                    "restart",
+                    error.to_string(),
+                ));
             }
             return Task::none();
         }
