@@ -67,9 +67,8 @@ pub(crate) fn set_launch_at_login(enable: bool) -> Result<(), Box<dyn std::error
         "[Desktop Entry]\n\
          Type=Application\n\
          Name=Versi\n\
-         Exec={}\n\
-         X-GNOME-Autostart-enabled=true\n",
-        exec_entry
+         Exec={exec_entry}\n\
+         X-GNOME-Autostart-enabled=true\n"
     );
 
     fs::create_dir_all(&autostart_dir)?;
