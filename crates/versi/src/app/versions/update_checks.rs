@@ -5,11 +5,23 @@ use versi_core::check_for_update;
 
 use crate::error::AppError;
 use crate::message::Message;
-use crate::state::AppState;
+use crate::settings::AppUpdateBehavior;
+use crate::state::{AppState, AppUpdateState};
 
 use super::super::Versi;
 
 pub(super) fn handle_check_for_app_update(app: &mut Versi) -> Task<Message> {
+    if app.settings.app_update_behavior == AppUpdateBehavior::DoNotCheck {
+        return Task::none();
+    }
+
+    if let AppState::Main(state) = &mut app.state {
+        if state.app_update_check_in_flight {
+            return Task::none();
+        }
+        state.app_update_check_in_flight = true;
+    }
+
     let current_version = env!("CARGO_PKG_VERSION").to_string();
     let client = app.http_client.clone();
     Task::perform(
@@ -25,13 +37,34 @@ pub(super) fn handle_check_for_app_update(app: &mut Versi) -> Task<Message> {
 pub(super) fn handle_app_update_checked(
     app: &mut Versi,
     result: Result<Option<versi_core::AppUpdate>, AppError>,
-) {
+) -> Task<Message> {
     if let AppState::Main(state) = &mut app.state {
+        state.app_update_check_in_flight = false;
+        state.app_update_last_checked_at = Some(std::time::Instant::now());
+
+        if app.settings.app_update_behavior == AppUpdateBehavior::DoNotCheck {
+            state.app_update = None;
+            return Task::none();
+        }
+
         match result {
-            Ok(update) => state.app_update = update,
+            Ok(update) => {
+                let should_auto_start = app.settings.app_update_behavior
+                    == AppUpdateBehavior::AutomaticallyUpdate
+                    && update.as_ref().is_some_and(|u| u.download_url.is_some())
+                    && matches!(
+                        state.app_update_state,
+                        AppUpdateState::Idle | AppUpdateState::Failed(_)
+                    );
+                state.app_update = update;
+                if should_auto_start {
+                    return Task::done(Message::StartAppUpdate);
+                }
+            }
             Err(e) => debug!("App update check failed: {e}"),
         }
     }
+    Task::none()
 }
 
 pub(super) fn handle_check_for_backend_update(app: &mut Versi) -> Task<Message> {

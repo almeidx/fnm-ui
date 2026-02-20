@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
 use tokio_util::sync::CancellationToken;
@@ -35,6 +35,8 @@ pub struct MainState {
     pub backend: Arc<dyn VersionManager>,
     pub app_update: Option<AppUpdate>,
     pub app_update_state: AppUpdateState,
+    pub app_update_check_in_flight: bool,
+    pub app_update_last_checked_at: Option<Instant>,
     pub backend_update: Option<BackendUpdate>,
     pub view: MainViewKind,
     pub settings_state: SettingsModalState,
@@ -104,6 +106,8 @@ impl MainState {
             backend,
             app_update: None,
             app_update_state: AppUpdateState::default(),
+            app_update_check_in_flight: false,
+            app_update_last_checked_at: None,
             backend_update: None,
             view: MainViewKind::default(),
             settings_state: SettingsModalState::new(),
@@ -208,6 +212,15 @@ impl MainState {
             .parse()
             .ok()
             .is_some_and(|version| self.active_environment().installed_set.contains(&version))
+    }
+
+    pub fn should_check_for_app_updates(&self, interval: Duration) -> bool {
+        if self.app_update_check_in_flight {
+            return false;
+        }
+        self.app_update_last_checked_at.is_none_or(|last_checked_at| {
+            Instant::now().saturating_duration_since(last_checked_at) >= interval
+        })
     }
 }
 

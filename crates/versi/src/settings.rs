@@ -45,6 +45,9 @@ pub struct AppSettings {
     pub debug_logging: bool,
 
     #[serde(default)]
+    pub app_update_behavior: AppUpdateBehavior,
+
+    #[serde(default)]
     pub window_geometry: Option<WindowGeometry>,
 
     #[serde(default = "default_install_timeout")]
@@ -192,6 +195,7 @@ impl Default for AppSettings {
             backend_shell_options: HashMap::new(),
             shell_options: None,
             debug_logging: false,
+            app_update_behavior: AppUpdateBehavior::default(),
             window_geometry: None,
             install_timeout_secs: default_install_timeout(),
             uninstall_timeout_secs: default_operation_timeout(),
@@ -206,6 +210,14 @@ impl Default for AppSettings {
             retry_delays_secs: default_retry_delays(),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AppUpdateBehavior {
+    DoNotCheck,
+    #[default]
+    CheckPeriodically,
+    AutomaticallyUpdate,
 }
 
 impl AppSettings {
@@ -299,7 +311,7 @@ pub enum TrayBehavior {
 mod tests {
     use serde_json::json;
 
-    use super::{AppSettings, BackendKind, ShellOptions, WindowGeometry};
+    use super::{AppSettings, AppUpdateBehavior, BackendKind, ShellOptions, WindowGeometry};
 
     #[test]
     fn shell_options_default_enables_use_on_cd_only() {
@@ -326,6 +338,10 @@ mod tests {
         assert_eq!(settings.modal_preview_limit, 10);
         assert_eq!(settings.max_log_size_bytes, 5 * 1024 * 1024);
         assert_eq!(settings.retry_delays_secs, vec![0, 2, 5, 15]);
+        assert_eq!(
+            settings.app_update_behavior,
+            AppUpdateBehavior::CheckPeriodically
+        );
     }
 
     #[test]

@@ -1,9 +1,13 @@
 use iced::Task;
+use std::time::Duration;
 
 use crate::message::Message;
-use crate::state::AppState;
+use crate::settings::AppUpdateBehavior;
+use crate::state::{AppState, AppUpdateState};
 
 use super::super::{Versi, platform};
+
+const APP_UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 6);
 
 impl Versi {
     pub(super) fn dispatch_system(&mut self, message: Message) -> super::DispatchResult {
@@ -26,10 +30,7 @@ impl Versi {
                 Ok(Task::none())
             }
             Message::WindowEvent(_) => Ok(Task::none()),
-            Message::AppUpdateChecked(result) => {
-                self.handle_app_update_checked(*result);
-                Ok(Task::none())
-            }
+            Message::AppUpdateChecked(result) => Ok(self.handle_app_update_checked(*result)),
             Message::OpenAppUpdate => Ok(self.open_app_update_url()),
             Message::StartAppUpdate => Ok(self.handle_start_app_update()),
             Message::AppUpdateProgress { downloaded, total } => {
@@ -86,10 +87,23 @@ impl Versi {
             }
         }
 
-        if let AppState::Main(state) = &mut self.state {
+        let should_check_updates = if let AppState::Main(state) = &mut self.state {
             let timeout = self.settings.toast_timeout_secs;
             state.toasts.retain(|t| !t.is_expired(timeout));
+            self.settings.app_update_behavior != AppUpdateBehavior::DoNotCheck
+                && state.should_check_for_app_updates(APP_UPDATE_CHECK_INTERVAL)
+                && matches!(
+                    state.app_update_state,
+                    AppUpdateState::Idle | AppUpdateState::Failed(_)
+                )
+        } else {
+            false
+        };
+
+        if should_check_updates {
+            return self.handle_check_for_app_update();
         }
+
         Task::none()
     }
 
@@ -164,6 +178,7 @@ impl Versi {
 mod tests {
     use super::super::super::test_app_with_two_environments;
     use super::*;
+    use crate::settings::AppUpdateBehavior;
     use crate::state::{AppState, Modal};
 
     #[test]
@@ -234,5 +249,27 @@ mod tests {
 
         let state = app.main_state();
         assert!(matches!(state.modal, Some(Modal::KeyboardShortcuts)));
+    }
+
+    #[test]
+    fn tick_starts_app_update_check_when_enabled_and_due() {
+        let mut app = test_app_with_two_environments();
+        app.settings.app_update_behavior = AppUpdateBehavior::CheckPeriodically;
+
+        let _ = app.dispatch_system(Message::Tick);
+
+        let state = app.main_state();
+        assert!(state.app_update_check_in_flight);
+    }
+
+    #[test]
+    fn tick_does_not_start_app_update_check_when_disabled() {
+        let mut app = test_app_with_two_environments();
+        app.settings.app_update_behavior = AppUpdateBehavior::DoNotCheck;
+
+        let _ = app.dispatch_system(Message::Tick);
+
+        let state = app.main_state();
+        assert!(!state.app_update_check_in_flight);
     }
 }

@@ -58,8 +58,8 @@ impl Versi {
     pub(super) fn handle_app_update_checked(
         &mut self,
         result: Result<Option<versi_core::AppUpdate>, AppError>,
-    ) {
-        update_checks::handle_app_update_checked(self, result);
+    ) -> Task<Message> {
+        update_checks::handle_app_update_checked(self, result)
     }
 
     pub(super) fn handle_check_for_backend_update(&mut self) -> Task<Message> {

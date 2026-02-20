@@ -4,6 +4,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::super::test_app_with_two_environments;
 use super::*;
+use crate::settings::AppUpdateBehavior;
 use crate::state::AppState;
 
 fn remote(version: &str, is_latest: bool) -> versi_backend::RemoteVersion {
@@ -192,7 +193,7 @@ fn app_update_checked_sets_update_on_success() {
         download_size: Some(1234),
     };
 
-    app.handle_app_update_checked(Ok(Some(update.clone())));
+    let _ = app.handle_app_update_checked(Ok(Some(update.clone())));
 
     let state = app.main_state();
     assert_eq!(
@@ -202,6 +203,47 @@ fn app_update_checked_sets_update_on_success() {
             .map(|value| value.latest_version.as_str()),
         Some("0.9.1")
     );
+}
+
+#[test]
+fn app_update_checked_ignores_result_when_update_checks_are_disabled() {
+    let mut app = test_app_with_two_environments();
+    app.settings.app_update_behavior = AppUpdateBehavior::DoNotCheck;
+    if let AppState::Main(state) = &mut app.state {
+        state.app_update_check_in_flight = true;
+        state.app_update = Some(versi_core::AppUpdate {
+            current_version: "0.9.0".to_string(),
+            latest_version: "0.9.1".to_string(),
+            release_url: "https://example.com/release".to_string(),
+            release_notes: None,
+            download_url: Some("https://example.com/download".to_string()),
+            download_size: Some(42),
+        });
+    }
+
+    let _ = app.handle_app_update_checked(Ok(Some(versi_core::AppUpdate {
+        current_version: "0.9.0".to_string(),
+        latest_version: "0.9.2".to_string(),
+        release_url: "https://example.com/release".to_string(),
+        release_notes: None,
+        download_url: Some("https://example.com/download".to_string()),
+        download_size: Some(84),
+    })));
+
+    let state = app.main_state();
+    assert!(state.app_update.is_none());
+    assert!(!state.app_update_check_in_flight);
+}
+
+#[test]
+fn check_for_app_update_marks_check_in_flight_when_enabled() {
+    let mut app = test_app_with_two_environments();
+    app.settings.app_update_behavior = AppUpdateBehavior::CheckPeriodically;
+
+    let _ = app.handle_check_for_app_update();
+
+    let state = app.main_state();
+    assert!(state.app_update_check_in_flight);
 }
 
 #[test]

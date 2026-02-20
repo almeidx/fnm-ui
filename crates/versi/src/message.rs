@@ -8,7 +8,7 @@ use versi_shell::ShellType;
 
 use crate::backend_kind::BackendKind;
 use crate::error::AppError;
-use crate::settings::TrayBehavior;
+use crate::settings::{AppUpdateBehavior, TrayBehavior};
 use crate::state::SearchFilter;
 use crate::tray::TrayMessage;
 
@@ -95,6 +95,7 @@ pub enum Message {
     NavigateToAbout,
     VersionRowHovered(Option<String>),
     ThemeChanged(crate::settings::ThemeSetting),
+    AppUpdateBehaviorChanged(AppUpdateBehavior),
     ShellOptionUseOnCdToggled(bool),
     ShellOptionResolveEnginesToggled(bool),
     ShellOptionCorepackEnabledToggled(bool),

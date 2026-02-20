@@ -2,7 +2,7 @@ use iced::Task;
 use log::info;
 
 use crate::message::Message;
-use crate::state::{AppState, MainViewKind};
+use crate::state::{AppState, AppUpdateState, MainViewKind};
 
 use super::super::{Versi, platform};
 
@@ -15,6 +15,9 @@ impl Versi {
             Message::NavigateToAbout => Ok(self.navigate_to_about()),
             Message::VersionRowHovered(version) => Ok(self.handle_version_row_hovered(version)),
             Message::ThemeChanged(theme) => Ok(self.handle_theme_changed(theme)),
+            Message::AppUpdateBehaviorChanged(behavior) => {
+                Ok(self.handle_app_update_behavior_changed(behavior))
+            }
             Message::ShellOptionUseOnCdToggled(value) => {
                 Ok(self.update_active_shell_options(|options| options.use_on_cd = value))
             }
@@ -139,6 +142,30 @@ impl Versi {
         self.settings.theme = theme;
         self.save_settings_with_log();
         Task::none()
+    }
+
+    fn handle_app_update_behavior_changed(
+        &mut self,
+        behavior: crate::settings::AppUpdateBehavior,
+    ) -> Task<Message> {
+        self.settings.app_update_behavior = behavior;
+        self.save_settings_with_log();
+
+        if let AppState::Main(state) = &mut self.state
+            && behavior == crate::settings::AppUpdateBehavior::DoNotCheck
+        {
+            state.app_update = None;
+            if matches!(
+                state.app_update_state,
+                AppUpdateState::Idle | AppUpdateState::Failed(_)
+            ) {
+                state.app_update_state = AppUpdateState::Idle;
+            }
+            state.app_update_check_in_flight = false;
+            return Task::none();
+        }
+
+        self.handle_check_for_app_update()
     }
 
     fn handle_debug_logging_toggled(&mut self, enabled: bool) -> Task<Message> {

@@ -4,7 +4,7 @@ use iced::{Alignment, Element, Length};
 use crate::backend_kind::BackendKind;
 use crate::icon;
 use crate::message::Message;
-use crate::settings::{AppSettings, ThemeSetting, TrayBehavior};
+use crate::settings::{AppSettings, AppUpdateBehavior, ThemeSetting, TrayBehavior};
 use crate::state::{MainState, SettingsModalState, ShellVerificationStatus};
 use crate::theme::styles;
 use crate::widgets::helpers::nav_icons;
@@ -24,6 +24,7 @@ pub fn view<'a>(
         appearance_section(settings, is_system_dark),
         preferred_engine_section(settings, state),
         tray_section(settings),
+        update_behavior_section(settings),
         shell_options_section(capabilities, shell_opts),
         shell_setup_section(settings_state),
         settings_data_section(),
@@ -142,6 +143,33 @@ fn tray_section(settings: &AppSettings) -> Element<'_, Message> {
     .into()
 }
 
+fn update_behavior_section(settings: &AppSettings) -> Element<'_, Message> {
+    column![
+        text("App Updates").size(14),
+        Space::new().height(8),
+        row![
+            update_behavior_button("Off", AppUpdateBehavior::DoNotCheck, settings),
+            update_behavior_button(
+                "Check Periodically",
+                AppUpdateBehavior::CheckPeriodically,
+                settings
+            ),
+            update_behavior_button(
+                "Auto Update",
+                AppUpdateBehavior::AutomaticallyUpdate,
+                settings
+            ),
+        ]
+        .spacing(8),
+        text("Off: never check. Check Periodically: notify about updates. Auto Update: download and apply in background.")
+            .size(11)
+            .color(crate::theme::tokens::TEXT_MUTED),
+        Space::new().height(28),
+    ]
+    .spacing(4)
+    .into()
+}
+
 fn tray_behavior_button<'a>(
     label: &'a str,
     behavior: TrayBehavior,
@@ -150,6 +178,21 @@ fn tray_behavior_button<'a>(
     button(text(label).size(13))
         .on_press(Message::TrayBehaviorChanged(behavior))
         .style(if settings.tray_behavior == behavior {
+            styles::primary_button
+        } else {
+            styles::secondary_button
+        })
+        .padding([10, 16])
+}
+
+fn update_behavior_button<'a>(
+    label: &'a str,
+    behavior: AppUpdateBehavior,
+    settings: &'a AppSettings,
+) -> iced::widget::Button<'a, Message> {
+    button(text(label).size(13))
+        .on_press(Message::AppUpdateBehaviorChanged(behavior))
+        .style(if settings.app_update_behavior == behavior {
             styles::primary_button
         } else {
             styles::secondary_button
