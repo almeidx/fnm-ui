@@ -18,6 +18,54 @@ thread_local! {
 
 const TRAY_EVENT_RECV_TIMEOUT: Duration = Duration::from_millis(250);
 
+struct TrayEventWorker {
+    shutdown: Arc<AtomicBool>,
+    join_handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl TrayEventWorker {
+    fn start(event_tx: tokio::sync::mpsc::Sender<TrayMessage>) -> Self {
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let worker_shutdown = Arc::clone(&shutdown);
+
+        let join_handle = std::thread::spawn(move || {
+            let receiver = MenuEvent::receiver();
+            while !worker_shutdown.load(Ordering::Relaxed) {
+                match receiver.recv_timeout(TRAY_EVENT_RECV_TIMEOUT) {
+                    Ok(event) => {
+                        let id_str = event.id().as_ref();
+                        if let Some(message) = parse_menu_event(id_str) {
+                            match event_tx.try_send(message) {
+                                Ok(()) => {}
+                                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                                    log::debug!("Tray event queue full; dropping event");
+                                }
+                                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => break,
+                            }
+                        }
+                    }
+                    Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
+                    Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+                }
+            }
+        });
+
+        Self {
+            shutdown,
+            join_handle: Some(join_handle),
+        }
+    }
+}
+
+impl Drop for TrayEventWorker {
+    fn drop(&mut self) {
+        self.shutdown.store(true, Ordering::Relaxed);
+        if let Some(join_handle) = self.join_handle.take() {
+            let _ = join_handle.join();
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum TrayMessage {
     ShowWindow,
@@ -242,26 +290,7 @@ pub fn tray_subscription() -> Subscription<Message> {
             16,
             |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
                 let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(16);
-                let shutdown = Arc::new(AtomicBool::new(false));
-                let worker_shutdown = Arc::clone(&shutdown);
-
-                let worker = std::thread::spawn(move || {
-                    let receiver = MenuEvent::receiver();
-                    while !worker_shutdown.load(Ordering::Relaxed) {
-                        match receiver.recv_timeout(TRAY_EVENT_RECV_TIMEOUT) {
-                            Ok(event) => {
-                                let id_str = event.id().as_ref();
-                                if let Some(message) = parse_menu_event(id_str)
-                                    && event_tx.blocking_send(message).is_err()
-                                {
-                                    break;
-                                }
-                            }
-                            Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
-                            Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
-                        }
-                    }
-                });
+                let worker = TrayEventWorker::start(event_tx);
 
                 while let Some(message) = event_rx.recv().await {
                     if output.send(Message::TrayEvent(message)).await.is_err() {
@@ -269,8 +298,8 @@ pub fn tray_subscription() -> Subscription<Message> {
                     }
                 }
 
-                shutdown.store(true, Ordering::Relaxed);
-                let _ = worker.join();
+                drop(event_rx);
+                drop(worker);
             },
         )
     })
