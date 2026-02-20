@@ -10,6 +10,7 @@ pub struct AppUpdate {
     pub release_notes: Option<String>,
     pub download_url: Option<String>,
     pub download_size: Option<u64>,
+    pub checksum_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -43,6 +44,11 @@ pub fn asset_name(version: &str) -> Option<String> {
         return None;
     };
     Some(name)
+}
+
+#[must_use]
+pub fn checksum_asset_name(version: &str) -> String {
+    format!("versi-{version}-checksums.txt")
 }
 
 /// Check GitHub releases for a newer Versi version.
@@ -88,6 +94,11 @@ pub async fn check_for_update(
                     .map(|a| (Some(a.browser_download_url.clone()), Some(a.size)))
             })
             .unwrap_or((None, None));
+        let checksum_url = release
+            .assets
+            .iter()
+            .find(|asset| asset.name == checksum_asset_name(latest))
+            .map(|asset| asset.browser_download_url.clone());
 
         Ok(Some(AppUpdate {
             current_version: current.to_string(),
@@ -96,6 +107,7 @@ pub async fn check_for_update(
             release_notes: release.body,
             download_url,
             download_size,
+            checksum_url,
         }))
     } else {
         Ok(None)

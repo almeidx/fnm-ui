@@ -191,6 +191,7 @@ fn app_update_checked_sets_update_on_success() {
         release_notes: Some("notes".to_string()),
         download_url: Some("https://example.com/download".to_string()),
         download_size: Some(1234),
+        checksum_url: Some("https://example.com/checksums".to_string()),
     };
 
     let _ = app.handle_app_update_checked(Ok(Some(update.clone())));
@@ -218,6 +219,7 @@ fn app_update_checked_ignores_result_when_update_checks_are_disabled() {
             release_notes: None,
             download_url: Some("https://example.com/download".to_string()),
             download_size: Some(42),
+            checksum_url: Some("https://example.com/checksums".to_string()),
         });
     }
 
@@ -228,6 +230,7 @@ fn app_update_checked_ignores_result_when_update_checks_are_disabled() {
         release_notes: None,
         download_url: Some("https://example.com/download".to_string()),
         download_size: Some(84),
+        checksum_url: Some("https://example.com/checksums".to_string()),
     })));
 
     let state = app.main_state();

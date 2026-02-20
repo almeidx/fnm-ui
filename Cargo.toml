@@ -34,6 +34,7 @@ tempfile = "3.25.0"
 self-replace = "1.5"
 futures-util = "0.3.32"
 tokio-util = "0.7.18"
+sha2 = "0.10.9"
 
 [workspace.lints.clippy]
 pedantic = "warn"
