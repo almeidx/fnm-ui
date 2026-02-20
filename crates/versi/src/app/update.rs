@@ -74,9 +74,7 @@ mod tests {
     #[test]
     fn dismiss_context_menu_clears_for_unrelated_messages() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.context_menu = Some(context_menu());
-        }
+        app.main_state_mut().context_menu = Some(context_menu());
 
         app.dismiss_context_menu_if_needed(&Message::RefreshEnvironment);
 
@@ -87,9 +85,7 @@ mod tests {
     #[test]
     fn dismiss_context_menu_keeps_for_allowed_messages() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.context_menu = Some(context_menu());
-        }
+        app.main_state_mut().context_menu = Some(context_menu());
 
         app.dismiss_context_menu_if_needed(&Message::Tick);
         app.dismiss_context_menu_if_needed(&Message::ShowContextMenu {

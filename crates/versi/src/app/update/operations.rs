@@ -57,7 +57,7 @@ mod tests {
 
     use super::super::super::test_app_with_two_environments;
     use super::*;
-    use crate::state::{AppState, Modal};
+    use crate::state::Modal;
 
     fn installed(version: &str) -> InstalledVersion {
         InstalledVersion {
@@ -81,9 +81,7 @@ mod tests {
     #[test]
     fn cancel_bulk_operation_closes_modal() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.modal = Some(Modal::KeyboardShortcuts);
-        }
+        app.main_state_mut().modal = Some(Modal::KeyboardShortcuts);
 
         let _ = app.dispatch_operations(Message::CancelBulkOperation);
 
@@ -94,13 +92,13 @@ mod tests {
     #[test]
     fn request_bulk_uninstall_major_opens_confirmation_modal() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.active_environment_mut().update_versions(vec![
+        app.main_state_mut()
+            .active_environment_mut()
+            .update_versions(vec![
                 installed("v20.11.0"),
                 installed("v20.10.0"),
                 installed("v18.19.0"),
             ]);
-        }
 
         let _ = app.dispatch_operations(Message::RequestBulkUninstallMajor { major: 20 });
 

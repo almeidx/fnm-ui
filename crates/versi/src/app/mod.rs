@@ -449,7 +449,7 @@ mod tests {
     use crate::backend_kind::BackendKind;
     use crate::error::AppError;
     use crate::message::Message;
-    use crate::state::{AppState, MainViewKind, Modal, Operation};
+    use crate::state::{MainViewKind, Modal, Operation};
     use crate::tray::TrayMessage;
 
     #[test]
@@ -485,11 +485,7 @@ mod tests {
     #[test]
     fn tray_set_default_switches_environment_before_queueing_operation() {
         let mut app = test_app_with_two_environments();
-        let target_env_id = if let AppState::Main(state) = &app.state {
-            state.environments[1].id.clone()
-        } else {
-            panic!("expected Main state")
-        };
+        let target_env_id = app.main_state().environments[1].id.clone();
 
         let _ = app.handle_tray_event(TrayMessage::SetDefault {
             env_id: target_env_id,
@@ -580,15 +576,14 @@ mod tests {
         let mut app = test_app_with_two_environments();
         let target_env = EnvironmentId::Native;
 
-        if let AppState::Main(state) = &mut app.state {
-            let env = state
-                .environments
-                .iter_mut()
-                .find(|env| env.id == target_env)
-                .expect("expected native environment");
-            env.loading = true;
-            env.load_request_seq = 2;
-        }
+        let env = app
+            .main_state_mut()
+            .environments
+            .iter_mut()
+            .find(|env| env.id == target_env)
+            .expect("expected native environment");
+        env.loading = true;
+        env.load_request_seq = 2;
 
         let _ = app.handle_environment_loaded(
             &target_env,
@@ -617,10 +612,8 @@ mod tests {
     fn stale_remote_versions_response_is_ignored() {
         let mut app = test_app_with_two_environments();
 
-        if let AppState::Main(state) = &mut app.state {
-            state.available_versions.loading = true;
-            state.available_versions.remote.request_seq = 2;
-        }
+        app.main_state_mut().available_versions.loading = true;
+        app.main_state_mut().available_versions.remote.request_seq = 2;
 
         app.handle_remote_versions_fetched(
             1,

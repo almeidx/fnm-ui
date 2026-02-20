@@ -304,14 +304,12 @@ fn backend_kind_from_provider(
 mod tests {
     use super::super::test_app_with_two_environments;
     use super::*;
-    use crate::state::{AppState, ShellVerificationStatus};
+    use crate::state::ShellVerificationStatus;
 
     #[test]
     fn shell_setup_checked_maps_statuses_and_updates_options() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.settings_state.checking_shells = true;
-        }
+        app.main_state_mut().settings_state.checking_shells = true;
 
         let configured_options = versi_shell::ShellInitOptions {
             use_on_cd: false,

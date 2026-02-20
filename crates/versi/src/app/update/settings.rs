@@ -287,7 +287,7 @@ fn load_log_file_stats_task() -> Task<Message> {
 mod tests {
     use super::super::super::test_app_with_two_environments;
     use super::*;
-    use crate::state::{AppState, MainViewKind, Modal, Toast};
+    use crate::state::{MainViewKind, Modal, Toast};
 
     #[test]
     fn dispatch_settings_returns_err_for_unhandled_message() {
@@ -311,9 +311,7 @@ mod tests {
     #[test]
     fn version_row_hovered_is_cleared_while_modal_open() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.modal = Some(Modal::KeyboardShortcuts);
-        }
+        app.main_state_mut().modal = Some(Modal::KeyboardShortcuts);
 
         let _ = app.dispatch_settings(Message::VersionRowHovered(Some("v20.11.0".to_string())));
 
@@ -324,10 +322,12 @@ mod tests {
     #[test]
     fn toast_dismiss_removes_matching_toast() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.toasts.push(Toast::error(1, "first".to_string()));
-            state.toasts.push(Toast::error(2, "second".to_string()));
-        }
+        app.main_state_mut()
+            .toasts
+            .push(Toast::error(1, "first".to_string()));
+        app.main_state_mut()
+            .toasts
+            .push(Toast::error(2, "second".to_string()));
 
         let _ = app.dispatch_settings(Message::ToastDismiss(1));
 

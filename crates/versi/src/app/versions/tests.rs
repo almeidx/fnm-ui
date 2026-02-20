@@ -5,7 +5,6 @@ use tokio_util::sync::CancellationToken;
 use super::super::test_app_with_two_environments;
 use super::*;
 use crate::settings::AppUpdateBehavior;
-use crate::state::AppState;
 
 fn remote(version: &str, is_latest: bool) -> versi_backend::RemoteVersion {
     versi_backend::RemoteVersion {
@@ -46,10 +45,8 @@ fn sample_metadata() -> HashMap<String, versi_core::VersionMeta> {
 #[test]
 fn remote_versions_fetched_updates_cache_on_success() {
     let mut app = test_app_with_two_environments();
-    if let AppState::Main(state) = &mut app.state {
-        state.available_versions.loading = true;
-        state.available_versions.remote.request_seq = 7;
-    }
+    app.main_state_mut().available_versions.loading = true;
+    app.main_state_mut().available_versions.remote.request_seq = 7;
 
     app.handle_remote_versions_fetched(
         7,
@@ -72,10 +69,11 @@ fn remote_versions_fetched_updates_cache_on_success() {
 fn release_schedule_fetched_ignores_stale_request() {
     let mut app = test_app_with_two_environments();
     let baseline = sample_schedule();
-    if let AppState::Main(state) = &mut app.state {
-        state.available_versions.schedule_fetch.request_seq = 3;
-        state.available_versions.schedule = Some(baseline.clone());
-    }
+    app.main_state_mut()
+        .available_versions
+        .schedule_fetch
+        .request_seq = 3;
+    app.main_state_mut().available_versions.schedule = Some(baseline.clone());
 
     app.handle_release_schedule_fetched(2, Ok(sample_schedule()));
 
@@ -95,13 +93,12 @@ fn release_schedule_fetched_ignores_stale_request() {
 #[test]
 fn release_schedule_fetched_sets_schedule_and_clears_error() {
     let mut app = test_app_with_two_environments();
-    if let AppState::Main(state) = &mut app.state {
-        state.available_versions.schedule_fetch.request_seq = 5;
-        state.available_versions.schedule_fetch.error = Some(AppError::version_fetch_failed(
-            "Release schedule",
-            "old error",
-        ));
-    }
+    let state = app.main_state_mut();
+    state.available_versions.schedule_fetch.request_seq = 5;
+    state.available_versions.schedule_fetch.error = Some(AppError::version_fetch_failed(
+        "Release schedule",
+        "old error",
+    ));
 
     app.handle_release_schedule_fetched(5, Ok(sample_schedule()));
 
@@ -114,10 +111,11 @@ fn release_schedule_fetched_sets_schedule_and_clears_error() {
 fn version_metadata_fetched_ignores_stale_request() {
     let mut app = test_app_with_two_environments();
     let baseline = sample_metadata();
-    if let AppState::Main(state) = &mut app.state {
-        state.available_versions.metadata_fetch.request_seq = 4;
-        state.available_versions.metadata = Some(baseline.clone());
-    }
+    app.main_state_mut()
+        .available_versions
+        .metadata_fetch
+        .request_seq = 4;
+    app.main_state_mut().available_versions.metadata = Some(baseline.clone());
 
     app.handle_version_metadata_fetched(3, Ok(sample_metadata()));
 
@@ -139,14 +137,13 @@ fn version_metadata_fetched_ignores_stale_request() {
 #[test]
 fn version_metadata_fetched_stores_metadata_on_success() {
     let mut app = test_app_with_two_environments();
-    if let AppState::Main(state) = &mut app.state {
-        state.available_versions.metadata_fetch.request_seq = 8;
-        state.available_versions.metadata = None;
-        state.available_versions.metadata_fetch.error = Some(AppError::version_fetch_failed(
-            "Version metadata",
-            "old error",
-        ));
-    }
+    let state = app.main_state_mut();
+    state.available_versions.metadata_fetch.request_seq = 8;
+    state.available_versions.metadata = None;
+    state.available_versions.metadata_fetch.error = Some(AppError::version_fetch_failed(
+        "Version metadata",
+        "old error",
+    ));
 
     app.handle_version_metadata_fetched(8, Ok(sample_metadata()));
 
@@ -158,10 +155,11 @@ fn version_metadata_fetched_stores_metadata_on_success() {
 #[test]
 fn version_metadata_fetched_stores_error_on_failure() {
     let mut app = test_app_with_two_environments();
-    if let AppState::Main(state) = &mut app.state {
-        state.available_versions.metadata_fetch.request_seq = 9;
-        state.available_versions.metadata = None;
-    }
+    app.main_state_mut()
+        .available_versions
+        .metadata_fetch
+        .request_seq = 9;
+    app.main_state_mut().available_versions.metadata = None;
 
     app.handle_version_metadata_fetched(
         9,
@@ -210,18 +208,17 @@ fn app_update_checked_sets_update_on_success() {
 fn app_update_checked_ignores_result_when_update_checks_are_disabled() {
     let mut app = test_app_with_two_environments();
     app.settings.app_update_behavior = AppUpdateBehavior::DoNotCheck;
-    if let AppState::Main(state) = &mut app.state {
-        state.app_update_check_in_flight = true;
-        state.app_update = Some(versi_core::AppUpdate {
-            current_version: "0.9.0".to_string(),
-            latest_version: "0.9.1".to_string(),
-            release_url: "https://example.com/release".to_string(),
-            release_notes: None,
-            download_url: Some("https://example.com/download".to_string()),
-            download_size: Some(42),
-            checksum_url: Some("https://example.com/checksums".to_string()),
-        });
-    }
+    let state = app.main_state_mut();
+    state.app_update_check_in_flight = true;
+    state.app_update = Some(versi_core::AppUpdate {
+        current_version: "0.9.0".to_string(),
+        latest_version: "0.9.1".to_string(),
+        release_url: "https://example.com/release".to_string(),
+        release_notes: None,
+        download_url: Some("https://example.com/download".to_string()),
+        download_size: Some(42),
+        checksum_url: Some("https://example.com/checksums".to_string()),
+    });
 
     let _ = app.handle_app_update_checked(Ok(Some(versi_core::AppUpdate {
         current_version: "0.9.0".to_string(),
@@ -274,9 +271,10 @@ fn backend_update_checked_sets_update_on_success() {
 fn fetch_release_schedule_cancels_previous_token() {
     let mut app = test_app_with_two_environments();
     let old_token = CancellationToken::new();
-    if let AppState::Main(state) = &mut app.state {
-        state.available_versions.schedule_fetch.cancel_token = Some(old_token.clone());
-    }
+    app.main_state_mut()
+        .available_versions
+        .schedule_fetch
+        .cancel_token = Some(old_token.clone());
 
     let _ = app.handle_fetch_release_schedule();
 
@@ -295,9 +293,10 @@ fn fetch_release_schedule_cancels_previous_token() {
 fn fetch_version_metadata_cancels_previous_token() {
     let mut app = test_app_with_two_environments();
     let old_token = CancellationToken::new();
-    if let AppState::Main(state) = &mut app.state {
-        state.available_versions.metadata_fetch.cancel_token = Some(old_token.clone());
-    }
+    app.main_state_mut()
+        .available_versions
+        .metadata_fetch
+        .cancel_token = Some(old_token.clone());
 
     let _ = app.handle_fetch_version_metadata();
 
@@ -316,10 +315,8 @@ fn fetch_version_metadata_cancels_previous_token() {
 fn fetch_remote_versions_cancels_previous_token_when_loading() {
     let mut app = test_app_with_two_environments();
     let old_token = CancellationToken::new();
-    if let AppState::Main(state) = &mut app.state {
-        state.available_versions.loading = true;
-        state.available_versions.remote.cancel_token = Some(old_token.clone());
-    }
+    app.main_state_mut().available_versions.loading = true;
+    app.main_state_mut().available_versions.remote.cancel_token = Some(old_token.clone());
 
     let _ = app.handle_fetch_remote_versions();
 

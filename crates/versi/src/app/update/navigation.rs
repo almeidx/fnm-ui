@@ -179,7 +179,7 @@ mod tests {
 
     use super::super::super::test_app_with_two_environments;
     use super::*;
-    use crate::state::{AppState, MainViewKind, Modal};
+    use crate::state::{MainViewKind, Modal};
 
     fn installed(version: &str, is_default: bool) -> InstalledVersion {
         InstalledVersion {
@@ -216,10 +216,9 @@ mod tests {
     #[test]
     fn close_modal_closes_open_modal_before_changing_view() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.modal = Some(Modal::KeyboardShortcuts);
-            state.view = MainViewKind::About;
-        }
+        let state = app.main_state_mut();
+        state.modal = Some(Modal::KeyboardShortcuts);
+        state.view = MainViewKind::About;
 
         app.close_modal_or_return_to_versions();
 
@@ -231,10 +230,9 @@ mod tests {
     #[test]
     fn close_modal_returns_about_to_versions_when_no_modal() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.modal = None;
-            state.view = MainViewKind::About;
-        }
+        let state = app.main_state_mut();
+        state.modal = None;
+        state.view = MainViewKind::About;
 
         app.close_modal_or_return_to_versions();
 
@@ -245,14 +243,13 @@ mod tests {
     #[test]
     fn move_version_selection_advances_and_clamps_at_bounds() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.active_environment_mut().update_versions(vec![
-                installed("v20.10.0", false),
-                installed("v20.11.0", true),
-            ]);
-            state.view = MainViewKind::Versions;
-            state.modal = None;
-        }
+        let state = app.main_state_mut();
+        state.active_environment_mut().update_versions(vec![
+            installed("v20.10.0", false),
+            installed("v20.11.0", true),
+        ]);
+        state.view = MainViewKind::Versions;
+        state.modal = None;
 
         app.move_version_selection(true);
         app.move_version_selection(true);

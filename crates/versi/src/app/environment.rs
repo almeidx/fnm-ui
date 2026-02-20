@@ -288,15 +288,13 @@ mod tests {
 
     use super::super::test_app_with_two_environments;
     use super::*;
-    use crate::state::AppState;
 
     #[test]
     fn search_changed_clears_filters_when_query_becomes_empty() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.active_filters = HashSet::from([SearchFilter::Lts, SearchFilter::Installed]);
-            state.search_query = "lts".to_string();
-        }
+        let state = app.main_state_mut();
+        state.active_filters = HashSet::from([SearchFilter::Lts, SearchFilter::Installed]);
+        state.search_query = "lts".to_string();
 
         app.handle_search_changed(String::new());
 
@@ -332,20 +330,18 @@ mod tests {
     #[test]
     fn version_group_toggled_flips_target_group_only() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.active_environment_mut().version_groups = vec![
-                versi_backend::VersionGroup {
-                    major: 22,
-                    versions: Vec::new(),
-                    is_expanded: true,
-                },
-                versi_backend::VersionGroup {
-                    major: 20,
-                    versions: Vec::new(),
-                    is_expanded: false,
-                },
-            ];
-        }
+        app.main_state_mut().active_environment_mut().version_groups = vec![
+            versi_backend::VersionGroup {
+                major: 22,
+                versions: Vec::new(),
+                is_expanded: true,
+            },
+            versi_backend::VersionGroup {
+                major: 20,
+                versions: Vec::new(),
+                is_expanded: false,
+            },
+        ];
 
         app.handle_version_group_toggled(20);
 
@@ -359,9 +355,9 @@ mod tests {
     fn refresh_environment_cancels_previous_load_token() {
         let mut app = test_app_with_two_environments();
         let old_token = CancellationToken::new();
-        if let AppState::Main(state) = &mut app.state {
-            state.active_environment_mut().load_cancel_token = Some(old_token.clone());
-        }
+        app.main_state_mut()
+            .active_environment_mut()
+            .load_cancel_token = Some(old_token.clone());
 
         let _ = app.handle_refresh_environment();
 

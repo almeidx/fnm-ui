@@ -149,7 +149,6 @@ impl Versi {
 mod tests {
     use super::super::test_app_with_two_environments;
     use super::*;
-    use crate::state::AppState;
     use versi_core::AppUpdate;
 
     fn sample_update(download_url: Option<&str>, download_size: Option<u64>) -> AppUpdate {
@@ -167,13 +166,12 @@ mod tests {
     #[test]
     fn start_app_update_sets_downloading_when_update_is_ready() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.app_update = Some(sample_update(
-                Some("https://example.com/download.zip"),
-                Some(42),
-            ));
-            state.app_update_state = AppUpdateState::Idle;
-        }
+        let state = app.main_state_mut();
+        state.app_update = Some(sample_update(
+            Some("https://example.com/download.zip"),
+            Some(42),
+        ));
+        state.app_update_state = AppUpdateState::Idle;
 
         let _ = app.handle_start_app_update();
 
@@ -190,23 +188,21 @@ mod tests {
     #[test]
     fn start_app_update_keeps_state_when_not_ready() {
         let mut app = test_app_with_two_environments();
-        if let AppState::Main(state) = &mut app.state {
-            state.app_update = Some(sample_update(None, Some(5)));
-            state.app_update_state = AppUpdateState::Idle;
-        }
+        let state = app.main_state_mut();
+        state.app_update = Some(sample_update(None, Some(5)));
+        state.app_update_state = AppUpdateState::Idle;
 
         let _ = app.handle_start_app_update();
 
         let state = app.main_state();
         assert!(matches!(state.app_update_state, AppUpdateState::Idle));
 
-        if let AppState::Main(state) = &mut app.state {
-            state.app_update = Some(sample_update(
-                Some("https://example.com/download.zip"),
-                Some(5),
-            ));
-            state.app_update_state = AppUpdateState::Applying;
-        }
+        let state = app.main_state_mut();
+        state.app_update = Some(sample_update(
+            Some("https://example.com/download.zip"),
+            Some(5),
+        ));
+        state.app_update_state = AppUpdateState::Applying;
 
         let _ = app.handle_start_app_update();
 

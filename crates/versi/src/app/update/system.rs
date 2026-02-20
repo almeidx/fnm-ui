@@ -179,7 +179,7 @@ mod tests {
     use super::super::super::test_app_with_two_environments;
     use super::*;
     use crate::settings::AppUpdateBehavior;
-    use crate::state::{AppState, Modal};
+    use crate::state::Modal;
 
     #[test]
     fn dispatch_system_returns_err_for_unhandled_message() {
@@ -205,9 +205,7 @@ mod tests {
     fn show_context_menu_uses_current_cursor_position() {
         let mut app = test_app_with_two_environments();
         let point = iced::Point::new(10.0, 20.0);
-        if let AppState::Main(state) = &mut app.state {
-            state.cursor_position = point;
-        }
+        app.main_state_mut().cursor_position = point;
 
         let _ = app.dispatch_system(Message::ShowContextMenu {
             version: "v20.11.0".to_string(),
