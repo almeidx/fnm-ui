@@ -336,7 +336,9 @@ mod tests {
             ),
             (
                 versi_shell::ShellType::Cmd,
-                versi_shell::VerificationResult::Error("boom".to_string()),
+                versi_shell::VerificationResult::Error(versi_shell::VerificationError::Wsl(
+                    versi_shell::WslShellConfigError::UnsupportedPlatform,
+                )),
             ),
         ]);
 

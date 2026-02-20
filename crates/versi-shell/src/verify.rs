@@ -17,7 +17,47 @@ pub enum VerificationResult {
     NotConfigured,
     ConfigFileNotFound,
     FunctionalButNotInConfig,
-    Error(String),
+    Error(VerificationError),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum VerificationError {
+    #[error("failed to load shell config: {0}")]
+    ConfigLoad(ShellConfigLoadError),
+    #[error(transparent)]
+    Wsl(#[from] WslShellConfigError),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ShellConfigLoadError {
+    #[error("Config file not found: {0}")]
+    FileNotFound(PathBuf),
+    #[error("IO error ({kind}): {details}")]
+    Io {
+        kind: std::io::ErrorKind,
+        details: String,
+    },
+    #[error("Shell type does not support config files")]
+    UnsupportedShell,
+}
+
+impl From<crate::config::ConfigError> for ShellConfigLoadError {
+    fn from(value: crate::config::ConfigError) -> Self {
+        match value {
+            crate::config::ConfigError::FileNotFound(path) => Self::FileNotFound(path),
+            crate::config::ConfigError::IoError(error) => Self::Io {
+                kind: error.kind(),
+                details: error.to_string(),
+            },
+            crate::config::ConfigError::UnsupportedShell => Self::UnsupportedShell,
+        }
+    }
+}
+
+impl From<crate::config::ConfigError> for VerificationError {
+    fn from(value: crate::config::ConfigError) -> Self {
+        Self::ConfigLoad(value.into())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -63,7 +103,7 @@ pub async fn verify_shell_config(
                     VerificationResult::NotConfigured
                 }
             }
-            Err(e) => VerificationResult::Error(e.to_string()),
+            Err(error) => VerificationResult::Error(VerificationError::from(error)),
         },
         None => VerificationResult::ConfigFileNotFound,
     }
@@ -137,7 +177,11 @@ pub async fn verify_wsl_shell_config(
         ShellType::Bash => "~/.bashrc",
         ShellType::Zsh => "~/.zshrc",
         ShellType::Fish => "~/.config/fish/config.fish",
-        _ => return VerificationResult::Error("Shell not supported in WSL".to_string()),
+        _ => {
+            return VerificationResult::Error(VerificationError::Wsl(
+                WslShellConfigError::UnsupportedShell,
+            ));
+        }
     };
 
     debug!(
@@ -182,13 +226,19 @@ pub async fn verify_wsl_shell_config(
                     VerificationResult::ConfigFileNotFound
                 } else {
                     warn!("WSL cat failed: {}", stderr);
-                    VerificationResult::Error(stderr.to_string())
+                    VerificationResult::Error(VerificationError::Wsl(WslShellConfigError::command(
+                        "Failed to read WSL config",
+                        stderr.trim(),
+                    )))
                 }
             }
         }
-        Err(e) => {
-            warn!("Failed to read WSL config: {}", e);
-            VerificationResult::Error(e.to_string())
+        Err(error) => {
+            warn!("Failed to read WSL config: {}", error);
+            VerificationResult::Error(VerificationError::Wsl(WslShellConfigError::command(
+                "Failed to read WSL config",
+                error.to_string(),
+            )))
         }
     }
 }
@@ -371,7 +421,9 @@ pub async fn verify_wsl_shell_config(
     _marker: &str,
     _backend_binary: &str,
 ) -> VerificationResult {
-    VerificationResult::Error("WSL is only available on Windows".to_string())
+    VerificationResult::Error(VerificationError::Wsl(
+        WslShellConfigError::UnsupportedPlatform,
+    ))
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -395,7 +447,9 @@ mod tests {
     use crate::detect::ShellType;
 
     #[cfg(not(target_os = "windows"))]
-    use super::{WslShellConfigError, configure_wsl_shell_config};
+    use super::{
+        VerificationError, WslShellConfigError, configure_wsl_shell_config, verify_wsl_shell_config,
+    };
     use super::{get_config_path_for_shell, get_or_create_config_path};
     #[cfg(not(target_os = "windows"))]
     use versi_backend::ShellInitOptions;
@@ -409,12 +463,13 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[tokio::test]
     async fn wsl_verify_returns_platform_error_on_non_windows() {
-        let result =
-            super::verify_wsl_shell_config(&ShellType::Bash, "Ubuntu", "fnm env", "fnm").await;
+        let result = verify_wsl_shell_config(&ShellType::Bash, "Ubuntu", "fnm env", "fnm").await;
 
         assert!(matches!(
             result,
-            super::VerificationResult::Error(ref msg) if msg == "WSL is only available on Windows"
+            super::VerificationResult::Error(VerificationError::Wsl(
+                WslShellConfigError::UnsupportedPlatform
+            ))
         ));
     }
 
