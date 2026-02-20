@@ -49,13 +49,11 @@ impl NvmClient {
     fn build_nvm_command(&self, nvm_args: &[&str]) -> Command {
         match &self.environment {
             NvmEnvironment::Unix { nvm_dir } => {
-                let script = format!(
-                    "export NVM_DIR=\"{}\"; [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; nvm \"$@\"",
-                    nvm_dir.display(),
-                );
+                let script = "[ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; nvm \"$@\"";
                 let mut cmd = Command::new("bash");
-                cmd.args(["-c", &script, "bash"]);
+                cmd.args(["-c", script, "bash"]);
                 cmd.args(nvm_args);
+                cmd.env("NVM_DIR", nvm_dir);
                 cmd.env("TERM", "dumb");
                 cmd.env("NO_COLOR", "1");
                 cmd.hide_window();
@@ -68,11 +66,9 @@ impl NvmClient {
                 cmd
             }
             NvmEnvironment::Wsl { distro, nvm_dir } => {
-                let script = format!(
-                    "export NVM_DIR=\"{nvm_dir}\"; [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; nvm \"$@\""
-                );
+                let script = "NVM_DIR=\"$1\"; export NVM_DIR; [ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"; shift; nvm \"$@\"";
                 let mut cmd = Command::new("wsl.exe");
-                cmd.args(["-d", distro, "--", "bash", "-c", &script, "bash"]);
+                cmd.args(["-d", distro, "--", "bash", "-c", script, "bash", nvm_dir]);
                 cmd.args(nvm_args);
                 cmd.hide_window();
                 cmd
