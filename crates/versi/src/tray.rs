@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use iced::Subscription;
 use iced::futures::SinkExt;
+use thiserror::Error;
 use tray_icon::menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 use versi_platform::EnvironmentId;
@@ -18,6 +19,19 @@ thread_local! {
 }
 
 const TRAY_EVENT_RECV_TIMEOUT: Duration = Duration::from_millis(250);
+
+#[derive(Debug, Error)]
+pub enum TrayError {
+    #[cfg(target_os = "linux")]
+    #[error("no tray host detected (StatusNotifierWatcher not registered on D-Bus)")]
+    NoTrayHost,
+    #[error("failed to decode tray icon asset: {0}")]
+    IconDecode(#[from] image::ImageError),
+    #[error("failed to build tray icon: {0}")]
+    IconData(#[from] tray_icon::BadIcon),
+    #[error("failed to initialize tray icon: {0}")]
+    Init(#[from] tray_icon::Error),
+}
 
 struct TrayEventWorker {
     shutdown: Arc<AtomicBool>,
@@ -123,14 +137,14 @@ impl TrayMenuData {
     }
 }
 
-pub fn init_tray(behavior: TrayBehavior) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init_tray(behavior: TrayBehavior) -> Result<(), TrayError> {
     if behavior == TrayBehavior::Disabled {
         return Ok(());
     }
 
     #[cfg(target_os = "linux")]
     if !has_tray_host() {
-        return Err("no tray host detected (StatusNotifierWatcher not registered on D-Bus)".into());
+        return Err(TrayError::NoTrayHost);
     }
 
     let icon = load_icon()?;
@@ -143,7 +157,8 @@ pub fn init_tray(behavior: TrayBehavior) -> Result<(), Box<dyn std::error::Error
         .with_menu(Box::new(menu))
         .with_tooltip("Versi")
         .with_icon(icon)
-        .build()?;
+        .build()
+        .map_err(TrayError::from)?;
 
     TRAY_ICON.with(|cell| {
         *cell.borrow_mut() = Some(tray_icon);
@@ -178,12 +193,12 @@ pub fn is_tray_active() -> bool {
     TRAY_ICON.with(|cell| cell.borrow().is_some())
 }
 
-fn load_icon() -> Result<Icon, Box<dyn std::error::Error>> {
+fn load_icon() -> Result<Icon, TrayError> {
     let icon_bytes = include_bytes!("../../../assets/logo.png");
-    let img = image::load_from_memory(icon_bytes)?;
+    let img = image::load_from_memory(icon_bytes).map_err(TrayError::from)?;
     let rgba = img.to_rgba8();
     let (width, height) = rgba.dimensions();
-    Icon::from_rgba(rgba.into_raw(), width, height).map_err(Into::into)
+    Icon::from_rgba(rgba.into_raw(), width, height).map_err(TrayError::from)
 }
 
 fn build_menu(data: &TrayMenuData) -> Menu {

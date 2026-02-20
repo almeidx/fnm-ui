@@ -1,4 +1,5 @@
 use super::LaunchAtLoginError;
+use thiserror::Error;
 
 pub(crate) fn set_update_badge(visible: bool) {
     use std::ptr;
@@ -17,6 +18,14 @@ pub(crate) fn set_update_badge(visible: bool) {
         CreateIconIndirect, DestroyIcon, HICON, ICONINFO,
     };
     use windows::core::{PCWSTR, w};
+
+    #[derive(Debug, Error)]
+    enum BadgeError {
+        #[error(transparent)]
+        Windows(#[from] windows::core::Error),
+        #[error(transparent)]
+        Io(#[from] std::io::Error),
+    }
 
     struct GdiGuard {
         dc: Option<HDC>,
@@ -56,7 +65,7 @@ pub(crate) fn set_update_badge(visible: bool) {
 
         let com_initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
 
-        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+        let result = (|| -> Result<(), BadgeError> {
             let taskbar: ITaskbarList3 = CoCreateInstance(
                 &windows::Win32::UI::Shell::TaskbarList,
                 None,
