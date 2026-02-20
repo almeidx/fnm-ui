@@ -1,6 +1,10 @@
 use std::cell::RefCell;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use iced::Subscription;
+use iced::futures::SinkExt;
 use tray_icon::menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
@@ -11,6 +15,8 @@ use crate::state::EnvironmentState;
 thread_local! {
     static TRAY_ICON: RefCell<Option<TrayIcon>> = const { RefCell::new(None) };
 }
+
+const TRAY_EVENT_RECV_TIMEOUT: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Clone)]
 pub enum TrayMessage {
@@ -232,19 +238,41 @@ fn parse_menu_event(id: &str) -> Option<TrayMessage> {
 
 pub fn tray_subscription() -> Subscription<Message> {
     Subscription::run(|| {
-        iced::futures::stream::unfold((), |()| async {
-            let receiver = MenuEvent::receiver();
+        iced::stream::channel(
+            16,
+            |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
+                let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(16);
+                let shutdown = Arc::new(AtomicBool::new(false));
+                let worker_shutdown = Arc::clone(&shutdown);
 
-            loop {
-                if let Ok(event) = receiver.try_recv() {
-                    let id_str = event.id().as_ref();
-                    if let Some(msg) = parse_menu_event(id_str) {
-                        return Some((Message::TrayEvent(msg), ()));
+                let worker = std::thread::spawn(move || {
+                    let receiver = MenuEvent::receiver();
+                    while !worker_shutdown.load(Ordering::Relaxed) {
+                        match receiver.recv_timeout(TRAY_EVENT_RECV_TIMEOUT) {
+                            Ok(event) => {
+                                let id_str = event.id().as_ref();
+                                if let Some(message) = parse_menu_event(id_str)
+                                    && event_tx.blocking_send(message).is_err()
+                                {
+                                    break;
+                                }
+                            }
+                            Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
+                            Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+                        }
+                    }
+                });
+
+                while let Some(message) = event_rx.recv().await {
+                    if output.send(Message::TrayEvent(message)).await.is_err() {
+                        break;
                     }
                 }
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-            }
-        })
+
+                shutdown.store(true, Ordering::Relaxed);
+                let _ = worker.join();
+            },
+        )
     })
 }
 

@@ -37,6 +37,7 @@ tokio-util = "0.7.18"
 sha2 = "0.10.9"
 semver = "1.0.27"
 fs2 = "0.4.3"
+crossbeam-channel = "0.5.15"
 
 [workspace.lints.clippy]
 pedantic = "warn"

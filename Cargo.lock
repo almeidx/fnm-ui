@@ -5430,6 +5430,7 @@ name = "versi"
 version = "0.10.1"
 dependencies = [
  "chrono",
+ "crossbeam-channel",
  "dirs",
  "fs2",
  "gtk",
