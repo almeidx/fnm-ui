@@ -80,11 +80,20 @@ impl Versi {
             && settings.tray_behavior != TrayBehavior::Disabled
             && tray::is_tray_active();
 
-        let http_client = reqwest::Client::builder()
+        let http_client = match reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(settings.http_timeout_secs))
             .user_agent(format!("versi/{}", env!("CARGO_PKG_VERSION")))
             .build()
-            .unwrap_or_default();
+        {
+            Ok(client) => client,
+            Err(error) => {
+                log::error!(
+                    "Failed to build HTTP client with configured timeout ({}s): {error}. Falling back to default client settings.",
+                    settings.http_timeout_secs
+                );
+                reqwest::Client::new()
+            }
+        };
 
         let fnm_provider: Arc<dyn BackendProvider> = Arc::new(versi_fnm::FnmProvider::new());
         let nvm_provider: Arc<dyn BackendProvider> = Arc::new(versi_nvm::NvmProvider::new());
