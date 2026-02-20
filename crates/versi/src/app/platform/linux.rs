@@ -1,33 +1,70 @@
 pub(crate) fn set_update_badge(visible: bool) {
     use log::debug;
+    if let Err(error) = badge_sender().send(visible) {
+        debug!("Failed to queue update badge request: {error}");
+    }
+}
 
-    std::thread::spawn(move || {
-        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
-            let connection = zbus::blocking::Connection::session()?;
+fn badge_sender() -> &'static std::sync::mpsc::Sender<bool> {
+    use std::sync::{OnceLock, mpsc};
 
-            let count = i64::from(visible);
-            let mut props = std::collections::HashMap::new();
-            props.insert("count", zbus::zvariant::Value::from(count));
-            props.insert("count-visible", zbus::zvariant::Value::from(visible));
+    static BADGE_SENDER: OnceLock<mpsc::Sender<bool>> = OnceLock::new();
 
-            connection.emit_signal(
-                None::<zbus::names::BusName>,
-                "/",
-                "com.canonical.Unity.LauncherEntry",
-                "Update",
-                &(
-                    format!("application://{}", versi_platform::DESKTOP_ENTRY_FILENAME),
-                    props,
-                ),
-            )?;
+    BADGE_SENDER.get_or_init(|| {
+        let (sender, receiver) = mpsc::channel::<bool>();
+        std::thread::spawn(move || run_badge_worker(receiver));
+        sender
+    })
+}
 
-            Ok(())
-        })();
+fn run_badge_worker(receiver: std::sync::mpsc::Receiver<bool>) {
+    use log::debug;
 
-        if let Err(e) = result {
-            debug!("Failed to set update badge: {e}");
+    let mut connection: Option<zbus::blocking::Connection> = None;
+
+    while let Ok(mut visible) = receiver.recv() {
+        while let Ok(next) = receiver.try_recv() {
+            visible = next;
         }
-    });
+
+        if connection.is_none() {
+            match zbus::blocking::Connection::session() {
+                Ok(new_connection) => connection = Some(new_connection),
+                Err(error) => {
+                    debug!("Failed to connect to session bus for update badge: {error}");
+                    continue;
+                }
+            }
+        }
+
+        if let Some(active_connection) = connection.as_ref()
+            && let Err(error) = emit_badge_update(active_connection, visible)
+        {
+            debug!("Failed to set update badge: {error}");
+            connection = None;
+        }
+    }
+}
+
+fn emit_badge_update(
+    connection: &zbus::blocking::Connection,
+    visible: bool,
+) -> Result<(), zbus::Error> {
+    let count = i64::from(visible);
+    let mut props = std::collections::HashMap::new();
+    props.insert("count", zbus::zvariant::Value::from(count));
+    props.insert("count-visible", zbus::zvariant::Value::from(visible));
+
+    connection.emit_signal(
+        None::<zbus::names::BusName>,
+        "/",
+        "com.canonical.Unity.LauncherEntry",
+        "Update",
+        &(
+            format!("application://{}", versi_platform::DESKTOP_ENTRY_FILENAME),
+            props,
+        ),
+    )
 }
 
 pub(crate) fn set_dock_visible(_visible: bool) {}
