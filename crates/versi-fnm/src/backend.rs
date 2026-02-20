@@ -182,10 +182,7 @@ impl VersionManager for FnmBackend {
             return Ok(None);
         }
 
-        output
-            .parse()
-            .map(Some)
-            .map_err(|e: versi_backend::VersionParseError| BackendError::ParseError(e.to_string()))
+        output.parse().map(Some).map_err(BackendError::from)
     }
 
     async fn default_version(&self) -> Result<Option<NodeVersion>, BackendError> {

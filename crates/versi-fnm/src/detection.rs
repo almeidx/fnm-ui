@@ -199,8 +199,9 @@ pub(crate) async fn install_fnm() -> Result<(), versi_backend::BackendError> {
     if status.success() {
         Ok(())
     } else {
-        Err(versi_backend::BackendError::InstallFailed(
-            "fnm installation script failed".to_string(),
+        Err(versi_backend::BackendError::install_failed(
+            "run installer script",
+            "fnm installation script failed",
         ))
     }
 }
@@ -220,9 +221,10 @@ async fn download_install_script(
     download_install_script_verified(url, expected_sha256, path)
         .await
         .map_err(|error| {
-            versi_backend::BackendError::InstallFailed(format!(
-                "Failed to download/verify installer script: {error}"
-            ))
+            versi_backend::BackendError::install_failed(
+                "download installer script",
+                format!("failed to download/verify installer script: {error}"),
+            )
         })?;
 
     #[cfg(unix)]

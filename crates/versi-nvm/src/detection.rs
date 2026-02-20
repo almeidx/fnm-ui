@@ -194,16 +194,18 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
         if status.success() {
             Ok(())
         } else {
-            Err(versi_backend::BackendError::InstallFailed(
-                "nvm installation script failed".to_string(),
+            Err(versi_backend::BackendError::install_failed(
+                "run installer script",
+                "nvm installation script failed",
             ))
         }
     }
 
     #[cfg(windows)]
     {
-        Err(versi_backend::BackendError::InstallFailed(
-            "Automatic nvm-windows installation is not supported. Please install manually from https://github.com/coreybutler/nvm-windows/releases".to_string(),
+        Err(versi_backend::BackendError::install_failed(
+            "unsupported platform flow",
+            "Automatic nvm-windows installation is not supported. Please install manually from https://github.com/coreybutler/nvm-windows/releases",
         ))
     }
 }
@@ -225,9 +227,10 @@ async fn download_install_script(
     download_install_script_verified(url, expected_sha256, path)
         .await
         .map_err(|error| {
-            versi_backend::BackendError::InstallFailed(format!(
-                "Failed to download/verify installer script: {error}"
-            ))
+            versi_backend::BackendError::install_failed(
+                "download installer script",
+                format!("failed to download/verify installer script: {error}"),
+            )
         })?;
 
     #[cfg(unix)]

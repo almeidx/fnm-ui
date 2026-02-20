@@ -144,10 +144,7 @@ impl NvmClient {
             return Ok(None);
         }
 
-        output
-            .parse()
-            .map(Some)
-            .map_err(|e: versi_backend::VersionParseError| BackendError::ParseError(e.to_string()))
+        output.parse().map(Some).map_err(BackendError::from)
     }
 
     /// Return the configured default Node.js version, if any.
@@ -179,11 +176,7 @@ impl NvmClient {
                     if version_str.is_empty() {
                         Ok(None)
                     } else {
-                        version_str.parse().map(Some).map_err(
-                            |e: versi_backend::VersionParseError| {
-                                BackendError::ParseError(e.to_string())
-                            },
-                        )
+                        version_str.parse().map(Some).map_err(BackendError::from)
                     }
                 }
                 Err(e) => {

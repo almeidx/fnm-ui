@@ -98,7 +98,9 @@ pub trait VersionManager: Send + Sync {
     async fn set_default(&self, version: &str) -> Result<(), BackendError>;
 
     async fn use_version(&self, _version: &str) -> Result<(), BackendError> {
-        Err(BackendError::Unsupported("use_version".to_string()))
+        Err(BackendError::Unsupported {
+            operation: "use_version",
+        })
     }
 
     async fn list_remote_lts(&self) -> Result<Vec<RemoteVersion>, BackendError> {
@@ -202,7 +204,12 @@ mod tests {
         let result = manager.use_version("v20.0.0").await;
 
         assert!(
-            matches!(result, Err(BackendError::Unsupported(ref op)) if op == "use_version"),
+            matches!(
+                result,
+                Err(BackendError::Unsupported {
+                    operation: "use_version"
+                })
+            ),
             "expected Unsupported(\"use_version\"), got {result:?}"
         );
     }

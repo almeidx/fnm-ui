@@ -54,9 +54,33 @@ impl fmt::Display for NodeVersion {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VersionComponent {
+    Major,
+    Minor,
+    Patch,
+}
+
+impl fmt::Display for VersionComponent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Major => write!(f, "major"),
+            Self::Minor => write!(f, "minor"),
+            Self::Patch => write!(f, "patch"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, thiserror::Error)]
-#[error("Failed to parse version: {0}")]
-pub struct VersionParseError(pub String);
+pub enum VersionParseError {
+    #[error("Expected X.Y.Z format, got: {input}")]
+    InvalidFormat { input: String },
+    #[error("Invalid {component} version: {value}")]
+    InvalidComponent {
+        component: VersionComponent,
+        value: String,
+    },
+}
 
 impl FromStr for NodeVersion {
     type Err = VersionParseError;
@@ -67,28 +91,43 @@ impl FromStr for NodeVersion {
         let mut parts = s.split('.');
         let major_str = parts
             .next()
-            .ok_or_else(|| VersionParseError(format!("Expected X.Y.Z format, got: {s}")))?;
+            .ok_or_else(|| VersionParseError::InvalidFormat {
+                input: s.to_string(),
+            })?;
         let minor_str = parts
             .next()
-            .ok_or_else(|| VersionParseError(format!("Expected X.Y.Z format, got: {s}")))?;
+            .ok_or_else(|| VersionParseError::InvalidFormat {
+                input: s.to_string(),
+            })?;
         let patch_str = parts
             .next()
-            .ok_or_else(|| VersionParseError(format!("Expected X.Y.Z format, got: {s}")))?;
+            .ok_or_else(|| VersionParseError::InvalidFormat {
+                input: s.to_string(),
+            })?;
         if parts.next().is_some() {
-            return Err(VersionParseError(format!(
-                "Expected X.Y.Z format, got: {s}"
-            )));
+            return Err(VersionParseError::InvalidFormat {
+                input: s.to_string(),
+            });
         }
 
         let major = major_str
             .parse()
-            .map_err(|_| VersionParseError(format!("Invalid major version: {major_str}")))?;
+            .map_err(|_| VersionParseError::InvalidComponent {
+                component: VersionComponent::Major,
+                value: major_str.to_string(),
+            })?;
         let minor = minor_str
             .parse()
-            .map_err(|_| VersionParseError(format!("Invalid minor version: {minor_str}")))?;
+            .map_err(|_| VersionParseError::InvalidComponent {
+                component: VersionComponent::Minor,
+                value: minor_str.to_string(),
+            })?;
         let patch = patch_str
             .parse()
-            .map_err(|_| VersionParseError(format!("Invalid patch version: {patch_str}")))?;
+            .map_err(|_| VersionParseError::InvalidComponent {
+                component: VersionComponent::Patch,
+                value: patch_str.to_string(),
+            })?;
 
         Ok(NodeVersion::new(major, minor, patch))
     }

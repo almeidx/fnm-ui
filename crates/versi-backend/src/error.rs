@@ -8,17 +8,24 @@ pub enum BackendError {
     #[error("Command failed: {stderr}")]
     CommandFailed { stderr: String },
 
-    #[error("Failed to parse version: {0}")]
-    ParseError(String),
+    #[error(transparent)]
+    ParseError(#[from] crate::types::VersionParseError),
 
-    #[error("Installation failed: {0}")]
-    InstallFailed(String),
+    #[error("Installation failed during {phase}: {details}")]
+    InstallFailed {
+        phase: &'static str,
+        details: String,
+    },
 
-    #[error("Network error: {0}")]
-    NetworkError(String),
+    #[error("Network error during {operation} ({stage}): {details}")]
+    NetworkError {
+        operation: &'static str,
+        stage: NetworkStage,
+        details: String,
+    },
 
-    #[error("Version not found: {0}")]
-    VersionNotFound(String),
+    #[error("Version not found: {version}")]
+    VersionNotFound { version: String },
 
     #[error("IO error ({kind}): {message}")]
     IoError {
@@ -26,14 +33,50 @@ pub enum BackendError {
         message: String,
     },
 
-    #[error("Operation not supported by this backend: {0}")]
-    Unsupported(String),
+    #[error("Operation not supported by this backend: {operation}")]
+    Unsupported { operation: &'static str },
 
-    #[error("Backend-specific error: {0}")]
-    BackendSpecific(String),
+    #[error("Backend-specific error in {context}: {details}")]
+    BackendSpecific {
+        context: &'static str,
+        details: String,
+    },
 
     #[error("Timeout waiting for command")]
     Timeout,
+}
+
+#[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NetworkStage {
+    #[error("request")]
+    Request,
+    #[error("response parse")]
+    ResponseParse,
+}
+
+impl BackendError {
+    pub fn install_failed(phase: &'static str, details: impl Into<String>) -> Self {
+        Self::InstallFailed {
+            phase,
+            details: details.into(),
+        }
+    }
+
+    pub fn network_request(operation: &'static str, details: impl Into<String>) -> Self {
+        Self::NetworkError {
+            operation,
+            stage: NetworkStage::Request,
+            details: details.into(),
+        }
+    }
+
+    pub fn network_parse(operation: &'static str, details: impl Into<String>) -> Self {
+        Self::NetworkError {
+            operation,
+            stage: NetworkStage::ResponseParse,
+            details: details.into(),
+        }
+    }
 }
 
 impl From<std::io::Error> for BackendError {
@@ -47,7 +90,7 @@ impl From<std::io::Error> for BackendError {
 
 #[cfg(test)]
 mod tests {
-    use super::BackendError;
+    use super::{BackendError, NetworkStage};
 
     #[test]
     fn io_error_conversion_maps_to_io_variant() {
@@ -64,5 +107,28 @@ mod tests {
         };
 
         assert_eq!(error.to_string(), "Command failed: nvm: command not found");
+    }
+
+    #[test]
+    fn network_helpers_set_expected_stage() {
+        let request = BackendError::network_request("check update", "timed out");
+        assert!(matches!(
+            request,
+            BackendError::NetworkError {
+                operation: "check update",
+                stage: NetworkStage::Request,
+                ..
+            }
+        ));
+
+        let parse = BackendError::network_parse("check update", "invalid json");
+        assert!(matches!(
+            parse,
+            BackendError::NetworkError {
+                operation: "check update",
+                stage: NetworkStage::ResponseParse,
+                ..
+            }
+        ));
     }
 }
