@@ -214,10 +214,12 @@ fn parse_wsl_list(output: &str, running_distros: &[String]) -> Vec<WslDistro> {
             let is_default = line.starts_with('*');
             let line = line.trim_start_matches('*').trim();
 
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            let name = parts.first()?;
+            let (name, version_token) = split_wsl_row(line);
+            if name.is_empty() {
+                return None;
+            }
             let is_running = running_distros.iter().any(|r| r == name);
-            let version = match parts.get(2) {
+            let version = match version_token {
                 Some(v) => v.parse().unwrap_or_else(|e| {
                     debug!("Failed to parse WSL version for {name:?}: {e}, defaulting to 2");
                     2
@@ -225,7 +227,7 @@ fn parse_wsl_list(output: &str, running_distros: &[String]) -> Vec<WslDistro> {
                 None => 2,
             };
             Some(WslDistro {
-                name: (*name).to_string(),
+                name: name.to_string(),
                 is_default,
                 version,
                 backend_path: None,
@@ -233,6 +235,43 @@ fn parse_wsl_list(output: &str, running_distros: &[String]) -> Vec<WslDistro> {
             })
         })
         .collect()
+}
+
+fn split_wsl_row(line: &str) -> (&str, Option<&str>) {
+    let bytes = line.as_bytes();
+    let mut end = bytes.len();
+    while end > 0 && bytes[end - 1].is_ascii_whitespace() {
+        end -= 1;
+    }
+    if end == 0 {
+        return ("", None);
+    }
+
+    let mut version_start = end;
+    while version_start > 0 && !bytes[version_start - 1].is_ascii_whitespace() {
+        version_start -= 1;
+    }
+    let version = &line[version_start..end];
+
+    let mut state_end = version_start;
+    while state_end > 0 && bytes[state_end - 1].is_ascii_whitespace() {
+        state_end -= 1;
+    }
+    if state_end == 0 {
+        return (line.trim(), None);
+    }
+
+    let mut state_start = state_end;
+    while state_start > 0 && !bytes[state_start - 1].is_ascii_whitespace() {
+        state_start -= 1;
+    }
+    let name = line[..state_start].trim();
+
+    if name.is_empty() {
+        (line.trim(), None)
+    } else {
+        (name, Some(version))
+    }
 }
 
 #[cfg(test)]
@@ -337,6 +376,19 @@ mod tests {
 
         assert_eq!(distros.len(), 1);
         assert_eq!(distros[0].name, "Ubuntu");
+        assert_eq!(distros[0].version, 2);
+    }
+
+    #[test]
+    fn test_parse_wsl_list_name_with_spaces() {
+        let output =
+            "  NAME      STATE           VERSION\n* Ubuntu 22.04    Running         2\n  Debian    Stopped         2";
+        let running = vec!["Ubuntu 22.04".to_string()];
+        let distros = parse_wsl_list(output, &running);
+
+        assert_eq!(distros.len(), 2);
+        assert_eq!(distros[0].name, "Ubuntu 22.04");
+        assert!(distros[0].is_running);
         assert_eq!(distros[0].version, 2);
     }
 
