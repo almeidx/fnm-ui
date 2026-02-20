@@ -80,6 +80,20 @@ pub async fn fetch_release_schedule(client: &reqwest::Client) -> Result<ReleaseS
         .await
         .map_err(|e| format!("Failed to fetch release schedule: {e}"))?;
 
+    if !response.status().is_success() {
+        let status = response.status();
+        let snippet = response
+            .text()
+            .await
+            .ok()
+            .map(|body| body.chars().take(160).collect::<String>())
+            .filter(|body| !body.is_empty())
+            .map_or_else(String::new, |body| format!(": {body}"));
+        return Err(format!(
+            "Failed to fetch release schedule: HTTP {status}{snippet}"
+        ));
+    }
+
     let raw: HashMap<String, VersionSchedule> = response
         .json()
         .await

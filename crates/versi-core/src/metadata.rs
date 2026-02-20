@@ -57,6 +57,20 @@ pub async fn fetch_version_metadata(
         .await
         .map_err(|e| format!("Failed to fetch version metadata: {e}"))?;
 
+    if !response.status().is_success() {
+        let status = response.status();
+        let snippet = response
+            .text()
+            .await
+            .ok()
+            .map(|body| body.chars().take(160).collect::<String>())
+            .filter(|body| !body.is_empty())
+            .map_or_else(String::new, |body| format!(": {body}"));
+        return Err(format!(
+            "Failed to fetch version metadata: HTTP {status}{snippet}"
+        ));
+    }
+
     let entries: Vec<RawEntry> = response
         .json()
         .await
