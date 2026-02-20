@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -17,6 +17,24 @@ pub struct DiskCache {
     pub cached_at: DateTime<Utc>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum DiskCacheLoadError {
+    #[error("failed to resolve app paths: {0}")]
+    Paths(String),
+    #[error("failed to read cache file at {path}: {source}")]
+    Read {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("failed to parse cache file at {path}: {source}")]
+    Parse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+}
+
 #[derive(Serialize)]
 struct DiskCacheSnapshot<'a> {
     remote_versions: &'a [RemoteVersion],
@@ -26,14 +44,36 @@ struct DiskCacheSnapshot<'a> {
 }
 
 impl DiskCache {
-    fn load_from_path(path: &Path) -> Option<Self> {
-        let data = std::fs::read_to_string(path).ok()?;
-        serde_json::from_str(&data).ok()
+    fn load_from_path(path: &Path) -> Result<Option<Self>, DiskCacheLoadError> {
+        if !path.exists() {
+            return Ok(None);
+        }
+
+        let data = std::fs::read_to_string(path).map_err(|source| DiskCacheLoadError::Read {
+            path: path.to_path_buf(),
+            source,
+        })?;
+        serde_json::from_str(&data)
+            .map(Some)
+            .map_err(|source| DiskCacheLoadError::Parse {
+                path: path.to_path_buf(),
+                source,
+            })
     }
 
-    pub fn load() -> Option<Self> {
-        let paths = AppPaths::new().ok()?;
-        Self::load_from_path(&paths.version_cache_file())
+    pub fn load() -> Result<Option<Self>, DiskCacheLoadError> {
+        let paths =
+            AppPaths::new().map_err(|error| DiskCacheLoadError::Paths(error.to_string()))?;
+        let path = paths.version_cache_file();
+
+        match Self::load_from_path(&path) {
+            Ok(cache) => Ok(cache),
+            Err(error @ DiskCacheLoadError::Parse { .. }) => {
+                quarantine_invalid_cache_file(&path);
+                Err(error)
+            }
+            Err(error) => Err(error),
+        }
     }
 }
 
@@ -123,6 +163,45 @@ fn write_atomic(path: &Path, data: &[u8]) -> std::io::Result<()> {
     Ok(())
 }
 
+fn quarantine_invalid_cache_file(path: &Path) {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    if !path.exists() {
+        return;
+    }
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("versions.json");
+
+    for attempt in 0..5 {
+        let suffix = if attempt == 0 {
+            format!("{file_name}.corrupt-{timestamp}")
+        } else {
+            format!("{file_name}.corrupt-{timestamp}-{attempt}")
+        };
+        let backup_path = path.with_file_name(suffix);
+        if std::fs::rename(path, &backup_path).is_ok() {
+            log::warn!(
+                "Quarantined invalid cache file {} to {}",
+                path.display(),
+                backup_path.display()
+            );
+            return;
+        }
+    }
+
+    log::warn!(
+        "Failed to quarantine invalid cache file at {}",
+        path.display()
+    );
+}
+
 fn replace_file(src: &Path, dst: &Path) -> std::io::Result<()> {
     #[cfg(target_os = "windows")]
     {
@@ -209,7 +288,9 @@ mod tests {
             cache.version_metadata.as_ref(),
             cache.cached_at,
         );
-        let loaded = DiskCache::load_from_path(&path).expect("cache should load");
+        let loaded = DiskCache::load_from_path(&path)
+            .expect("cache should parse")
+            .expect("cache should load");
 
         assert_eq!(loaded.remote_versions.len(), 1);
         assert_eq!(
@@ -226,12 +307,15 @@ mod tests {
     }
 
     #[test]
-    fn load_from_path_returns_none_for_invalid_json() {
+    fn load_from_path_returns_parse_error_for_invalid_json() {
         let temp_dir = tempfile::tempdir().expect("temporary directory should be created");
         let path = temp_dir.path().join("invalid.json");
         std::fs::write(&path, "{not-valid-json").expect("invalid file should be written");
 
-        assert!(DiskCache::load_from_path(&path).is_none());
+        assert!(matches!(
+            DiskCache::load_from_path(&path),
+            Err(super::DiskCacheLoadError::Parse { .. })
+        ));
     }
 
     #[test]
@@ -249,7 +333,9 @@ mod tests {
             cache.cached_at,
         );
 
-        let loaded = DiskCache::load_from_path(&path).expect("cache should load after overwrite");
+        let loaded = DiskCache::load_from_path(&path)
+            .expect("cache should parse after overwrite")
+            .expect("cache should load after overwrite");
         assert_eq!(loaded.remote_versions.len(), 1);
 
         let temp_files = std::fs::read_dir(temp_dir.path())

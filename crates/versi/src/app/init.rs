@@ -233,25 +233,31 @@ fn build_environment_states(result: &InitResult) -> Vec<EnvironmentState> {
 }
 
 fn load_disk_cache_into_state(main_state: &mut MainState) {
-    if let Some(disk_cache) = crate::cache::DiskCache::load() {
-        debug!(
-            "Loaded disk cache from {:?} ({} versions, schedule={})",
-            disk_cache.cached_at,
-            disk_cache.remote_versions.len(),
-            disk_cache.release_schedule.is_some()
-        );
-        main_state.available_versions.disk_cached_at = Some(disk_cache.cached_at);
-        if !disk_cache.remote_versions.is_empty() {
-            main_state
-                .available_versions
-                .set_versions(disk_cache.remote_versions);
-            main_state.available_versions.loaded_from_disk = true;
+    match crate::cache::DiskCache::load() {
+        Ok(Some(disk_cache)) => {
+            debug!(
+                "Loaded disk cache from {:?} ({} versions, schedule={})",
+                disk_cache.cached_at,
+                disk_cache.remote_versions.len(),
+                disk_cache.release_schedule.is_some()
+            );
+            main_state.available_versions.disk_cached_at = Some(disk_cache.cached_at);
+            if !disk_cache.remote_versions.is_empty() {
+                main_state
+                    .available_versions
+                    .set_versions(disk_cache.remote_versions);
+                main_state.available_versions.loaded_from_disk = true;
+            }
+            if let Some(schedule) = disk_cache.release_schedule {
+                main_state.available_versions.schedule = Some(schedule);
+            }
+            if let Some(metadata) = disk_cache.version_metadata {
+                main_state.available_versions.metadata = Some(metadata);
+            }
         }
-        if let Some(schedule) = disk_cache.release_schedule {
-            main_state.available_versions.schedule = Some(schedule);
-        }
-        if let Some(metadata) = disk_cache.version_metadata {
-            main_state.available_versions.metadata = Some(metadata);
+        Ok(None) => {}
+        Err(error) => {
+            log::warn!("Failed to load version cache from disk: {error}");
         }
     }
 }

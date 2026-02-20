@@ -82,9 +82,14 @@ fn cache_save_sender() -> &'static mpsc::SyncSender<CacheSaveMessage> {
     CACHE_SAVER.get_or_init(|| {
         let (sender, receiver) = mpsc::sync_channel::<CacheSaveMessage>(CACHE_SAVE_QUEUE_CAPACITY);
         std::thread::spawn(move || {
-            let mut snapshot = crate::cache::DiskCache::load()
-                .map(CacheSnapshot::from_disk_cache)
-                .unwrap_or_default();
+            let mut snapshot = match crate::cache::DiskCache::load() {
+                Ok(Some(cache)) => CacheSnapshot::from_disk_cache(cache),
+                Ok(None) => CacheSnapshot::default(),
+                Err(error) => {
+                    log::debug!("Failed to seed cache save worker from disk cache: {error}");
+                    CacheSnapshot::default()
+                }
+            };
 
             while let Ok(message) = receiver.recv() {
                 snapshot.apply_message(message);
