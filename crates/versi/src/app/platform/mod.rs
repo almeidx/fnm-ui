@@ -18,7 +18,7 @@ pub(crate) enum LaunchAtLoginError {
     #[error("registry call {operation} failed with status {status}")]
     Registry {
         operation: &'static str,
-        status: i32,
+        status: u32,
     },
 }
 
