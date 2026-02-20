@@ -158,7 +158,7 @@ impl Versi {
                                 fetch_timeout,
                                 "Loading versions",
                                 backend.list_installed(),
-                                |error| AppError::environment_load_failed(error),
+                                AppError::environment_load_failed,
                             ) => result
                         };
 
@@ -221,7 +221,7 @@ impl Versi {
                             fetch_timeout,
                             "Loading versions",
                             backend.list_installed(),
-                            |error| AppError::environment_load_failed(error),
+                            AppError::environment_load_failed,
                         ) => result
                     };
                     (env_id, request_seq, result)
