@@ -3,6 +3,29 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.10.3] - 2026-02-20
+
+- fix(windows): align launch-at-login registry status type
+- fix(clippy): gate home-dir launch error to macOS
+- fix(clippy): pass Linux badge worker receiver by reference
+- refactor(app): use direct error mappers for environment loads
+- docs(agents): codify typed error handling requirements
+- refactor(cache): type app-path resolution load errors
+- refactor(tray): remove type-erased tray and badge errors
+- refactor(app-errors): introduce typed AppError details and mappings
+- refactor(platform): type launch-at-login integration errors
+- refactor(shell): replace verification string errors with typed enums
+- refactor(single-instance): replace string lock errors with typed variants
+- refactor(errors): type backend parse/network/install failures
+- refactor(update): use GitHub asset digest for verification
+- perf(linux): reuse single worker for badge updates
+- fix(cache): add structured load errors and corrupt-file quarantine
+- fix(network): log configured HTTP client build fallback
+- fix(install): verify backend installer scripts with retries
+- perf(cache): coalesce incremental saves on bounded worker queue
+- perf(settings): debounce non-critical settings writes
+
+
 ## [0.10.2] - 2026-02-20
 
 - build(deps): drop reqwest decompression codec features
