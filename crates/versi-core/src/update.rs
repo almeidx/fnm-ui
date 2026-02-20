@@ -12,7 +12,7 @@ pub struct AppUpdate {
     pub release_notes: Option<String>,
     pub download_url: Option<String>,
     pub download_size: Option<u64>,
-    pub checksum_url: Option<String>,
+    pub download_sha256: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -20,6 +20,8 @@ pub struct GitHubAsset {
     pub name: String,
     pub browser_download_url: String,
     pub size: u64,
+    #[serde(default)]
+    pub digest: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -59,11 +61,6 @@ pub fn asset_name(version: &str) -> Option<String> {
         return None;
     };
     Some(name)
-}
-
-#[must_use]
-pub fn checksum_asset_name(version: &str) -> String {
-    format!("versi-{version}-checksums.txt")
 }
 
 /// Check GitHub releases for a newer Versi version.
@@ -107,20 +104,23 @@ pub async fn check_for_update(
     let current = current_version.strip_prefix('v').unwrap_or(current_version);
 
     if is_newer_version(latest, current) {
-        let (download_url, download_size) = asset_name(latest)
+        let (download_url, download_size, download_sha256) = asset_name(latest)
             .and_then(|expected| {
                 release
                     .assets
                     .iter()
                     .find(|a| a.name == expected)
-                    .map(|a| (Some(a.browser_download_url.clone()), Some(a.size)))
+                    .and_then(|a| {
+                        parse_sha256_digest(a.digest.as_deref()?).map(|digest| {
+                            (
+                                Some(a.browser_download_url.clone()),
+                                Some(a.size),
+                                Some(digest),
+                            )
+                        })
+                    })
             })
-            .unwrap_or((None, None));
-        let checksum_url = release
-            .assets
-            .iter()
-            .find(|asset| asset.name == checksum_asset_name(latest))
-            .map(|asset| asset.browser_download_url.clone());
+            .unwrap_or((None, None, None));
 
         Ok(Some(AppUpdate {
             current_version: current.to_string(),
@@ -129,7 +129,7 @@ pub async fn check_for_update(
             release_notes: release.body,
             download_url,
             download_size,
-            checksum_url,
+            download_sha256,
         }))
     } else {
         Ok(None)
@@ -183,6 +183,17 @@ fn split_semver_core_and_suffix(version: &str) -> (&str, &str) {
     (&version[..suffix_idx], &version[suffix_idx..])
 }
 
+fn parse_sha256_digest(digest: &str) -> Option<String> {
+    let (algorithm, hash) = digest.split_once(':')?;
+    if !algorithm.eq_ignore_ascii_case("sha256") {
+        return None;
+    }
+    if hash.len() != 64 || !hash.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return None;
+    }
+    Some(hash.to_ascii_lowercase())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,5 +211,23 @@ mod tests {
         assert!(!is_newer_version("1.0.0-beta.2", "1.0.0-beta.10"));
         assert!(!is_newer_version("1.0.0", "1.0.1"));
         assert!(!is_newer_version("0.9.0", "1.0.0"));
+    }
+
+    #[test]
+    fn parse_sha256_digest_accepts_valid_sha256() {
+        let parsed = parse_sha256_digest(
+            "sha256:50639d63848d275a7efcd04478de62ca0df8f35dfd75be490e4fcae667ecd436",
+        );
+        assert_eq!(
+            parsed.as_deref(),
+            Some("50639d63848d275a7efcd04478de62ca0df8f35dfd75be490e4fcae667ecd436")
+        );
+    }
+
+    #[test]
+    fn parse_sha256_digest_rejects_invalid_values() {
+        assert!(parse_sha256_digest("sha1:abc").is_none());
+        assert!(parse_sha256_digest("sha256:not-hex").is_none());
+        assert!(parse_sha256_digest("sha256:abcd").is_none());
     }
 }

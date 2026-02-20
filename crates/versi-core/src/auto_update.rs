@@ -83,7 +83,7 @@ impl AutoUpdateError {
 pub async fn download_and_apply(
     client: &reqwest::Client,
     download_url: &str,
-    checksum_url: Option<&str>,
+    expected_sha256: Option<&str>,
     progress: mpsc::Sender<UpdateProgress>,
 ) -> Result<ApplyResult, AutoUpdateError> {
     let cache_dir = versi_platform::AppPaths::new()
@@ -107,7 +107,7 @@ pub async fn download_and_apply(
 
     info!("Downloading update from {download_url}");
     download_file(client, download_url, &download_path, &progress).await?;
-    verify_download_checksum(client, checksum_url, file_name, &download_path).await?;
+    verify_download_checksum(expected_sha256, file_name, &download_path)?;
 
     let is_msi = Path::new(file_name)
         .extension()
@@ -129,39 +129,18 @@ pub async fn download_and_apply(
     apply_update(&extract_dir)
 }
 
-async fn verify_download_checksum(
-    client: &reqwest::Client,
-    checksum_url: Option<&str>,
+fn verify_download_checksum(
+    expected_sha256: Option<&str>,
     asset_name: &str,
     downloaded_path: &Path,
 ) -> Result<(), AutoUpdateError> {
-    let checksum_url = checksum_url.ok_or_else(|| {
+    let expected_sha256 = expected_sha256.ok_or_else(|| {
         AutoUpdateError::Invalid(format!(
-            "Missing checksum asset for {asset_name}. Refusing to apply unverified update."
-        ))
-    })?;
-    let response = client
-        .get(checksum_url)
-        .send()
-        .await
-        .map_err(|error| AutoUpdateError::http("failed to download checksums", error))?;
-    if !response.status().is_success() {
-        return Err(AutoUpdateError::Invalid(format!(
-            "Failed to download checksums: HTTP {}",
-            response.status()
-        )));
-    }
-
-    let checksums = response
-        .text()
-        .await
-        .map_err(|error| AutoUpdateError::http("failed to read checksums", error))?;
-    let expected = parse_expected_checksum(&checksums, asset_name).ok_or_else(|| {
-        AutoUpdateError::Invalid(format!(
-            "No checksum entry found for update asset '{asset_name}' in checksums file"
+            "Missing SHA-256 digest for {asset_name}. Refusing to apply unverified update."
         ))
     })?;
     let actual = sha256_file(downloaded_path)?;
+    let expected = expected_sha256.to_ascii_lowercase();
 
     if actual.eq_ignore_ascii_case(&expected) {
         info!("Update checksum verified for {asset_name}");
@@ -171,22 +150,6 @@ async fn verify_download_checksum(
             "Checksum mismatch for {asset_name}. Refusing to apply update."
         )))
     }
-}
-
-fn parse_expected_checksum(checksums: &str, asset_name: &str) -> Option<String> {
-    checksums.lines().find_map(|line| {
-        let mut parts = line.split_whitespace();
-        let hash = parts.next()?;
-        let name = parts
-            .next()?
-            .trim_start_matches('*')
-            .trim_start_matches("./");
-        if name == asset_name {
-            Some(hash.to_ascii_lowercase())
-        } else {
-            None
-        }
-    })
 }
 
 fn sha256_file(path: &Path) -> Result<String, AutoUpdateError> {
@@ -594,7 +557,7 @@ pub fn restart_app() -> Result<(), AutoUpdateError> {
 mod tests {
     use std::io::Write as _;
 
-    use super::{extract_zip, parse_expected_checksum, sha256_file};
+    use super::{extract_zip, sha256_file};
 
     #[test]
     fn extract_zip_expands_files_and_directories() {
@@ -649,19 +612,6 @@ mod tests {
         assert!(
             !extract_dir.join("../outside.txt").exists(),
             "unsafe relative extraction output should not exist"
-        );
-    }
-
-    #[test]
-    fn parse_expected_checksum_matches_asset_name() {
-        let checksums = "\
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  foo.zip
-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bar.zip
-";
-        let parsed = parse_expected_checksum(checksums, "bar.zip");
-        assert_eq!(
-            parsed.as_deref(),
-            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
         );
     }
 

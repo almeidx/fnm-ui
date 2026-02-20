@@ -37,7 +37,7 @@ impl Versi {
         };
 
         let url = url.clone();
-        let checksum_url = update.checksum_url.clone();
+        let expected_sha256 = update.download_sha256.clone();
         state.app_update_state = AppUpdateState::Downloading {
             downloaded: 0,
             total: update.download_size.unwrap_or(0),
@@ -55,7 +55,7 @@ impl Versi {
                         versi_core::auto_update::download_and_apply(
                             &client,
                             &url,
-                            checksum_url.as_deref(),
+                            expected_sha256.as_deref(),
                             tx,
                         )
                         .await
@@ -159,7 +159,9 @@ mod tests {
             release_notes: None,
             download_url: download_url.map(ToString::to_string),
             download_size,
-            checksum_url: Some("https://example.com/checksums.txt".to_string()),
+            download_sha256: Some(
+                "50639d63848d275a7efcd04478de62ca0df8f35dfd75be490e4fcae667ecd436".to_string(),
+            ),
         }
     }
 

@@ -284,15 +284,6 @@ jobs:
           find artifacts -type f -exec cp {} release-assets/ \;
           ls -la release-assets/
 
-      - name: Generate release checksums
-        run: |
-          VERSION="${{ needs.version.outputs.version }}"
-          (
-            cd release-assets
-            sha256sum * > "versi-${VERSION}-checksums.txt"
-          )
-          ls -la release-assets/
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
