@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+#[cfg(unix)]
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 
@@ -197,6 +198,7 @@ pub async fn install_nvm() -> Result<(), versi_backend::BackendError> {
     }
 }
 
+#[cfg(unix)]
 fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -204,6 +206,7 @@ fn temp_script_path(prefix: &str, ext: &str) -> PathBuf {
     std::env::temp_dir().join(format!("{prefix}-{}-{nonce}.{ext}", std::process::id()))
 }
 
+#[cfg(unix)]
 async fn download_install_script(
     url: &str,
     path: &std::path::Path,

@@ -2,9 +2,11 @@
 use std::ptr;
 
 #[cfg(windows)]
-use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM, TRUE};
+use windows_sys::Win32::Foundation::{HWND, LPARAM, TRUE};
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{EnumWindows, FindWindowA, GetWindowTextW};
+#[cfg(windows)]
+use windows_sys::core::BOOL;
 
 #[cfg(windows)]
 const APP_TITLE_EXACT: &[u8] = b"Versi\0";

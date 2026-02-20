@@ -394,10 +394,10 @@ pub async fn configure_wsl_shell_config(
 mod tests {
     use crate::detect::ShellType;
 
-    use super::{
-        WslShellConfigError, configure_wsl_shell_config, get_config_path_for_shell,
-        get_or_create_config_path,
-    };
+    #[cfg(not(target_os = "windows"))]
+    use super::{WslShellConfigError, configure_wsl_shell_config};
+    use super::{get_config_path_for_shell, get_or_create_config_path};
+    #[cfg(not(target_os = "windows"))]
     use versi_backend::ShellInitOptions;
 
     #[test]

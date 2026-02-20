@@ -594,7 +594,7 @@ pub fn restart_app() -> Result<(), AutoUpdateError> {
 mod tests {
     use std::io::Write as _;
 
-    use super::{AutoUpdateError, extract_zip, parse_expected_checksum, sha256_file};
+    use super::{extract_zip, parse_expected_checksum, sha256_file};
 
     #[test]
     fn extract_zip_expands_files_and_directories() {
@@ -684,7 +684,7 @@ bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bar.zip
         let result = super::apply_msi(std::path::Path::new("/tmp/update.msi"));
         assert!(matches!(
             result,
-            Err(AutoUpdateError::Invalid(ref message))
+            Err(super::AutoUpdateError::Invalid(ref message))
                 if message == "MSI installation is only supported on Windows"
         ));
     }

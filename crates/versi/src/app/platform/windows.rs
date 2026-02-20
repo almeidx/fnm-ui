@@ -50,7 +50,7 @@ pub(crate) fn set_update_badge(visible: bool) {
             debug!("Could not find Versi window for badge");
             return;
         };
-        let hwnd = windows::Win32::Foundation::HWND(hwnd_raw as isize);
+        let hwnd = windows::Win32::Foundation::HWND(hwnd_raw.cast());
 
         let com_initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
 

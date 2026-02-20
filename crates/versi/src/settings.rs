@@ -310,6 +310,7 @@ impl AppSettings {
         }
 
         let content = serde_json::to_vec_pretty(&settings)?;
+        #[cfg(not(target_os = "windows"))]
         let parent = settings_path.parent().ok_or_else(|| {
             std::io::Error::other("settings path does not have a parent directory")
         })?;
