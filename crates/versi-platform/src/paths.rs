@@ -1,4 +1,17 @@
 use std::path::PathBuf;
+use thiserror::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum AppPathsError {
+    #[error("Could not determine home directory")]
+    HomeDirUnavailable,
+    #[error("Could not determine config directory")]
+    ConfigDirUnavailable,
+    #[error("Could not determine cache directory")]
+    CacheDirUnavailable,
+    #[error("Could not determine data directory")]
+    DataDirUnavailable,
+}
 
 pub struct AppPaths {
     pub config_dir: PathBuf,
@@ -12,10 +25,10 @@ impl AppPaths {
     /// # Errors
     /// Returns an error when a required base directory (for example the user
     /// home/config/cache/data directory) cannot be determined.
-    pub fn new() -> Result<Self, String> {
+    pub fn new() -> Result<Self, AppPathsError> {
         #[cfg(target_os = "macos")]
         {
-            let home = dirs::home_dir().ok_or("Could not determine home directory")?;
+            let home = dirs::home_dir().ok_or(AppPathsError::HomeDirUnavailable)?;
             Ok(Self {
                 config_dir: home.join("Library/Application Support/versi"),
                 cache_dir: home.join("Library/Caches/versi"),
@@ -27,13 +40,13 @@ impl AppPaths {
         {
             Ok(Self {
                 config_dir: dirs::config_dir()
-                    .ok_or("Could not determine config directory")?
+                    .ok_or(AppPathsError::ConfigDirUnavailable)?
                     .join("versi"),
                 cache_dir: dirs::cache_dir()
-                    .ok_or("Could not determine cache directory")?
+                    .ok_or(AppPathsError::CacheDirUnavailable)?
                     .join("versi"),
                 data_dir: dirs::data_dir()
-                    .ok_or("Could not determine data directory")?
+                    .ok_or(AppPathsError::DataDirUnavailable)?
                     .join("versi"),
             })
         }
@@ -42,13 +55,13 @@ impl AppPaths {
         {
             Ok(Self {
                 config_dir: dirs::config_dir()
-                    .ok_or("Could not determine config directory")?
+                    .ok_or(AppPathsError::ConfigDirUnavailable)?
                     .join("versi"),
                 cache_dir: dirs::cache_dir()
-                    .ok_or("Could not determine cache directory")?
+                    .ok_or(AppPathsError::CacheDirUnavailable)?
                     .join("versi"),
                 data_dir: dirs::data_dir()
-                    .ok_or("Could not determine data directory")?
+                    .ok_or(AppPathsError::DataDirUnavailable)?
                     .join("versi"),
             })
         }

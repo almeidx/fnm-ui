@@ -87,7 +87,9 @@ pub async fn download_and_apply(
     progress: mpsc::Sender<UpdateProgress>,
 ) -> Result<ApplyResult, AutoUpdateError> {
     let cache_dir = versi_platform::AppPaths::new()
-        .map_err(|error| AutoUpdateError::platform("failed to resolve app paths", error))?
+        .map_err(|error| {
+            AutoUpdateError::platform("failed to resolve app paths", error.to_string())
+        })?
         .cache_dir;
     std::fs::create_dir_all(&cache_dir)
         .map_err(|error| AutoUpdateError::io("failed to create cache directory", error))?;

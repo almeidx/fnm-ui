@@ -71,7 +71,8 @@ mod other_impl {
     use versi_platform::AppPaths;
 
     fn lock_file_path() -> Result<PathBuf, super::AcquireError> {
-        let paths = AppPaths::new().map_err(super::AcquireError::Unavailable)?;
+        let paths =
+            AppPaths::new().map_err(|error| super::AcquireError::Unavailable(error.to_string()))?;
         paths.ensure_dirs().map_err(|error| {
             super::AcquireError::Unavailable(format!("failed to create app directories: {error}"))
         })?;

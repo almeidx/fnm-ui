@@ -7,7 +7,7 @@ mod wsl;
 
 pub use commands::HideWindow;
 pub use environment::{Environment, EnvironmentId};
-pub use paths::AppPaths;
+pub use paths::{AppPaths, AppPathsError};
 
 #[cfg(target_os = "windows")]
 pub use wsl::{WslDistro, detect_wsl_distros, execute_in_wsl};
