@@ -20,7 +20,7 @@ pub struct DiskCache {
 #[derive(Debug, thiserror::Error)]
 pub enum DiskCacheLoadError {
     #[error("failed to resolve app paths: {0}")]
-    Paths(String),
+    Paths(#[source] versi_platform::AppPathsError),
     #[error("failed to read cache file at {path}: {source}")]
     Read {
         path: PathBuf,
@@ -62,8 +62,7 @@ impl DiskCache {
     }
 
     pub fn load() -> Result<Option<Self>, DiskCacheLoadError> {
-        let paths =
-            AppPaths::new().map_err(|error| DiskCacheLoadError::Paths(error.to_string()))?;
+        let paths = AppPaths::new().map_err(DiskCacheLoadError::Paths)?;
         let path = paths.version_cache_file();
 
         match Self::load_from_path(&path) {
