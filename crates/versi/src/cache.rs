@@ -17,29 +17,61 @@ pub struct DiskCache {
     pub cached_at: DateTime<Utc>,
 }
 
+#[derive(Serialize)]
+struct DiskCacheSnapshot<'a> {
+    remote_versions: &'a [RemoteVersion],
+    release_schedule: Option<&'a ReleaseSchedule>,
+    version_metadata: Option<&'a HashMap<String, VersionMeta>>,
+    cached_at: DateTime<Utc>,
+}
+
 impl DiskCache {
     fn load_from_path(path: &Path) -> Option<Self> {
         let data = std::fs::read_to_string(path).ok()?;
         serde_json::from_str(&data).ok()
     }
 
-    fn save_to_path(&self, path: &Path) {
-        if let Ok(data) = serde_json::to_vec(self) {
-            let _ = write_atomic(path, &data);
-        }
-    }
-
     pub fn load() -> Option<Self> {
         let paths = AppPaths::new().ok()?;
         Self::load_from_path(&paths.version_cache_file())
     }
+}
 
-    pub fn save(&self) {
-        let Ok(paths) = AppPaths::new() else {
-            return;
-        };
-        let _ = paths.ensure_dirs();
-        self.save_to_path(&paths.version_cache_file());
+pub fn save_snapshot(
+    remote_versions: &[RemoteVersion],
+    release_schedule: Option<&ReleaseSchedule>,
+    version_metadata: Option<&HashMap<String, VersionMeta>>,
+    cached_at: DateTime<Utc>,
+) {
+    let Ok(paths) = AppPaths::new() else {
+        return;
+    };
+    let _ = paths.ensure_dirs();
+
+    save_snapshot_to_path(
+        &paths.version_cache_file(),
+        remote_versions,
+        release_schedule,
+        version_metadata,
+        cached_at,
+    );
+}
+
+fn save_snapshot_to_path(
+    path: &Path,
+    remote_versions: &[RemoteVersion],
+    release_schedule: Option<&ReleaseSchedule>,
+    version_metadata: Option<&HashMap<String, VersionMeta>>,
+    cached_at: DateTime<Utc>,
+) {
+    let payload = DiskCacheSnapshot {
+        remote_versions,
+        release_schedule,
+        version_metadata,
+        cached_at,
+    };
+    if let Ok(data) = serde_json::to_vec(&payload) {
+        let _ = write_atomic(path, &data);
     }
 }
 
@@ -170,7 +202,13 @@ mod tests {
         let path = temp_dir.path().join("versions.json");
         let cache = sample_cache();
 
-        cache.save_to_path(&path);
+        super::save_snapshot_to_path(
+            &path,
+            &cache.remote_versions,
+            cache.release_schedule.as_ref(),
+            cache.version_metadata.as_ref(),
+            cache.cached_at,
+        );
         let loaded = DiskCache::load_from_path(&path).expect("cache should load");
 
         assert_eq!(loaded.remote_versions.len(), 1);
@@ -203,7 +241,13 @@ mod tests {
         std::fs::write(&path, "{not-valid-json").expect("invalid file should be written");
 
         let cache = sample_cache();
-        cache.save_to_path(&path);
+        super::save_snapshot_to_path(
+            &path,
+            &cache.remote_versions,
+            cache.release_schedule.as_ref(),
+            cache.version_metadata.as_ref(),
+            cache.cached_at,
+        );
 
         let loaded = DiskCache::load_from_path(&path).expect("cache should load after overwrite");
         assert_eq!(loaded.remote_versions.len(), 1);

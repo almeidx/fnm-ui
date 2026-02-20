@@ -11,7 +11,10 @@ use crate::state::AppState;
 
 use super::super::Versi;
 use super::super::async_helpers::{retry_with_delays, run_with_timeout};
-use super::cache_save::enqueue_cache_save;
+use super::cache_save::{
+    enqueue_cache_save_release_schedule, enqueue_cache_save_remote_versions,
+    enqueue_cache_save_version_metadata,
+};
 
 pub(super) fn handle_fetch_remote_versions(app: &mut Versi) -> Task<Message> {
     if let AppState::Main(state) = &mut app.state {
@@ -89,14 +92,7 @@ pub(super) fn handle_remote_versions_fetched(
                 });
                 super::super::platform::set_update_badge(has_update);
 
-                let schedule = state.available_versions.schedule.clone();
-                let metadata = state.available_versions.metadata.clone();
-                enqueue_cache_save(crate::cache::DiskCache {
-                    remote_versions: versions,
-                    release_schedule: schedule,
-                    version_metadata: metadata,
-                    cached_at: chrono::Utc::now(),
-                });
+                enqueue_cache_save_remote_versions(versions);
             }
             Err(error) => {
                 state.available_versions.remote.error = Some(error);
@@ -162,14 +158,7 @@ pub(super) fn handle_release_schedule_fetched(
                 state.available_versions.schedule = Some(schedule.clone());
                 state.available_versions.schedule_fetch.error = None;
 
-                let versions = state.available_versions.versions.clone();
-                let metadata = state.available_versions.metadata.clone();
-                enqueue_cache_save(crate::cache::DiskCache {
-                    remote_versions: versions,
-                    release_schedule: Some(schedule),
-                    version_metadata: metadata,
-                    cached_at: chrono::Utc::now(),
-                });
+                enqueue_cache_save_release_schedule(schedule);
             }
             Err(error) => {
                 debug!("Release schedule fetch failed: {error}");
@@ -237,14 +226,7 @@ pub(super) fn handle_version_metadata_fetched(
                 state.available_versions.metadata = Some(metadata.clone());
                 state.available_versions.metadata_fetch.error = None;
 
-                let versions = state.available_versions.versions.clone();
-                let schedule = state.available_versions.schedule.clone();
-                enqueue_cache_save(crate::cache::DiskCache {
-                    remote_versions: versions,
-                    release_schedule: schedule,
-                    version_metadata: Some(metadata),
-                    cached_at: chrono::Utc::now(),
-                });
+                enqueue_cache_save_version_metadata(metadata);
             }
             Err(error) => {
                 debug!("Version metadata fetch failed: {error}");
