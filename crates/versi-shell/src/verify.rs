@@ -1,6 +1,7 @@
 use crate::config::ShellConfig;
 use crate::detect::ShellType;
 use std::path::PathBuf;
+use thiserror::Error;
 use tokio::process::Command;
 use versi_backend::ShellInitOptions;
 use versi_platform::HideWindow;
@@ -17,6 +18,29 @@ pub enum VerificationResult {
     ConfigFileNotFound,
     FunctionalButNotInConfig,
     Error(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum WslShellConfigError {
+    #[error("Shell not supported in WSL")]
+    UnsupportedShell,
+    #[error("{context}: {details}")]
+    CommandFailure {
+        context: &'static str,
+        details: String,
+    },
+    #[error("WSL is only available on Windows")]
+    UnsupportedPlatform,
+}
+
+impl WslShellConfigError {
+    #[cfg(target_os = "windows")]
+    fn command(context: &'static str, details: impl Into<String>) -> Self {
+        Self::CommandFailure {
+            context,
+            details: details.into(),
+        }
+    }
 }
 
 pub async fn verify_shell_config(
@@ -215,7 +239,7 @@ pub async fn configure_wsl_shell_config(
     label: &str,
     init_command: &str,
     options: &ShellInitOptions,
-) -> Result<(), String> {
+) -> Result<(), WslShellConfigError> {
     let config_path = wsl_config_path(shell_type)?;
     let content = read_wsl_config_file(distro, config_path).await?;
     let mut config = ShellConfig {
@@ -238,17 +262,20 @@ pub async fn configure_wsl_shell_config(
 }
 
 #[cfg(target_os = "windows")]
-fn wsl_config_path(shell_type: &ShellType) -> Result<&'static str, String> {
+fn wsl_config_path(shell_type: &ShellType) -> Result<&'static str, WslShellConfigError> {
     match shell_type {
         ShellType::Bash => Ok("$HOME/.bashrc"),
         ShellType::Zsh => Ok("$HOME/.zshrc"),
         ShellType::Fish => Ok("$HOME/.config/fish/config.fish"),
-        _ => Err("Shell not supported in WSL".to_string()),
+        _ => Err(WslShellConfigError::UnsupportedShell),
     }
 }
 
 #[cfg(target_os = "windows")]
-async fn read_wsl_config_file(distro: &str, config_path: &str) -> Result<String, String> {
+async fn read_wsl_config_file(
+    distro: &str,
+    config_path: &str,
+) -> Result<String, WslShellConfigError> {
     let output = Command::new("wsl.exe")
         .args([
             "-d",
@@ -263,15 +290,20 @@ async fn read_wsl_config_file(distro: &str, config_path: &str) -> Result<String,
         .hide_window()
         .output()
         .await
-        .map_err(|e| format!("Failed to read WSL config: {e}"))?;
+        .map_err(|error| {
+            WslShellConfigError::command("Failed to read WSL config", error.to_string())
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(if stderr.is_empty() {
-            "Failed to read WSL config".to_string()
-        } else {
-            stderr
-        });
+        return Err(WslShellConfigError::command(
+            "Failed to read WSL config",
+            if stderr.is_empty() {
+                "command exited unsuccessfully".to_string()
+            } else {
+                stderr
+            },
+        ));
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -282,7 +314,7 @@ async fn write_wsl_config_file(
     distro: &str,
     config_path: &str,
     content: &str,
-) -> Result<(), String> {
+) -> Result<(), WslShellConfigError> {
     let mut child = Command::new("wsl.exe")
         .args([
             "-d",
@@ -299,30 +331,36 @@ async fn write_wsl_config_file(
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to open WSL config for writing: {e}"))?;
+        .map_err(|error| {
+            WslShellConfigError::command("Failed to open WSL config for writing", error.to_string())
+        })?;
 
     let Some(mut stdin) = child.stdin.take() else {
-        return Err("Failed to write WSL config: stdin unavailable".to_string());
+        return Err(WslShellConfigError::command(
+            "Failed to write WSL config",
+            "stdin unavailable",
+        ));
     };
-    stdin
-        .write_all(content.as_bytes())
-        .await
-        .map_err(|e| format!("Failed to write WSL config content: {e}"))?;
+    stdin.write_all(content.as_bytes()).await.map_err(|error| {
+        WslShellConfigError::command("Failed to write WSL config content", error.to_string())
+    })?;
     drop(stdin);
 
-    let output = child
-        .wait_with_output()
-        .await
-        .map_err(|e| format!("Failed to finalize WSL config write: {e}"))?;
+    let output = child.wait_with_output().await.map_err(|error| {
+        WslShellConfigError::command("Failed to finalize WSL config write", error.to_string())
+    })?;
     if output.status.success() {
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(if stderr.is_empty() {
-            "Failed to write WSL config".to_string()
-        } else {
-            stderr
-        })
+        Err(WslShellConfigError::command(
+            "Failed to write WSL config",
+            if stderr.is_empty() {
+                "command exited unsuccessfully".to_string()
+            } else {
+                stderr
+            },
+        ))
     }
 }
 
@@ -348,15 +386,18 @@ pub async fn configure_wsl_shell_config(
     _label: &str,
     _init_command: &str,
     _options: &ShellInitOptions,
-) -> Result<(), String> {
-    Err("WSL is only available on Windows".to_string())
+) -> Result<(), WslShellConfigError> {
+    Err(WslShellConfigError::UnsupportedPlatform)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::detect::ShellType;
 
-    use super::{configure_wsl_shell_config, get_config_path_for_shell, get_or_create_config_path};
+    use super::{
+        WslShellConfigError, configure_wsl_shell_config, get_config_path_for_shell,
+        get_or_create_config_path,
+    };
     use versi_backend::ShellInitOptions;
 
     #[test]
@@ -390,6 +431,6 @@ mod tests {
         )
         .await;
 
-        assert_eq!(result, Err("WSL is only available on Windows".to_string()));
+        assert_eq!(result, Err(WslShellConfigError::UnsupportedPlatform));
     }
 }

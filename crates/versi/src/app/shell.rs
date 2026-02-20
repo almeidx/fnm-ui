@@ -179,7 +179,11 @@ impl Versi {
                     )
                     .await
                     .map_err(|e| {
-                        AppError::shell_config_failed(shell_name, "configure WSL shell", e)
+                        AppError::shell_config_failed(
+                            shell_name,
+                            "configure WSL shell",
+                            e.to_string(),
+                        )
                     })?;
 
                     return Ok::<_, AppError>(());
