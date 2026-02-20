@@ -1,3 +1,9 @@
+#[derive(Debug)]
+pub enum AcquireError {
+    AlreadyRunning,
+    Unavailable(String),
+}
+
 #[cfg(windows)]
 mod windows_impl {
     use std::ptr;
@@ -11,18 +17,20 @@ mod windows_impl {
     }
 
     impl SingleInstance {
-        pub fn acquire() -> Result<Self, ()> {
+        pub fn acquire() -> Result<Self, super::AcquireError> {
             unsafe {
                 let handle = CreateMutexA(ptr::null(), 1, MUTEX_NAME.as_ptr());
 
                 if handle.is_null() {
-                    return Err(());
+                    return Err(super::AcquireError::Unavailable(
+                        "CreateMutexA returned a null handle".to_string(),
+                    ));
                 }
 
                 let last_error = GetLastError();
                 if last_error == ERROR_ALREADY_EXISTS {
                     CloseHandle(handle);
-                    return Err(());
+                    return Err(super::AcquireError::AlreadyRunning);
                 }
 
                 Ok(Self { handle })
@@ -55,12 +63,65 @@ mod windows_impl {
 
 #[cfg(not(windows))]
 mod other_impl {
-    pub struct SingleInstance;
+    use std::fs::{File, OpenOptions};
+    use std::io::{Seek, SeekFrom, Write};
+    use std::path::PathBuf;
+
+    use fs2::FileExt;
+    use versi_platform::AppPaths;
+
+    fn lock_file_path() -> Result<PathBuf, super::AcquireError> {
+        let paths = AppPaths::new().map_err(super::AcquireError::Unavailable)?;
+        paths.ensure_dirs().map_err(|error| {
+            super::AcquireError::Unavailable(format!(
+                "failed to create app directories: {error}"
+            ))
+        })?;
+        Ok(paths.data_dir.join("instance.lock"))
+    }
+
+    pub struct SingleInstance {
+        _file: File,
+    }
 
     impl SingleInstance {
-        #[allow(clippy::unnecessary_wraps)]
-        pub fn acquire() -> Result<Self, ()> {
-            Ok(Self)
+        pub fn acquire() -> Result<Self, super::AcquireError> {
+            let lock_file_path = lock_file_path()?;
+            let mut lock_file = OpenOptions::new()
+                .create(true)
+                .read(true)
+                .write(true)
+                .truncate(false)
+                .open(lock_file_path)
+                .map_err(|error| {
+                    super::AcquireError::Unavailable(format!(
+                        "failed to open instance lock file: {error}"
+                    ))
+                })?;
+
+            match lock_file.try_lock_exclusive() {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    return Err(super::AcquireError::AlreadyRunning);
+                }
+                Err(error) => {
+                    return Err(super::AcquireError::Unavailable(format!(
+                        "failed to acquire instance lock: {error}"
+                    )));
+                }
+            }
+
+            lock_file
+                .set_len(0)
+                .and_then(|()| lock_file.seek(SeekFrom::Start(0)).map(|_| ()))
+                .and_then(|()| writeln!(lock_file, "{}", std::process::id()))
+                .map_err(|error| {
+                    super::AcquireError::Unavailable(format!(
+                        "failed to write instance lock metadata: {error}"
+                    ))
+                })?;
+
+            Ok(Self { _file: lock_file })
         }
     }
 

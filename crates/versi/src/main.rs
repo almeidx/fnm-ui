@@ -19,9 +19,16 @@ mod views;
 mod widgets;
 
 fn main() -> iced::Result {
-    let Ok(_instance_guard) = single_instance::SingleInstance::acquire() else {
-        single_instance::bring_existing_window_to_front();
-        return Ok(());
+    let _instance_guard = match single_instance::SingleInstance::acquire() {
+        Ok(guard) => guard,
+        Err(single_instance::AcquireError::AlreadyRunning) => {
+            single_instance::bring_existing_window_to_front();
+            return Ok(());
+        }
+        Err(single_instance::AcquireError::Unavailable(error)) => {
+            eprintln!("Error: failed to acquire single-instance lock: {error}");
+            std::process::exit(1);
+        }
     };
 
     if let Err(e) = versi_platform::AppPaths::new() {
